@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/* ---- App button palette (overrides PrimeVue) ---- */
+@layer base {
+  html, body, #app { @apply text-gray-900; }  /* force readable dark text */
+}
+    @layer components {
+      /* SOLID variants */
+      .btn-solid-1 { color:#fff !important; background-color:#999999 !important; border-color:#999999 !important; }
+      .btn-solid-1:hover { background-color:#666666 !important; border-color:#666666 !important; }
+
+      .btn-solid-2 { color:#fff !important; background-color:#666666 !important; border-color:#666666 !important; }
+      .btn-solid-2:hover { background-color:#333333 !important; border-color:#333333 !important; }
+
+      .btn-solid-3 { color:#fff !important; background-color:#333333 !important; border-color:#333333 !important; }
+      .btn-solid-3:hover { background-color:#000000 !important; border-color:#000000 !important; }
+
+      .btn-solid-4 { color:#fff !important; background-color:#000000 !important; border-color:#000000 !important; }
+      .btn-solid-4:hover { background-color:#000000 !important; border-color:#000000 !important; }
+
+      /* OUTLINED variants */
+      .btn-outline-1 { background:transparent !important; color:#333333 !important; border-color:#999999 !important; }
+      .btn-outline-1:hover { background:rgba(153,153,153,0.10) !important; }
+
+      .btn-outline-2 { background:transparent !important; color:#333333 !important; border-color:#666666 !important; }
+      .btn-outline-2:hover { background:rgba(102,102,102,0.12) !important; }
+
+      .btn-outline-3 { background:transparent !important; color:#333333 !important; border-color:#333333 !important; }
+      .btn-outline-3:hover { background:rgba(51,51,51,0.14) !important; }
+
+      .btn-outline-4 { background:transparent !important; color:#ffffff !important; border-color:#000000 !important; }
+      .btn-outline-4:hover { background:rgba(0,0,0,0.16) !important; color:#ffffff !important; }
+
+      .btn-shape {
+        @apply h-10 px-4 rounded-md;        /* consistent height & radius */
+        border-radius: 0.375rem !important;  /* enforce over PrimeVue */
+      }
+      /* rectangular icon-only buttons (square) */
+      .btn-icon-shape {
+        @apply h-10 w-10 p-0 inline-flex items-center justify-center rounded-md;
+        border-radius: 0.375rem !important;  /* enforce over PrimeVue */
+      }
+    }

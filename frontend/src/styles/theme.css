@@ -1,0 +1,62 @@
+/* =========================
+   Theme Variants
+   ========================= */
+
+/* Light theme overrides (explicit, but brand drives primary) */
+html[data-theme="light"] {
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --border: #e5e7eb;
+  --text: #0f172a;
+  --muted: #6b7280;
+
+  /* brand for light */
+  --brand: #2563eb;
+  --brand-rgb: 37 99 235;
+
+  /* Light link/selection/scrollbar tuning */
+  --link: var(--brand);
+  --link-visited: color-mix(in srgb, var(--brand), black 18%);
+  --link-hover: color-mix(in srgb, var(--brand), white 12%);
+  --selection-bg: color-mix(in srgb, var(--brand), transparent 82%);
+  --selection-fg: #0f172a;
+  --scrollbar-bg: color-mix(in srgb, #0f172a, transparent 94%);
+  --scrollbar-thumb: color-mix(in srgb, #0f172a, transparent 78%);
+  /* primary derives from brand via tokens.css */
+}
+
+/* Dark theme overrides */
+html[data-theme="dark"] {
+  --bg: #0b1220;
+  --surface: #111827;
+  --border: #334155;
+  --text: #e5e7eb;
+  --muted: #94a3b8;
+
+  /* brand tuned for dark */
+  --brand: #60a5fa;
+  --brand-rgb: 96 165 250;
+
+  /* Slightly stronger focus ring in dark */
+  --focus-ring-color: color-mix(in srgb, var(--primary), transparent 40%);
+
+  /* Dark: soft backgrounds a bit less transparent */
+  --success-soft-bg: color-mix(in srgb, var(--success), transparent 82%);
+  --warning-soft-bg: color-mix(in srgb, var(--warning), transparent 82%);
+  --danger-soft-bg:  color-mix(in srgb, var(--danger),  transparent 82%);
+
+    /* Dark link/selection/scrollbar tuning */
+  --link: var(--brand);
+  --link-visited: color-mix(in srgb, var(--brand), black 8%);
+  --link-hover: color-mix(in srgb, var(--brand), white 8%);
+  --selection-bg: color-mix(in srgb, var(--brand), transparent 86%);
+  --selection-fg: #e5e7eb;
+  --scrollbar-bg: color-mix(in srgb, #e5e7eb, transparent 90%);
+  --scrollbar-thumb: color-mix(in srgb, #e5e7eb, transparent 70%);
+
+}
+
+/* transitions */
+:root, body {
+  transition: background-color var(--transition-base), color var(--transition-base);
+}

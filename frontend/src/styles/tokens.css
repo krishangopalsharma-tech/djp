@@ -1,0 +1,111 @@
+/* =========================
+   Global Design Tokens
+   Edit these to change the baseline look & feel
+   ========================= */
+:root {
+  /* ---------- Global scale switches ---------- */
+  --scale-text: 1;       /* e.g., 0.9, 1, 1.1 */
+  --scale-control: 1;    /* e.g., 0.9, 1, 1.1 */
+
+  /* ---------- Brand (drives primary) ---------- */
+  --brand: #2563eb;          /* default brand hue */
+  --brand-rgb: 37 99 235;    /* for opacity utilities */
+  --primary: var(--brand);
+  --primary-rgb: var(--brand-rgb);
+  --primary-foreground: #ffffff;
+
+  /* Colors (neutrals & statuses) */
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --border: #e5e7eb;
+  --text: #0f172a;
+  --muted: #6b7280;
+
+  --success: #16a34a;  --success-rgb: 22 163 74;
+  --warning: #d97706;  --warning-rgb: 217 119 6;
+  --danger:  #dc2626;  --danger-rgb:  220 38 38;
+
+  /* Focus ring tokens */
+  --focus-ring-color: color-mix(in srgb, var(--primary), transparent 60%);
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+
+  /* Soft status backgrounds */
+  --success-soft-bg: color-mix(in srgb, var(--success), transparent 88%);
+  --warning-soft-bg: color-mix(in srgb, var(--warning), transparent 88%);
+  --danger-soft-bg:  color-mix(in srgb, var(--danger),  transparent 88%);
+
+  /* Typography families */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+    /* ---------- Links / Selection / Scrollbar ---------- */
+  /* Link colors (derive from brand/primary by default) */
+  --link: var(--primary);
+  --link-visited: color-mix(in srgb, var(--primary), black 20%);
+  --link-hover: color-mix(in srgb, var(--primary), white 10%);
+
+  /* Text selection */
+  --selection-bg: color-mix(in srgb, var(--primary), transparent 80%);
+  --selection-fg: var(--text);
+
+  /* Scrollbar (WebKit + Firefox via scrollbar-color) */
+  --scrollbar-bg: color-mix(in srgb, var(--text), transparent 94%);
+  --scrollbar-thumb: color-mix(in srgb, var(--text), transparent 78%);
+
+  /* ---------- Font scale (base + computed) ---------- */
+  /* Base sizes */
+  --fsb-2xl: 1.5rem;   /* 24px */
+  --fsb-xl:  1.25rem;  /* 20px */
+  --fsb-lg:  1.125rem; /* 18px */
+  --fsb-md:  1rem;     /* 16px */
+  --fsb-sm:  0.875rem; /* 14px */
+  --fsb-xs:  0.75rem;  /* 12px */
+
+  /* Computed (use these everywhere) */
+  --fs-2xl: calc(var(--fsb-2xl) * var(--scale-text));
+  --fs-xl:  calc(var(--fsb-xl)  * var(--scale-text));
+  --fs-lg:  calc(var(--fsb-lg)  * var(--scale-text));
+  --fs-md:  calc(var(--fsb-md)  * var(--scale-text));
+  --fs-sm:  calc(var(--fsb-sm)  * var(--scale-text));
+  --fs-xs:  calc(var(--fsb-xs)  * var(--scale-text));
+
+  /* Radii */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-full: 9999px;
+
+  /* Spacing (1..6) */
+  --sp-1: 0.25rem; --sp-2: 0.5rem; --sp-3: 0.75rem;
+  --sp-4: 1rem;    --sp-5: 1.5rem; --sp-6: 2rem;
+
+  /* ---------- Controls (buttons, inputs) ---------- */
+  --btn-h-base: 2.5rem;
+  --btn-px-base: var(--sp-4);
+  --btn-fs-base: var(--fsb-sm);
+
+  --btn-h:  calc(var(--btn-h-base) * var(--scale-control));
+  --btn-px: calc(var(--btn-px-base) * var(--scale-control));
+  --btn-fs: calc(var(--btn-fs-base) * var(--scale-text));
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px rgb(0 0 0 / 0.07);
+  --shadow-lg: 0 10px 15px rgb(0 0 0 / 0.1);
+
+  /* Transitions */
+  --transition-fast: 120ms ease-out;
+  --transition-base: 200ms ease-out;
+}
+
+/* Baseline page canvas */
+html, body, #app { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--fs-md);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

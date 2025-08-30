@@ -1,0 +1,23 @@
+/* Brand presets. Apply by setting: document.documentElement.dataset.brand = 'rail' (or via UI store). */
+
+/* Default (indigo) mirrors tokens.css defaults; provided for clarity */
+:root[data-brand="indigo"] {
+  --brand: #2563eb;
+  --brand-rgb: 37 99 235;
+  /* Optionally set a logo/system font */
+  /* --font-sans: ui-sans-serif, system-ui, ... (keep default) */
+}
+
+/* Your requested tone (#bc5a45) */
+:root[data-brand="rail"] {
+  --brand: #bc5a45;
+  --brand-rgb: 188 90 69;
+  /* Example: slightly stronger weight for headers (optional) */
+  /* --font-sans: ui-sans-serif, system-ui, ...; */
+}
+
+/* An extra preset for testing */
+:root[data-brand="emerald"] {
+  --brand: #10b981;
+  --brand-rgb: 16 185 129;
+}
