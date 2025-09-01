@@ -1,44 +1,533 @@
+/* palettes */
+@import "@/styles/palettes.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-/* ---- App button palette (overrides PrimeVue) ---- */
+
+/* Make the palette immediately visible app-wide */
 @layer base {
-  html, body, #app { @apply text-gray-900; }  /* force readable dark text */
+  body {
+    background-color: var(--p1);
+    color: var(--p5);
+  }
+  a {
+    color: var(--p3);
+  }
 }
-    @layer components {
-      /* SOLID variants */
-      .btn-solid-1 { color:#fff !important; background-color:#999999 !important; border-color:#999999 !important; }
-      .btn-solid-1:hover { background-color:#666666 !important; border-color:#666666 !important; }
 
-      .btn-solid-2 { color:#fff !important; background-color:#666666 !important; border-color:#666666 !important; }
-      .btn-solid-2:hover { background-color:#333333 !important; border-color:#333333 !important; }
+/* Utilities bound to palette vars */
+@layer utilities {
+  .bg-p1 { background-color: var(--p1); }
+  .bg-p2 { background-color: var(--p2); }
+  .bg-p3 { background-color: var(--p3); }
+  .bg-p4 { background-color: var(--p4); }
+  .bg-p5 { background-color: var(--p5); }
 
-      .btn-solid-3 { color:#fff !important; background-color:#333333 !important; border-color:#333333 !important; }
-      .btn-solid-3:hover { background-color:#000000 !important; border-color:#000000 !important; }
+  .text-p1 { color: var(--p1); }
+  .text-p2 { color: var(--p2); }
+  .text-p3 { color: var(--p3); }
+  .text-p4 { color: var(--p4); }
+  .text-p5 { color: var(--p5); }
 
-      .btn-solid-4 { color:#fff !important; background-color:#000000 !important; border-color:#000000 !important; }
-      .btn-solid-4:hover { background-color:#000000 !important; border-color:#000000 !important; }
+  .border-p1 { border-color: var(--p1); }
+  .border-p2 { border-color: var(--p2); }
+  .border-p3 { border-color: var(--p3); }
+  .border-p4 { border-color: var(--p4); }
+  .border-p5 { border-color: var(--p5); }
+}
 
-      /* OUTLINED variants */
-      .btn-outline-1 { background:transparent !important; color:#333333 !important; border-color:#999999 !important; }
-      .btn-outline-1:hover { background:rgba(153,153,153,0.10) !important; }
+/* === THEME TOKENS (CSS Variables) === */
+:root {
+  --bg:        #f8fafc; /* slate-50 */
+  --text:      #0f172a; /* slate-900 */
+  --muted:     #64748b; /* slate-500 */
+  --card:      #ffffff;
+  --border:    #e5e7eb;
 
-      .btn-outline-2 { background:transparent !important; color:#333333 !important; border-color:#666666 !important; }
-      .btn-outline-2:hover { background:rgba(102,102,102,0.12) !important; }
+  --primary:        #2563eb; /* blue-600 */
+  --primary-600:    #1d4ed8;
+  --on-primary:     #ffffff;
+  /* Aliases/derived tokens for extended theme studio */
+  --primary-foreground: var(--on-primary);
+  --secondary: color-mix(in srgb, var(--primary) 12%, var(--card));
+  --secondary-600: color-mix(in srgb, var(--primary) 20%, var(--card));
+  --secondary-foreground: var(--text);
+  /* Semantic accents (status/severity), derived from primary */
+  --success: color-mix(in srgb, #22c55e 70%, var(--primary) 30%);
+  --warning: color-mix(in srgb, #f59e0b 70%, var(--primary) 30%);
+  --danger:  color-mix(in srgb, #ef4444 70%, var(--primary) 30%);
+  --hold:    color-mix(in srgb, #f97316 70%, var(--primary) 30%);
+  --neutral: color-mix(in srgb, #6b7280 60%, var(--text) 40%);
 
-      .btn-outline-3 { background:transparent !important; color:#333333 !important; border-color:#333333 !important; }
-      .btn-outline-3:hover { background:rgba(51,51,51,0.14) !important; }
+  /* Derived interaction tokens */
+  --hover-surface: color-mix(in srgb, var(--text) 6%, var(--card));
+  --hover-primary: color-mix(in srgb, var(--primary) 12%, var(--card));
+}
 
-      .btn-outline-4 { background:transparent !important; color:#ffffff !important; border-color:#000000 !important; }
-      .btn-outline-4:hover { background:rgba(0,0,0,0.16) !important; color:#ffffff !important; }
+/* Light theme (explicit class) */
+.theme-light {
+  --bg:        #f8fafc; /* slate-50 */
+  --text:      #0f172a; /* slate-900 */
+  --muted:     #64748b; /* slate-500 */
+  --card:      #ffffff;
+  --border:    #e5e7eb;
 
-      .btn-shape {
-        @apply h-10 px-4 rounded-md;        /* consistent height & radius */
-        border-radius: 0.375rem !important;  /* enforce over PrimeVue */
-      }
-      /* rectangular icon-only buttons (square) */
-      .btn-icon-shape {
-        @apply h-10 w-10 p-0 inline-flex items-center justify-center rounded-md;
-        border-radius: 0.375rem !important;  /* enforce over PrimeVue */
-      }
-    }
+  --primary:     #2563eb; /* blue-600 */
+  --primary-600: #1d4ed8;
+  --on-primary:  #ffffff;
+  --primary-foreground: var(--on-primary);
+  --secondary: color-mix(in srgb, var(--primary) 12%, var(--card));
+  --secondary-600: color-mix(in srgb, var(--primary) 20%, var(--card));
+  --secondary-foreground: var(--text);
+}
+
+/* Dark theme */
+.theme-dark {
+  --bg:        #0b1220;
+  --text:      #e5e7eb;
+  --muted:     #94a3b8;
+  --card:      #0f172a;
+  --border:    #1f2937;
+
+  --primary:     #60a5fa;
+  --primary-600: #3b82f6;
+  --on-primary:  #0b1220;
+  --primary-foreground: var(--on-primary);
+  --secondary: color-mix(in srgb, var(--primary) 14%, var(--card));
+  --secondary-600: color-mix(in srgb, var(--primary) 24%, var(--card));
+  --secondary-foreground: var(--text);
+  /* stronger hover on dark for contrast */
+  --hover-surface: color-mix(in srgb, var(--text) 10%, var(--card));
+  --hover-primary: color-mix(in srgb, var(--primary) 16%, var(--card));
+  /* slightly more brand in semantic hues on dark */
+  --success: color-mix(in srgb, #22c55e 60%, var(--primary) 40%);
+  --warning: color-mix(in srgb, #f59e0b 60%, var(--primary) 40%);
+  --danger:  color-mix(in srgb, #ef4444 60%, var(--primary) 40%);
+  --hold:    color-mix(in srgb, #f97316 60%, var(--primary) 40%);
+}
+
+/* Railway brand theme */
+.theme-railway {
+  --bg:        #eaece5;
+  --text:      #3b3a30;
+  --muted:     #6b7280;
+  --card:      #ffffff;
+  --border:    #d1d5db;
+
+  --primary:     #bc5a45;
+  --primary-600: #a94f3c;
+  --on-primary:  #ffffff;
+  --primary-foreground: var(--on-primary);
+  --secondary: color-mix(in srgb, var(--primary) 12%, var(--card));
+  --secondary-600: color-mix(in srgb, var(--primary) 20%, var(--card));
+  --secondary-foreground: var(--text);
+  --hover-surface: color-mix(in srgb, var(--text) 6%, var(--card));
+  --hover-primary: color-mix(in srgb, var(--primary) 12%, var(--card));
+  --success: color-mix(in srgb, #22c55e 70%, var(--primary) 30%);
+  --warning: color-mix(in srgb, #f59e0b 70%, var(--primary) 30%);
+  --danger:  color-mix(in srgb, #ef4444 70%, var(--primary) 30%);
+  --hold:    color-mix(in srgb, #f97316 70%, var(--primary) 30%);
+}
+
+/* Feather Step Classic */
+.theme-feather {
+  --bg:        #F2F2F2;
+  --text:      #403F38;
+  --muted:     #737065;
+  --card:      #FFFFFF;
+  --border:    #BEBFBD;
+
+  --primary:     #403F38;
+  --primary-600: #737065;
+  --on-primary:  #F2F2F2;
+  --primary-foreground: var(--on-primary);
+  --secondary: color-mix(in srgb, var(--primary) 12%, var(--card));
+  --secondary-600: color-mix(in srgb, var(--primary) 20%, var(--card));
+  --secondary-foreground: var(--text);
+  --hover-surface: color-mix(in srgb, var(--text) 6%, var(--card));
+  --hover-primary: color-mix(in srgb, var(--primary) 10%, var(--card));
+  --success: color-mix(in srgb, #22c55e 75%, var(--primary) 25%);
+  --warning: color-mix(in srgb, #f59e0b 75%, var(--primary) 25%);
+  --danger:  color-mix(in srgb, #ef4444 75%, var(--primary) 25%);
+  --hold:    color-mix(in srgb, #f97316 75%, var(--primary) 25%);
+}
+
+/* Fashion */
+.theme-fashion {
+  --bg:        #F2F2F2;
+  --text:      #262626;
+  --muted:     #595959;
+  --card:      #FFFFFF;
+  --border:    #8C8C8C;
+
+  --primary:     #0D0D0D;
+  --primary-600: #262626;
+  --on-primary:  #F2F2F2;
+  --primary-foreground: var(--on-primary);
+  --secondary: color-mix(in srgb, var(--primary) 12%, var(--card));
+  --secondary-600: color-mix(in srgb, var(--primary) 20%, var(--card));
+  --secondary-foreground: var(--text);
+  --hover-surface: color-mix(in srgb, var(--text) 6%, var(--card));
+  --hover-primary: color-mix(in srgb, var(--primary) 8%, var(--card));
+  --success: color-mix(in srgb, #22c55e 80%, var(--primary) 20%);
+  --warning: color-mix(in srgb, #f59e0b 80%, var(--primary) 20%);
+  --danger:  color-mix(in srgb, #ef4444 80%, var(--primary) 20%);
+  --hold:    color-mix(in srgb, #f97316 80%, var(--primary) 20%);
+}
+
+/* The Cherry Tree */
+.theme-cherry {
+  --bg:        #D9C8A9;
+  --text:      #59381B;
+  --muted:     #8C5E4D;
+  --card:      #FFFFFF;
+  --border:    #BF988A;
+
+  --primary:     #517367;
+  --primary-600: #3E5B52;
+  --on-primary:  #FFFFFF;
+  --primary-foreground: var(--on-primary);
+  --secondary: color-mix(in srgb, var(--primary) 12%, var(--card));
+  --secondary-600: color-mix(in srgb, var(--primary) 20%, var(--card));
+  --secondary-foreground: var(--text);
+  --hover-surface: color-mix(in srgb, var(--text) 6%, var(--card));
+  --hover-primary: color-mix(in srgb, var(--primary) 12%, var(--card));
+}
+
+/* LGM */
+.theme-lgm {
+  --bg:        #D9D9D9;
+  --text:      #0D0D0D;
+  --muted:     #64758C;
+  --card:      #FFFFFF;
+  --border:    #949BA6;
+
+  --primary:     #2F4673;
+  --primary-600: #25385C;
+  --on-primary:  #FFFFFF;
+  --primary-foreground: var(--on-primary);
+  --secondary: color-mix(in srgb, var(--primary) 12%, var(--card));
+  --secondary-600: color-mix(in srgb, var(--primary) 20%, var(--card));
+  --secondary-foreground: var(--text);
+  --hover-surface: color-mix(in srgb, var(--text) 6%, var(--card));
+  --hover-primary: color-mix(in srgb, var(--primary) 12%, var(--card));
+}
+
+/* HAQQ */
+.theme-haqq {
+  --bg:        #F2F2F2;
+  --text:      #0D0D0D;
+  --muted:     #8C8480;
+  --card:      #FFFFFF;
+  --border:    #D9CBBA;
+
+  --primary:     #59514D;
+  --primary-600: #403A36;
+  --on-primary:  #FFFFFF;
+  --primary-foreground: var(--on-primary);
+  --secondary: color-mix(in srgb, var(--primary) 12%, var(--card));
+  --secondary-600: color-mix(in srgb, var(--primary) 20%, var(--card));
+  --secondary-foreground: var(--text);
+  --hover-surface: color-mix(in srgb, var(--text) 6%, var(--card));
+  --hover-primary: color-mix(in srgb, var(--primary) 10%, var(--card));
+  --success: color-mix(in srgb, #22c55e 75%, var(--primary) 25%);
+  --warning: color-mix(in srgb, #f59e0b 75%, var(--primary) 25%);
+  --danger:  color-mix(in srgb, #ef4444 75%, var(--primary) 25%);
+  --hold:    color-mix(in srgb, #f97316 75%, var(--primary) 25%);
+}
+
+/* Axencis */
+.theme-axencis {
+  --bg:        #B4B9D9;
+  --text:      #333640;
+  --muted:     #32408C;
+  --card:      #FFFFFF;
+  --border:    #B4B9D9;
+
+  --primary:     #2E38F2;
+  --primary-600: #3037BF;
+  --on-primary:  #FFFFFF;
+  --primary-foreground: var(--on-primary);
+  --secondary: color-mix(in srgb, var(--primary) 12%, var(--card));
+  --secondary-600: color-mix(in srgb, var(--primary) 20%, var(--card));
+  --secondary-foreground: var(--text);
+  --hover-surface: color-mix(in srgb, var(--text) 6%, var(--card));
+  --hover-primary: color-mix(in srgb, var(--primary) 12%, var(--card));
+}
+
+/* Gantry */
+.theme-gantry {
+  --bg:        #F2F2F2;
+  --text:      #0D0D0D;
+  --muted:     #A6A6A6;
+  --card:      #FFFFFF;
+  --border:    #A6A6A6;
+
+  --primary:     #404040;
+  --primary-600: #262626;
+  --on-primary:  #FFFFFF;
+  --primary-foreground: var(--on-primary);
+  --secondary: color-mix(in srgb, var(--primary) 12%, var(--card));
+  --secondary-600: color-mix(in srgb, var(--primary) 20%, var(--card));
+  --secondary-foreground: var(--text);
+  --hover-surface: color-mix(in srgb, var(--text) 6%, var(--card));
+  --hover-primary: color-mix(in srgb, var(--primary) 8%, var(--card));
+  --success: color-mix(in srgb, #22c55e 80%, var(--primary) 20%);
+  --warning: color-mix(in srgb, #f59e0b 80%, var(--primary) 20%);
+  --danger:  color-mix(in srgb, #ef4444 80%, var(--primary) 20%);
+  --hold:    color-mix(in srgb, #f97316 80%, var(--primary) 20%);
+}
+
+/* Lukas */
+.theme-lukas {
+  --bg:        #D9D8D7;
+  --text:      #253259;
+  --muted:     #BF9B7A;
+  --card:      #FFFFFF;
+  --border:    #D9D8D7;
+
+  --primary:     #293C73;
+  --primary-600: #253259;
+  --on-primary:  #FFFFFF;
+  --primary-foreground: var(--on-primary);
+  --secondary: color-mix(in srgb, var(--primary) 12%, var(--card));
+  --secondary-600: color-mix(in srgb, var(--primary) 20%, var(--card));
+  --secondary-foreground: var(--text);
+  --hover-surface: color-mix(in srgb, var(--text) 6%, var(--card));
+  --hover-primary: color-mix(in srgb, var(--primary) 12%, var(--card));
+}
+
+/* Askit */
+.theme-askit {
+  --bg:        #8C8C8C;
+  --text:      #0D0D0D;
+  --muted:     #595959;
+  --card:      #FFFFFF;
+  --border:    #595959;
+
+  --primary:     #404040;
+  --primary-600: #262626;
+  --on-primary:  #F2F2F2;
+  --primary-foreground: var(--on-primary);
+  --secondary: color-mix(in srgb, var(--primary) 12%, var(--card));
+  --secondary-600: color-mix(in srgb, var(--primary) 20%, var(--card));
+  --secondary-foreground: var(--text);
+  --hover-surface: color-mix(in srgb, var(--text) 6%, var(--card));
+  --hover-primary: color-mix(in srgb, var(--primary) 8%, var(--card));
+  --success: color-mix(in srgb, #22c55e 80%, var(--primary) 20%);
+  --warning: color-mix(in srgb, #f59e0b 80%, var(--primary) 20%);
+  --danger:  color-mix(in srgb, #ef4444 80%, var(--primary) 20%);
+  --hold:    color-mix(in srgb, #f97316 80%, var(--primary) 20%);
+}
+
+/* Shipp */
+.theme-shipp {
+  --bg:        #D7D7D9;
+  --text:      #023059;
+  --muted:     #4B7BA6;
+  --card:      #FFFFFF;
+  --border:    #D7D7D9;
+
+  --primary:     #4B7BA6;
+  --primary-600: #023059;
+  --on-primary:  #FFFFFF;
+  --primary-foreground: var(--on-primary);
+  --secondary: color-mix(in srgb, var(--primary) 12%, var(--card));
+  --secondary-600: color-mix(in srgb, var(--primary) 20%, var(--card));
+  --secondary-foreground: var(--text);
+  --hover-surface: color-mix(in srgb, var(--text) 6%, var(--card));
+  --hover-primary: color-mix(in srgb, var(--primary) 12%, var(--card));
+}
+
+/* Wemakefab */
+.theme-wemakefab {
+  --bg:        #F2F2F2;
+  --text:      #0D260D;
+  --muted:     #888C87;
+  --card:      #FFFFFF;
+  --border:    #888C87;
+
+  --primary:     #2D402A;
+  --primary-600: #1C261A;
+  --on-primary:  #F2F2F2;
+  --primary-foreground: var(--on-primary);
+  --secondary: color-mix(in srgb, var(--primary) 12%, var(--card));
+  --secondary-600: color-mix(in srgb, var(--primary) 20%, var(--card));
+  --secondary-foreground: var(--text);
+  --hover-surface: color-mix(in srgb, var(--text) 6%, var(--card));
+  --hover-primary: color-mix(in srgb, var(--primary) 10%, var(--card));
+  --success: color-mix(in srgb, #22c55e 75%, var(--primary) 25%);
+  --warning: color-mix(in srgb, #f59e0b 75%, var(--primary) 25%);
+  --danger:  color-mix(in srgb, #ef4444 75%, var(--primary) 25%);
+  --hold:    color-mix(in srgb, #f97316 75%, var(--primary) 25%);
+}
+
+/* Stereotype */
+.theme-stereotype {
+  --bg:        #F2CCB6;
+  --text:      #023859;
+  --muted:     #364C59;
+  --card:      #FFFFFF;
+  --border:    #BF947A;
+
+  --primary:     #023859;
+  --primary-600: #1A2E40;
+  --on-primary:  #FFFFFF;
+  --primary-foreground: var(--on-primary);
+  --secondary: color-mix(in srgb, var(--primary) 12%, var(--card));
+  --secondary-600: color-mix(in srgb, var(--primary) 20%, var(--card));
+  --secondary-foreground: var(--text);
+  --hover-surface: color-mix(in srgb, var(--text) 6%, var(--card));
+  --hover-primary: color-mix(in srgb, var(--primary) 12%, var(--card));
+}
+
+/* Wildgoats */
+.theme-wildgoats {
+  --bg:        #70818C;
+  --text:      #01050D;
+  --muted:     #364959;
+  --card:      #FFFFFF;
+  --border:    #70818C;
+
+  --primary:     #031740;
+  --primary-600: #030C26;
+  --on-primary:  #FFFFFF;
+  --primary-foreground: var(--on-primary);
+  --secondary: color-mix(in srgb, var(--primary) 12%, var(--card));
+  --secondary-600: color-mix(in srgb, var(--primary) 20%, var(--card));
+  --secondary-foreground: var(--text);
+  --hover-surface: color-mix(in srgb, var(--text) 6%, var(--card));
+  --hover-primary: color-mix(in srgb, var(--primary) 12%, var(--card));
+}
+
+/* Gymicons */
+.theme-gymicons {
+  --bg:        #F2E088;
+  --text:      #0D0D0D;
+  --muted:     #A69A60;
+  --card:      #FFFFFF;
+  --border:    #A69A60;
+
+  --primary:     #736B43;
+  --primary-600: #403B25;
+  --on-primary:  #FFFFFF;
+  --primary-foreground: var(--on-primary);
+  --secondary: color-mix(in srgb, var(--primary) 12%, var(--card));
+  --secondary-600: color-mix(in srgb, var(--primary) 20%, var(--card));
+  --secondary-foreground: var(--text);
+  --hover-surface: color-mix(in srgb, var(--text) 6%, var(--card));
+  --hover-primary: color-mix(in srgb, var(--primary) 10%, var(--card));
+  --success: color-mix(in srgb, #22c55e 75%, var(--primary) 25%);
+  --warning: color-mix(in srgb, #f59e0b 75%, var(--primary) 25%);
+  --danger:  color-mix(in srgb, #ef4444 75%, var(--primary) 25%);
+  --hold:    color-mix(in srgb, #f97316 75%, var(--primary) 25%);
+}
+
+/* === Utilities mapped to tokens === */
+@layer utilities {
+  .bg-app      { background-color: var(--bg); }
+  .text-app    { color: var(--text); }
+  .text-muted  { color: var(--muted); }
+  .bg-card     { background-color: var(--card); }
+  .border-app  { border-color: var(--border); }
+  /* Aliases for consistency */
+  .bg-surface  { background-color: var(--card); }
+  .text-var    { color: var(--text); }
+  .border-var  { border-color: var(--border); }
+  /* Hover/selected state helpers */
+  .hover-surface:hover { background-color: var(--hover-surface); }
+  .bg-primary-tint { background-color: var(--hover-primary); }
+  .hover-primary:hover {
+    background-color: var(--hover-primary);
+    border-color: color-mix(in srgb, var(--primary) 24%, var(--border));
+  }
+  .selected-primary {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+    border-color: var(--primary);
+  }
+
+  /* Badges mapped to semantic tokens */
+  .badge { @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border; }
+  .badge-success {
+    background-color: color-mix(in srgb, var(--success) 15%, var(--card));
+    color: color-mix(in srgb, var(--success) 75%, var(--text));
+    border-color: color-mix(in srgb, var(--success) 30%, var(--card));
+  }
+  .badge-warning {
+    background-color: color-mix(in srgb, var(--warning) 15%, var(--card));
+    color: color-mix(in srgb, var(--warning) 75%, var(--text));
+    border-color: color-mix(in srgb, var(--warning) 30%, var(--card));
+  }
+  .badge-danger {
+    background-color: color-mix(in srgb, var(--danger) 15%, var(--card));
+    color: color-mix(in srgb, var(--danger) 75%, var(--text));
+    border-color: color-mix(in srgb, var(--danger) 30%, var(--card));
+  }
+  .badge-hold {
+    background-color: color-mix(in srgb, var(--hold) 15%, var(--card));
+    color: color-mix(in srgb, var(--hold) 75%, var(--text));
+    border-color: color-mix(in srgb, var(--hold) 30%, var(--card));
+  }
+  .badge-neutral {
+    background-color: color-mix(in srgb, var(--neutral) 15%, var(--card));
+    color: color-mix(in srgb, var(--neutral) 75%, var(--text));
+    border-color: color-mix(in srgb, var(--neutral) 30%, var(--card));
+  }
+
+  /* === Global Button Styles === */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 h-10 px-4 rounded-lg text-sm font-medium transition;
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  }
+  .btn:hover { background-color: var(--primary-600); }
+
+  /* Size variant */
+  .btn-sm {
+    @apply h-8 px-3 text-xs;
+  }
+  .btn-primary {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  }
+  .btn-primary:hover {
+    background-color: var(--primary-600);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+  }
+  /* Alias */
+  .btn-solid { @apply btn-primary; }
+  .btn-secondary {
+    background-color: var(--secondary);
+    color: var(--secondary-foreground);
+  }
+  .btn-secondary:hover { background-color: var(--secondary-600); }
+  .btn-outline {
+    background-color: transparent;
+    color: var(--primary);
+    border: 1px solid var(--primary);
+  }
+  .btn-outline:hover {
+    background-color: color-mix(in srgb, var(--primary) 10%, transparent);
+  }
+  .btn-ghost {
+    background-color: transparent;
+    color: var(--text);
+  }
+  .btn-ghost:hover {
+    background-color: var(--card);
+    box-shadow: inset 0 0 0 1px var(--border);
+  }
+
+  /* Card shell */
+  .card {
+    @apply rounded-2xl border p-4;
+    background: var(--card);
+    border-color: var(--border);
+    color: var(--text);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+}

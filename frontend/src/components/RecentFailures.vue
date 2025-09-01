@@ -1,5 +1,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
+import { Bell, Pencil, Trash2, ChevronLeft, ChevronRight } from 'lucide-vue-next'
+
 
 /* -------- Props -------- */
 const props = defineProps({
@@ -121,7 +123,6 @@ function loadState() {
   if (typeof st.perPage === 'number' && st.perPage > 0) perPage.value = st.perPage
   if (typeof st.page === 'number' && st.page >= 0) page.value = st.page
 }
-loadState()
 
 /* -------- Pagination -------- */
 const page = ref(0)
@@ -132,6 +133,10 @@ const pagedRows = computed(() => {
   const start = page.value * perPage.value
   return filteredSorted.value.slice(start, start + perPage.value)
 })
+
+loadState()
+
+
 // ---- Persist table UI whenever it changes ----
 watch([q, status, sortKey, sortDir, perPage, page], ([Q, S, K, D, P, Pg]) => {
   localStorage.setItem(props.storageKey, JSON.stringify({
@@ -152,11 +157,11 @@ function onDelete(row) { emit('delete', row) }
 
 /* -------- UI helpers -------- */
 function badgeClasses(s) {
-  if (s === 'Active')       return 'bg-red-100 text-red-700'
-  if (s === 'In Progress')  return 'bg-amber-100 text-amber-700'
-  if (s === 'Resolved')     return 'bg-green-100 text-green-700'
-  if (s === 'On Hold')      return 'bg-orange-100 text-orange-700'
-  return 'bg-gray-100 text-gray-700'
+  if (s === 'Active')       return 'badge-danger'
+  if (s === 'In Progress')  return 'badge-warning'
+  if (s === 'Resolved')     return 'badge-success'
+  if (s === 'On Hold')      return 'badge-hold'
+  return 'badge-neutral'
 }
 </script>
 
@@ -166,15 +171,15 @@ function badgeClasses(s) {
       <h2 class="text-2xl font-semibold leading-tight">Recent Failure Logs</h2>
     </div>
 
-    <div class="rounded-2xl border bg-white p-4 text-gray-900">
+    <div class="rounded-2xl border-app bg-card text-app p-4">
       <!-- Toolbar -->
       <div v-if="showToolbar" class="p-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div class="inline-flex rounded-lg border bg-white p-1 w-fit">
+        <div class="inline-flex rounded-lg border-app bg-card p-1 w-fit">
           <button
             v-for="tab in statusTabs"
             :key="tab"
             class="px-3 py-1.5 text-sm rounded-md capitalize"
-            :class="status === tab ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-100'"
+            :class="status === tab ? 'selected-primary' : 'text-app hover-primary'"
             @click="status = tab"
           >
             {{ tab }}
@@ -185,7 +190,7 @@ function badgeClasses(s) {
           v-model="q"
           type="text"
           placeholder="Search..."
-          class="h-10 w-full sm:w-64 rounded-lg border px-3 text-sm bg-white"
+          class="h-10 w-full sm:w-64 rounded-lg border-app bg-card text-app px-3 text-sm"
         />
       </div>
 
@@ -199,43 +204,43 @@ function badgeClasses(s) {
             <col v-if="showRowActions" class="w-1/7" />
           </colgroup>
 
-          <thead class="bg-gray-50">
+          <thead class="bg-card">
             <tr>
-              <th class="text-center font-semibold text-gray-600 px-4 py-2 cursor-pointer select-none"
+              <th class="text-center font-semibold text-app px-4 py-2 cursor-pointer select-none"
                   :aria-sort="sortKey==='id' ? (sortDir==='asc'?'ascending':'descending') : 'none'"
                   @click="setSort('id')">
                 <div class="inline-flex items-center gap-1">RF ID <span v-if="sortKey==='id'">{{ sortDir==='asc' ? '▲' : '▼' }}</span></div>
               </th>
-              <th class="text-center font-semibold text-gray-600 px-4 py-2 cursor-pointer select-none"
+              <th class="text-center font-semibold text-app px-4 py-2 cursor-pointer select-none"
                   :aria-sort="sortKey==='circuit' ? (sortDir==='asc'?'ascending':'descending') : 'none'"
                   @click="setSort('circuit')">
                 <div class="inline-flex items-center gap-1">Circuit <span v-if="sortKey==='circuit'">{{ sortDir==='asc' ? '▲' : '▼' }}</span></div>
               </th>
-              <th class="text-center font-semibold text-gray-600 px-4 py-2 cursor-pointer select-none"
+              <th class="text-center font-semibold text-app px-4 py-2 cursor-pointer select-none"
                   :aria-sort="sortKey==='station' ? (sortDir==='asc'?'ascending':'descending') : 'none'"
                   @click="setSort('station')">
                 <div class="inline-flex items-center gap-1">Station <span v-if="sortKey==='station'">{{ sortDir==='asc' ? '▲' : '▼' }}</span></div>
               </th>
-              <th class="text-center font-semibold text-gray-600 px-4 py-2 cursor-pointer select-none"
+              <th class="text-center font-semibold text-app px-4 py-2 cursor-pointer select-none"
                   :aria-sort="sortKey==='section' ? (sortDir==='asc'?'ascending':'descending') : 'none'"
                   @click="setSort('section')">
                 <div class="inline-flex items-center gap-1">Section <span v-if="sortKey==='section'">{{ sortDir==='asc' ? '▲' : '▼' }}</span></div>
               </th>
 
               <!-- NEW: Reported (sortable) -->
-              <th class="text-center font-semibold text-gray-600 px-4 py-2 cursor-pointer select-none"
+              <th class="text-center font-semibold text-app px-4 py-2 cursor-pointer select-none"
                   :aria-sort="sortKey==='reportedAt' ? (sortDir==='asc'?'ascending':'descending') : 'none'"
                   @click="setSort('reportedAt')">
                 <div class="inline-flex items-center gap-1">Reported <span v-if="sortKey==='reportedAt'">{{ sortDir==='asc' ? '▲' : '▼' }}</span></div>
               </th>
 
-              <th class="text-center font-semibold text-gray-600 px-4 py-2 cursor-pointer select-none"
+              <th class="text-center font-semibold text-app px-4 py-2 cursor-pointer select-none"
                   :aria-sort="sortKey==='status' ? (sortDir==='asc'?'ascending':'descending') : 'none'"
                   @click="setSort('status')">
                 <div class="inline-flex items-center gap-1">Status <span v-if="sortKey==='status'">{{ sortDir==='asc' ? '▲' : '▼' }}</span></div>
               </th>
 
-              <th v-if="showRowActions" class="text-center font-semibold text-gray-600 px-4 py-2">Actions</th>
+              <th v-if="showRowActions" class="text-center font-semibold text-app px-4 py-2">Actions</th>
             </tr>
           </thead>
 
@@ -243,22 +248,22 @@ function badgeClasses(s) {
             <!-- Rows -->
              <!-- SKELETON ROWS (show while loading) -->
           <tr v-if="!loading && filteredSorted.length === 0" class="border-t">
-            <td class="px-4 py-3"><div class="h-4 rounded bg-gray-200 animate-pulse mx-auto w-20" /></td>
-            <td class="px-4 py-3"><div class="h-4 rounded bg-gray-200 animate-pulse mx-auto w-24" /></td>
-            <td class="px-4 py-3"><div class="h-4 rounded bg-gray-200 animate-pulse mx-auto w-24" /></td>
-            <td class="px-4 py-3"><div class="h-4 rounded bg-gray-200 animate-pulse mx-auto w-28" /></td>
-            <td class="px-4 py-3"><div class="h-4 rounded bg-gray-200 animate-pulse mx-auto w-20" /></td>
-            <td class="px-4 py-3"><div class="h-4 rounded bg-gray-200 animate-pulse mx-auto w-16" /></td>
-            <td v-if="showRowActions" class="px-4 py-3">  
-              <div class="h-4 rounded bg-gray-200 animate-pulse mx-auto w-24" />
+            <td class="px-4 py-3"><div class="h-4 rounded bg-[var(--border)]/40 animate-pulse mx-auto w-20" /></td>
+            <td class="px-4 py-3"><div class="h-4 rounded bg-[var(--border)]/40 animate-pulse mx-auto w-24" /></td>
+            <td class="px-4 py-3"><div class="h-4 rounded bg-[var(--border)]/40 animate-pulse mx-auto w-24" /></td>
+            <td class="px-4 py-3"><div class="h-4 rounded bg-[var(--border)]/40 animate-pulse mx-auto w-28" /></td>
+            <td class="px-4 py-3"><div class="h-4 rounded bg-[var(--border)]/40 animate-pulse mx-auto w-20" /></td>
+            <td class="px-4 py-3"><div class="h-4 rounded bg-[var(--border)]/40 animate-pulse mx-auto w-16" /></td>
+            <td v-if="showRowActions" class="px-4 py-3"> 
+              <div class="h-4 rounded bg-[var(--border)]/40 animate-pulse mx-auto w-24" />
             </td>
-            <td :colspan="showRowActions ? 7 : 6" class="px-4 py-6 text-center text-gray-500"></td>
+            <td :colspan="showRowActions ? 7 : 6" class="px-4 py-6 text-center text-muted"></td>
           </tr>
 
             <tr
               v-if="!loading" v-for="r in pagedRows"
               :key="r.id"
-              class="border-t hover:bg-gray-50 cursor-pointer"
+              class="border-t hover-primary cursor-pointer"
               role="button"
               tabindex="0"
               @click="emit('view', r)"
@@ -272,37 +277,43 @@ function badgeClasses(s) {
               <!-- NEW: Reported cell (relative text + PrimeVue tooltip + native title) -->
               <td class="px-4 py-2 text-center">
                 <span
-                  v-tooltip.bottom="fmt(r.reportedAt)"
+                 
                   :title="fmt(r.reportedAt)"
                 >
                   {{ timeAgo(r.reportedAt) }}
                 </span>
               </td>
               <td class="px-4 py-2 text-center">
-                <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium" :class="badgeClasses(r.status)">
+                <span class="badge" :class="badgeClasses(r.status)">
                   {{ r.status ?? '—' }}
                 </span>
               </td>
 
               <!-- PrimeVue black action buttons -->
-              <td v-if="showRowActions" class="px-4 py-2 text-center">
-                <div class="inline-flex items-center justify-center gap-2">
-                  <PButton icon="pi pi-bell"   severity="contrast" rounded size="small"
-                           :pt="{ root: { class: '!h-9 !w-9 !p-0' }, icon: { class: '!text-base' } }"
-                           aria-label="Notify" @click.stop="onNotify(r)" v-tooltip.bottom="'Notify'" />
-                  <PButton icon="pi pi-pencil" severity="contrast" rounded size="small"
-                           :pt="{ root: { class: '!h-9 !w-9 !p-0' }, icon: { class: '!text-base' } }"
-                           aria-label="Edit"   @click.stop="onEdit(r)"   v-tooltip.bottom="'Edit'" />
-                  <PButton icon="pi pi-trash"  severity="contrast" rounded size="small"
-                           :pt="{ root: { class: '!h-9 !w-9 !p-0' }, icon: { class: '!text-base' } }"
-                           aria-label="Delete" @click.stop="onDelete(r)" v-tooltip.bottom="'Delete'" />
-                </div>
-              </td>
+             <td v-if="showRowActions" class="px-4 py-2 text-center">
+              <div class="inline-flex items-center justify-center gap-2">
+                <button
+                  class="btn-ghost border-app rounded-md hover-primary p-2"
+                  aria-label="Notify" title="Notify" @click.stop="onNotify(r)">
+                  <Bell class="w-4 h-4" />
+                </button>
+                <button
+                  class="btn-ghost border-app rounded-md hover-primary p-2"
+                  aria-label="Edit" title="Edit" @click.stop="onEdit(r)">
+                  <Pencil class="w-4 h-4" />
+                </button>
+                <button
+                  class="btn-ghost border-app rounded-md hover-primary p-2"
+                  aria-label="Delete" title="Delete" @click.stop="onDelete(r)">
+                  <Trash2 class="w-4 h-4" />
+                </button>
+              </div>
+            </td>
             </tr>
 
             <!-- Empty state -->
             <tr v-if="!loading && filteredSorted.length === 0" class="border-t">
-              <td :colspan="showRowActions ? 7 : 6" class="px-4 py-6 text-center text-gray-500">
+              <td :colspan="showRowActions ? 7 : 6" class="px-4 py-6 text-center text-muted">
                 No recent failures
               </td>
             </tr>
@@ -311,28 +322,35 @@ function badgeClasses(s) {
 
         <!-- Pager -->
         <div class="mt-3 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
-          <div class="text-xs text-gray-500">
+          <div class="text-xs text-muted">
             Showing {{ showingFrom }}–{{ showingTo }} of {{ total }}
           </div>
 
           <div class="inline-flex items-center gap-2">
-            <label class="text-sm text-gray-600">Rows per page</label>
-            <select v-model.number="perPage" class="rounded-lg border px-2 py-1 text-sm bg-white">
+            <label class="text-sm text-app">Rows per page</label>
+            <select v-model.number="perPage" class="rounded-lg border-app bg-card text-app px-2 py-1 text-sm">
               <option :value="10">10</option>
               <option :value="20">20</option>
               <option :value="50">50</option>
             </select>
 
             <div class="ml-2 inline-flex items-center gap-2">
-              <PButton icon="pi pi-chevron-left" severity="contrast" rounded size="small"
-                       :disabled="page === 0"
-                       :pt="{ root: { class: '!h-9 !w-9 !p-0' }, icon: { class: '!text-base' } }"
-                       aria-label="Previous page" @click="prevPage" v-tooltip.bottom="'Previous'" />
+              <button
+                class="btn-ghost border-app rounded-md hover-primary p-2 disabled:opacity-40"
+                :disabled="page === 0"
+                aria-label="Previous page" title="Previous" @click="prevPage">
+                <ChevronLeft class="w-4 h-4" />
+              </button>
+
               <span class="text-sm tabular-nums">{{ page + 1 }} / {{ pageCount }}</span>
-              <PButton icon="pi pi-chevron-right" severity="contrast" rounded size="small"
-                       :disabled="page >= pageCount - 1"
-                       :pt="{ root: { class: '!h-9 !w-9 !p-0' }, icon: { class: '!text-base' } }"
-                       aria-label="Next page" @click="nextPage" v-tooltip.bottom="'Next'" />
+
+              <button
+                class="btn-ghost border-app rounded-md hover-primary p-2 disabled:opacity-40"
+                :disabled="page >= pageCount - 1"
+                aria-label="Next page" title="Next" @click="nextPage">
+                <ChevronRight class="w-4 h-4" />
+              </button>
+
             </div>
           </div>
         </div>
@@ -340,15 +358,27 @@ function badgeClasses(s) {
 
       <!-- Bottom actions (Dashboard hides via prop) -->
       <div v-if="showBottomActions" class="flex justify-center gap-4 px-3 py-5">
-        <PButton icon="pi pi-history"  aria-label="Retrieve Drafts"
-                 class="btn-solid-2 shadow-lg hover:shadow-xl transition-shadow"
-                 :pt="{ root: { class: 'inline-flex h-11 w-11 rounded-full p-0' }, icon: { class: 'text-lg' } }" />
-        <PButton icon="pi pi-download" aria-label="Export CSV"
-                 class="btn-solid-2 shadow-lg hover:shadow-xl transition-shadow"
-                 :pt="{ root: { class: 'inline-flex h-11 w-11 rounded-full p-0' }, icon: { class: 'text-lg' } }" />
-        <PButton icon="pi pi-file-pdf" aria-label="Export PDF"
-                 class="btn-solid-2 shadow-lg hover:shadow-xl transition-shadow"
-                 :pt="{ root: { class: 'inline-flex h-11 w-11 rounded-full p-0' }, icon: { class: 'text-lg' } }" />
+        <button
+          class="btn shadow-lg hover:shadow-xl inline-flex h-11 w-11 rounded-full p-0"
+          aria-label="Retrieve Drafts"
+          title="Retrieve Drafts"
+        >
+          ⟳
+        </button>
+        <button
+          class="btn shadow-lg hover:shadow-xl inline-flex h-11 w-11 rounded-full p-0"
+          aria-label="Export CSV"
+          title="Export CSV"
+        >
+          ⭳
+        </button>
+        <button
+          class="btn shadow-lg hover:shadow-xl inline-flex h-11 w-11 rounded-full p-0"
+          aria-label="Export PDF"
+          title="Export PDF"
+        >
+          ⎙
+        </button>
       </div>
     </div>
   </div>

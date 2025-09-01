@@ -4,6 +4,7 @@ import LineChart from '@/components/LineChart.vue'
 import PieChart from '@/components/PieChart.vue'
 import DoughnutChart from '@/components/DoughnutChart.vue'
 import RecentFailures from '@/components/RecentFailures.vue'
+import { getCssVar, withAlpha } from '@/lib/theme'
 
 const props = defineProps({
   panel: { type: Object, required: true },
@@ -57,7 +58,11 @@ const props = defineProps({
       <BarChart
         :data="{
           labels: data.labels,
-          datasets: [{ ...data.datasets?.[0], backgroundColor: 'rgba(59,130,246,0.35)', borderColor: 'rgba(59,130,246,1)' }]
+          datasets: [{
+            ...data.datasets?.[0],
+            backgroundColor: withAlpha(getCssVar('--primary', '#2563eb'), 0.35),
+            borderColor: getCssVar('--primary', '#2563eb')
+          }]
         }"
         :options="chartOptions"
       />
@@ -67,7 +72,13 @@ const props = defineProps({
       <LineChart
         :data="{
           labels: data.labels,
-          datasets: [{ ...data.datasets?.[0], fill: true, tension: 0.3, backgroundColor: 'rgba(59,130,246,0.2)', borderColor: 'rgba(59,130,246,1)' }]
+          datasets: [{
+            ...data.datasets?.[0],
+            fill: true,
+            tension: 0.3,
+            backgroundColor: withAlpha(getCssVar('--primary', '#2563eb'), 0.2),
+            borderColor: getCssVar('--primary', '#2563eb')
+          }]
         }"
         :options="chartOptions"
       />

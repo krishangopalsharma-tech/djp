@@ -3,16 +3,16 @@
     <div class="flex items-baseline justify-between">
       <div>
         <h2 class="text-2xl font-semibold">Analytics Board</h2>
-        <p class="text-sm text-gray-500">Build your own board: drag cards, resize, pick chart types and ranges.</p>
+        <p class="text-sm text-muted">Build your own board: drag cards, resize, pick chart types and ranges.</p>
       </div>
 
       <div class="flex items-center gap-2 text-sm">
-        <label class="flex items-center gap-2">
-          <input type="checkbox" v-model="liveToday" class="h-4 w-4 rounded border" />
+        <label class="flex items-center gap-2 text-app">
+          <input type="checkbox" v-model="liveToday" class="h-4 w-4 rounded border-app" />
           Live: Today’s Failures
         </label>
-        <label class="flex items-center gap-2">
-          <input type="checkbox" v-model="liveRecent" class="h-4 w-4 rounded border" />
+        <label class="flex items-center gap-2 text-app">
+          <input type="checkbox" v-model="liveRecent" class="h-4 w-4 rounded border-app" />
           Live: Recent Failures
         </label>
       </div>
@@ -23,7 +23,7 @@
       <div
         v-for="(p, idx) in panels"
         :key="p.id"
-        class="rounded-2xl border bg-white"
+        class="rounded-2xl border-app bg-card text-app"
         :class="fullscreen === p.id ? 'fixed inset-6 z-50' : 'relative'"
         draggable="true"
         @dragstart="onDragStart(idx)"
@@ -31,11 +31,11 @@
         @drop="onDrop(idx)"
       >
         <!-- Header -->
-        <div class="px-4 pt-3 pb-2 flex items-center gap-2 border-b">
-          <h3 class="font-semibold text-gray-800 flex-1 truncate">{{ p.title }}</h3>
+        <div class="px-4 pt-3 pb-2 flex items-center gap-2 border-b border-app">
+          <h3 class="font-semibold text-app flex-1 truncate">{{ p.title }}</h3>
 
           <!-- chart type -->
-          <select v-model="state[p.id].type" class="rounded-lg border px-2 py-1 text-sm bg-white">
+          <select v-model="state[p.id].type" class="rounded-lg border-app bg-card text-app px-2 py-1 text-sm">
             <option value="bar">Bar</option>
             <option value="line">Line</option>
             <option value="table">Table</option>
@@ -44,13 +44,13 @@
           </select>
 
           <!-- Fullscreen / close fullscreen -->
-          <button class="p-1.5 rounded hover:bg-gray-100" title="Toggle fullscreen" @click="toggleFullscreen(p.id)">
+          <button class="p-1.5 rounded hover:bg-card" title="Toggle fullscreen" @click="toggleFullscreen(p.id)">
             <svg v-if="fullscreen !== p.id" class="w-4 h-4" viewBox="0 0 24 24"><path fill="currentColor" d="M4 10V4h6v2H6v4H4Zm10-4V4h6v6h-2V6h-4ZM6 14H4v6h6v-2H6v-4Zm14 0h-2v4h-4v2h6v-6Z"/></svg>
             <svg v-else class="w-4 h-4" viewBox="0 0 24 24"><path fill="currentColor" d="M14 10V6h4V4h-6v6h2ZM6 10V6h4V4H4v6h2Zm8 8v-4h2v6h-6v-2h4ZM6 14H4v6h6v-2H6v-4Z"/></svg>
           </button>
 
           <!-- Remove card -->
-          <button class="p-1.5 rounded hover:bg-gray-100" title="Remove" @click="removePanel(p.id)">
+          <button class="p-1.5 rounded hover:bg-card" title="Remove" @click="removePanel(p.id)">
             <svg class="w-4 h-4" viewBox="0 0 24 24"><path fill="currentColor" d="M7 21q-.825 0-1.412-.587T5 19V7H4V5h5V4h6v1h5v2h-1v12q0 .825-.587 1.413T17 21H7Zm2-4h2V9H9v8Zm4 0h2V9h-2v8Z"/></svg>
           </button>
         </div>
@@ -62,7 +62,7 @@
             v-for="r in ranges"
             :key="r.key"
             class="px-3 py-1.5 text-sm rounded-lg border"
-            :class="state[p.id].range === r.key ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-700 hover:bg-gray-50'"
+            :class="state[p.id].range === r.key ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)]' : 'bg-card text-app border-app hover:bg-card'"
             @click="setRange(p.id, r.key)"
           >
             {{ r.label }}
@@ -70,31 +70,31 @@
 
           <!-- Custom dates -->
           <div v-if="state[p.id].range === 'custom'" class="ml-auto flex items-center gap-2">
-            <input type="date" v-model="state[p.id].from" class="rounded-lg border px-2 py-1 text-sm bg-white" />
-            <span class="text-gray-500 text-sm">to</span>
-            <input type="date" v-model="state[p.id].to" class="rounded-lg border px-2 py-1 text-sm bg-white" />
-            <button class="px-3 py-1.5 text-sm rounded-lg border bg-white hover:bg-gray-50" @click="applyCustom(p.id)">Apply</button>
+            <input type="date" v-model="state[p.id].from" class="rounded-lg border-app bg-card text-app px-2 py-1 text-sm" />
+            <span class="text-muted text-sm">to</span>
+            <input type="date" v-model="state[p.id].to" class="rounded-lg border-app bg-card text-app px-2 py-1 text-sm" />
+            <button class="px-3 py-1.5 text-sm rounded-lg border-app bg-card hover:bg-card" @click="applyCustom(p.id)">Apply</button>
           </div>
           <div v-else class="ml-auto"></div>
 
           <!-- Status chips (NEW) -->
           <div class="w-full mt-2 flex flex-wrap items-center gap-2">
-            <span class="text-xs text-gray-500 mr-1">Status:</span>
+            <span class="text-xs text-muted mr-1">Status:</span>
 
             <button
               v-for="s in statuses"
               :key="s"
               class="px-2.5 py-1 text-xs rounded-full border"
               :class="(state[p.id].statuses || []).includes(s)
-                ? 'bg-gray-900 text-white border-gray-900'
-                : 'bg-white text-gray-700 hover:bg-gray-50'"
+                ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)]'
+                : 'bg-card text-app border-app hover:bg-card'"
               @click="togglePanelStatus(p.id, s)"
             >
               {{ s }}
             </button>
 
             <button
-              class="ml-auto px-2.5 py-1 text-xs rounded-full border bg-white hover:bg-gray-50"
+              class="ml-auto px-2.5 py-1 text-xs rounded-full border-app bg-card hover:bg-card"
               title="Select all statuses"
               @click="clearPanelStatuses(p.id)"
             >
@@ -106,8 +106,9 @@
         
         <!-- Body (resizable) -->
         <div class="px-4 pb-4">
-          <div class="relative rounded-xl border bg-white overflow-auto" style="min-height: 240px; resize: both;">
+          <div class="relative rounded-xl border-app bg-card text-app overflow-auto" style="min-height: 240px; resize: both;">
             <PanelBody
+              :key="themeKey + '-' + p.id"
               :panel="p"
               :state="state[p.id]"
               :data="panelData(p)"
@@ -119,14 +120,17 @@
     </section>
 
     <!-- Restore button when all removed -->
-    <div v-if="panels.length === 0" class="text-center text-sm text-gray-500">
+    <div v-if="panels.length === 0" class="text-center text-sm text-muted">
       All panels removed. <button class="underline" @click="restoreDefault">Restore defaults</button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, watch, onMounted, onBeforeUnmount, computed } from 'vue'
+import { useUIStore } from '@/stores/ui'
+const ui = useUIStore()
+const themeKey = computed(() => ui.theme)
 import PanelBody from '@/components/PanelBody.vue'
 
 /* ------------------- sample data generator ------------------- */

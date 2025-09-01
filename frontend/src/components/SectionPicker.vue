@@ -44,7 +44,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
     <!-- Trigger button -->
     <button
       type="button"
-      class="w-full sm:w-auto inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm bg-white hover:bg-gray-50"
+      class="w-full sm:w-auto inline-flex items-center gap-2 rounded-lg border-app bg-card text-app px-3 py-2 text-sm hover:bg-card"
       @click="open = !open"
       :title="selectedList.length ? selectedList.join(', ') : 'All sections selected'"
     >
@@ -52,7 +52,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
       <span class="font-medium">Sections</span>
 
         <!-- selection preview -->
-        <span v-if="selectedList.length === 0 || selectedList.length === props.sections.length" class="text-gray-500">
+        <span v-if="selectedList.length === 0 || selectedList.length === props.sections.length" class="text-muted">
           • All
         </span>
         <span v-else class="flex flex-wrap gap-1">
@@ -60,9 +60,9 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
         <span
           v-for="s in inlineChips"
           :key="s"
-          class="px-2 py-0.5 rounded-full text-xs border bg-gray-50"
+          class="px-2 py-0.5 rounded-full text-xs border-app bg-card"
         >{{ s }}</span>
-        <span v-if="hiddenCount" class="text-gray-500 text-xs">+{{ hiddenCount }}</span>
+        <span v-if="hiddenCount" class="text-muted text-xs">+{{ hiddenCount }}</span>
       </span>
 
       <svg viewBox="0 0 24 24" class="w-4 h-4 ml-1"><path fill="currentColor" d="M7 10l5 5 5-5z"/></svg>
@@ -71,18 +71,18 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
     <!-- Popover -->
     <div
       v-show="open"
-      class="absolute z-50 mt-2 w-[min(90vw,28rem)] rounded-xl border bg-white shadow-lg"
+      class="absolute z-50 mt-2 w-[min(90vw,28rem)] rounded-xl border-app bg-card text-app shadow-lg"
     >
       <!-- search + actions -->
-      <div class="p-3 border-b flex items-center gap-2">
-        <svg viewBox="0 0 24 24" class="w-4 h-4 text-gray-500"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 5l1.5-1.5l-5-5ZM9.5 14A4.5 4.5 0 1 1 14 9.5A4.5 4.5 0 0 1 9.5 14Z"/></svg>
+      <div class="p-3 border-b border-app flex items-center gap-2">
+        <svg viewBox="0 0 24 24" class="w-4 h-4 text-muted"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 5l1.5-1.5l-5-5ZM9.5 14A4.5 4.5 0 1 1 14 9.5A4.5 4.5 0 0 1 9.5 14Z"/></svg>
         <input
           v-model="query"
           :placeholder="placeholder"
-          class="flex-1 rounded-lg border px-3 py-1.5 text-sm"
+          class="flex-1 rounded-lg border-app bg-card text-app px-3 py-1.5 text-sm"
         />
-        <button class="text-xs px-2 py-1 rounded-lg border hover:bg-gray-50" @click="setAll">All</button>
-        <button class="text-xs px-2 py-1 rounded-lg border hover:bg-gray-50" @click="clearAll">None</button>
+        <button class="text-xs px-2 py-1 rounded-lg border-app bg-card hover:bg-card" @click="setAll">All</button>
+        <button class="text-xs px-2 py-1 rounded-lg border-app bg-card hover:bg-card" @click="clearAll">None</button>
       </div>
 
       <!-- list -->
@@ -91,21 +91,21 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
           <label
             v-for="s in filteredSections"
             :key="s"
-            class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer"
+            class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-card cursor-pointer"
           >
             <input type="checkbox" class="h-4 w-4" :checked="selected.has(s)" @change="toggle(s)" />
             <span class="text-sm">{{ s }}</span>
           </label>
         </template>
-        <div v-else class="p-6 text-center text-sm text-gray-500">No matches</div>
+        <div v-else class="p-6 text-center text-sm text-muted">No matches</div>
       </div>
 
       <!-- footer -->
-      <div class="p-2 border-t flex items-center justify-end gap-2">
-        <span class="text-xs text-gray-500 mr-auto">
+      <div class="p-2 border-t border-app flex items-center justify-end gap-2">
+        <span class="text-xs text-muted mr-auto">
           {{ selectedList.length }} / {{ sections.length }} selected
         </span>
-        <button class="text-sm px-2 py-1 rounded-lg border hover:bg-gray-50" @click="open=false">Close</button>
+        <button class="text-sm px-2 py-1 rounded-lg border-app bg-card hover:bg-card" @click="open=false">Close</button>
       </div>
     </div>
   </div>

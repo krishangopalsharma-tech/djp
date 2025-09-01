@@ -47,19 +47,19 @@ function onKeydown(e) {
 </script>
 
 <template>
-  <div class="min-h-10 w-full rounded-lg border bg-white px-2 py-1.5">
+  <div class="min-h-10 w-full rounded-lg border-app bg-card text-app px-2 py-1.5">
     <div class="flex flex-wrap items-center gap-1">
       <!-- preset (auto) tags – non-removable -->
       <span v-for="t in preset" :key="'p'+t"
-            class="inline-flex items-center gap-1 rounded-full bg-gray-100 text-gray-700 text-xs px-2 py-1">
+            class="inline-flex items-center gap-1 rounded-full bg-[var(--border)]/30 text-app text-xs px-2 py-1">
         {{ t }}
       </span>
 
       <!-- user tags – removable -->
       <span v-for="(t, i) in local" :key="'u'+t"
-            class="inline-flex items-center gap-1 rounded-full bg-blue-100 text-blue-700 text-xs px-2 py-1">
+            class="inline-flex items-center gap-1 rounded-full bg-[var(--secondary)] text-[var(--secondary-foreground)] text-xs px-2 py-1">
         {{ t }}
-        <button class="ml-1 text-blue-700/70 hover:text-blue-900" @click="removeTag(i)" aria-label="Remove">✕</button>
+        <button class="ml-1 text-[var(--secondary-foreground)]/80 hover:text-[var(--secondary-foreground)]" @click="removeTag(i)" aria-label="Remove">✕</button>
       </span>
 
       <!-- input -->

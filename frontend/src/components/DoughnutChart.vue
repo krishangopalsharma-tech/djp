@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import Chart from 'chart.js/auto'
 
 const props = defineProps({
@@ -10,20 +10,18 @@ const props = defineProps({
 const canvas = ref(null)
 let chart
 
-function render() {
-  if (!canvas.value) return
-  if (chart) chart.destroy()
-  chart = new Chart(canvas.value, {
-    type: 'doughnut',
-    data: props.data,
-    options: props.options,
-  })
+async function render() {
+  await nextTick()
+  const el = canvas.value
+  if (!el || !el.isConnected) return
+  if (chart) { try { chart.destroy() } catch (_) {} }
+  chart = new Chart(el, { type: 'doughnut', data: props.data, options: props.options })
 }
 
 onMounted(render)
 watch(() => props.data, render, { deep: true })
 watch(() => props.options, render, { deep: true })
-onBeforeUnmount(() => { if (chart) chart.destroy() })
+onBeforeUnmount(() => { if (chart) try { chart.destroy() } catch (_) {} })
 </script>
 
 <template>

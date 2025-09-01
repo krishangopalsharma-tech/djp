@@ -1,11 +1,11 @@
 <script setup>
 import InputText from '@/components/form/InputText.vue'
 import SelectBox from '@/components/form/SelectBox.vue'
+import PaletteSwitcher from '@/components/PaletteSwitcher.vue'
 import { reactive } from 'vue'
 import { useAppStore } from '@/stores/app'
 import { useUIStore } from '@/stores/ui'
-import ThemeSwitcher from '@/components/ThemeSwitcher.vue'
-//import PrimeButtonsDemo from '@/components/PrimeButtonsDemo.vue'
+import ThemeSwitch from '@/components/ThemeSwitch.vue'
 
 const app = useAppStore()
 const ui = useUIStore()
@@ -13,6 +13,7 @@ const ui = useUIStore()
 // demo form state (later we’ll load/save via API)
 const form = reactive({
   appName: app.appName,
+
   realtimeIntervalSec: '30',
   failIdSeparator: '-',
 })
@@ -36,8 +37,15 @@ function save() {
     <div>
       <h2 class="text-2xl font-semibold">Settings</h2>
       <p class="text-sm text-gray-500">UI-only for now. We’ll wire to Django later.</p>
-    </div>
+      <!-- THEME -->
+      <section class="mt-6">
+        <ThemeSwitch />
+      </section>
 
+    </div>
+    <section class="rounded-2xl border bg-white p-4 mt-4">
+      <PaletteSwitcher />
+    </section>
     <div class="rounded-2xl border bg-white p-4 space-y-6">
       <section class="space-y-3">
         <h3 class="text-sm font-semibold text-gray-700">General</h3>
@@ -51,20 +59,23 @@ function save() {
       </section>
 
       <div class="flex gap-2">
-        <button @click="save" class="h-10 px-4 rounded-lg bg-gray-900 text-white text-sm">Save</button>
+        <button @click="save" class="btn">Save</button>
         <button
           @click="Object.assign(form,{ appName:'Railway Failure System', realtimeIntervalSec:'30', failIdSeparator:'-' })"
-          class="h-10 px-4 rounded-lg border bg-white text-sm"
+          class="btn btn-outline"
         >
           Reset
         </button>
       </div>
     </div>
-    <!-- <div class="rounded-2xl border bg-white p-4 mt-6">
-        <h3 class="text-sm font-semibold text-gray-700 mb-3">PrimeVue Buttons Preview</h3>
-        <PrimeButtonsDemo />
-    </div> -->
+    <div class="rounded-2xl border bg-white p-4 mt-6">
+        <h3 class="text-sm font-semibold text-gray-700 mb-3">Buttons Preview</h3>
+        <div class="flex flex-wrap gap-3">
+          <button class="btn">Primary</button>
+          <button class="btn btn-secondary">Secondary</button>
+          <button class="btn btn-outline">Outline</button>
+          <button class="btn btn-ghost">Ghost</button>
+        </div>
+    </div>
   </div>
-  <ThemeSwitcher />
-  <BrandSwitcher />
 </template>

@@ -1,5 +1,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { useUIStore } from '@/stores/ui'
+import { getCssVar, withAlpha } from '@/lib/theme'
 import SplitPane from '@/components/SplitPane.vue'
 import KpiCard from '@/components/KpiCard.vue'
 import BarChart from '@/components/BarChart.vue'
@@ -7,32 +9,29 @@ import LineChart from '@/components/LineChart.vue'
 import DashboardFilterBar from '@/components/DashboardFilterBar.vue'
 import RecentFailures from '@/components/RecentFailures.vue'
 import SectionPicker from '@/components/SectionPicker.vue'
-//import { failures } from '@/data/mockFailures'
+import { failures } from '@/data/mockFailures'
 import FailureDetailsDrawer from '@/components/FailureDetailsDrawer.vue'
-import { failures as seedFailures } from '@/mock/failures'
-
 
 
 // ==================== STATE MANAGEMENT ====================
 
 // UI Controls
+const ui = useUIStore()
 const topNMode = ref(true)
 const topN = ref(10)
 const autoRefresh = ref(false)
 const intervalMs = ref(30000)
 const cumulativeMode = ref(true) // true = cumulative (current); false = per-interval
-const failures = seedFailures
-
 
 // Load UI controls once (safe even if storage is empty)
-let ui = null
-try { ui = JSON.parse(localStorage.getItem('dashUI') || 'null') } catch (_) {}
-if (ui && typeof ui === 'object') {
-  if (typeof ui.topNMode === 'boolean') topNMode.value = ui.topNMode
-  if (typeof ui.topN === 'number' && ui.topN > 0) topN.value = ui.topN
-  if (typeof ui.intervalMs === 'number' && ui.intervalMs >= 10000) intervalMs.value = ui.intervalMs
-  if (typeof ui.autoRefresh === 'boolean') autoRefresh.value = ui.autoRefresh
-  if (typeof ui.cumulativeMode === 'boolean') cumulativeMode.value = ui.cumulativeMode
+let uiSaved = null
+try { uiSaved = JSON.parse(localStorage.getItem('dashUI') || 'null') } catch (_) {}
+if (uiSaved && typeof uiSaved === 'object') {
+  if (typeof uiSaved.topNMode === 'boolean') topNMode.value = uiSaved.topNMode
+  if (typeof uiSaved.topN === 'number' && uiSaved.topN > 0) topN.value = uiSaved.topN
+  if (typeof uiSaved.intervalMs === 'number' && uiSaved.intervalMs >= 10000) intervalMs.value = uiSaved.intervalMs
+  if (typeof uiSaved.autoRefresh === 'boolean') autoRefresh.value = uiSaved.autoRefresh
+  if (typeof uiSaved.cumulativeMode === 'boolean') cumulativeMode.value = uiSaved.cumulativeMode
 }
 
 // Refresh state
@@ -265,6 +264,7 @@ const resolvedOverTime = computed(() => {
   // per-interval = first bucket stays same, next buckets are diffs
   const per = cum.map((v, idx) => idx === 0 ? v : v - cum[idx - 1])
   const series = cumulativeMode.value ? cum : per
+  const primary = getCssVar('--primary', '#3b82f6')
   return {
     labels,
     datasets: [{
@@ -272,8 +272,8 @@ const resolvedOverTime = computed(() => {
       data: series,
       tension: 0.3,
       fill: true,
-      borderColor: 'rgba(59,130,246,1)',
-      backgroundColor: 'rgba(59,130,246,0.2)'
+      borderColor: primary,
+      backgroundColor: withAlpha(primary, 0.2)
     }]
   }
 })
@@ -298,42 +298,50 @@ const recent = computed(() =>
 )
 
 // Chart options
-const chartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  resizeDelay: 200,
-  plugins: {
-    legend: { position: 'bottom' },
-    tooltip: {
-      callbacks: {
-        title(ctx) {
-          return ctx?.[0]?.label ?? ''
-        },
-        label(ctx) {
-          const val = ctx.parsed?.y ?? ctx.parsed ?? 0
-          return `${ctx.dataset?.label ?? 'Value'}: ${nf.format(val)}`
+const chartOptions = computed(() => {
+  const text = getCssVar('--text', '#0f172a')
+  const border = getCssVar('--border', '#e5e7eb')
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    resizeDelay: 200,
+    plugins: {
+      legend: { position: 'bottom', labels: { color: text } },
+      tooltip: {
+        callbacks: {
+          title(ctx) { return ctx?.[0]?.label ?? '' },
+          label(ctx) {
+            const val = ctx.parsed?.y ?? ctx.parsed ?? 0
+            return `${ctx.dataset?.label ?? 'Value'}: ${nf.format(val)}`
+          },
         },
       },
     },
-  },
-  scales: {
-    y: {
-      beginAtZero: true,
-      ticks: {
-        callback: (v) => nf.format(v),
+    scales: {
+      x: {
+        ticks: { color: text },
+        grid:  { color: withAlpha(border, 0.3) },
+      },
+      y: {
+        beginAtZero: true,
+        ticks: {
+          color: text,
+          callback: (v) => nf.format(v),
+        },
+        grid: { color: withAlpha(border, 0.3) },
       },
     },
-  },
-}
+  }
+})
 
 const barOptions = computed(() => ({
-  ...chartOptions,
+  ...chartOptions.value,
   plugins: {
-    ...chartOptions.plugins,
+    ...chartOptions.value.plugins,
     tooltip: {
-      ...chartOptions.plugins.tooltip,
+      ...chartOptions.value.plugins.tooltip,
       callbacks: {
-        ...chartOptions.plugins.tooltip.callbacks,
+        ...chartOptions.value.plugins.tooltip.callbacks,
         footer(items) {
           const i = items?.[0]?.dataIndex
           if (i == null) return ''
@@ -529,7 +537,7 @@ onBeforeUnmount(stopTimer)
   <div class="space-y-6">
     <div>
       <h2 class="text-2xl font-semibold">Dashboard</h2>
-      <p class="text-sm text-gray-500">Overview</p>
+      <p class="text-sm text-muted">Overview</p>
     </div>
     
     <!-- Filters -->
@@ -540,22 +548,22 @@ onBeforeUnmount(stopTimer)
     
     <!-- Toolbar -->
     <div class="flex items-center gap-3 justify-between">
-      <div class="text-xs text-gray-500">Last updated: {{ timeAgo(lastUpdated) }}</div>
+      <div class="text-xs text-muted">Last updated: {{ timeAgo(lastUpdated) }}</div>
       <div class="flex items-center gap-2">
-        <select v-model="intervalMs" class="rounded-lg border px-2 py-1 text-sm bg-white" title="Auto-refresh interval">
+        <select v-model="intervalMs" class="rounded-lg border-app bg-card text-app px-2 py-1 text-sm" title="Auto-refresh interval">
           <option :value="10000">10s</option>
           <option :value="30000">30s</option>
           <option :value="60000">1m</option>
           <option :value="300000">5m</option>
         </select>
-        <label class="flex items-center gap-2 text-sm">
-          <input type="checkbox" v-model="autoRefresh" class="h-4 w-4 rounded border align-middle" />
+        <label class="flex items-center gap-2 text-sm text-app">
+          <input type="checkbox" v-model="autoRefresh" class="h-4 w-4 rounded border-app align-middle" />
           <span class="align-middle">Auto-refresh</span>
         </label>
         <button
           @click="refresh"
           :disabled="isLoading"
-          class="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed"
+          class="inline-flex items-center gap-2 rounded-lg border-app bg-card text-app px-3 py-2 text-sm hover:bg-card disabled:opacity-60 disabled:cursor-not-allowed"
           title="Refresh now"
         >
           <svg viewBox="0 0 24 24" class="w-4 h-4 shrink-0 align-middle">
@@ -566,7 +574,7 @@ onBeforeUnmount(stopTimer)
         <button
           @click="(() => { filters.value = { range: 'today', status: ['Active','In Progress','Resolved','On Hold'], sections: [...allSectionsMaster] }; lastUpdated.value = Date.now() })()"
           :disabled="isLoading"
-          class="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed"
+          class="inline-flex items-center gap-2 rounded-lg border-app bg-card text-app px-3 py-2 text-sm hover:bg-card disabled:opacity-60 disabled:cursor-not-allowed"
           title="Reset to Today + All statuses + All sections"
         >
           <svg viewBox="0 0 24 24" class="w-4 h-4 shrink-0 align-middle">
@@ -618,18 +626,18 @@ onBeforeUnmount(stopTimer)
       <template #left>
         <div class="grid gap-4 lg:grid-cols-2">
           <!-- Bar -->
-          <div class="rounded-2xl border bg-white p-4 relative">
-            <div class="mb-2 text-sm font-semibold text-gray-700 flex items-center justify-between">
+          <div class="rounded-2xl border-app bg-card text-app p-4 relative">
+            <div class="mb-2 text-sm font-semibold text-app flex items-center justify-between">
               <span>Status by Section</span>
               <div class="flex items-center gap-2 text-xs font-normal">
                 <label class="inline-flex items-center gap-1">
-                  <input type="checkbox" v-model="topNMode" class="h-3.5 w-3.5 rounded border" />
+                  <input type="checkbox" v-model="topNMode" class="h-3.5 w-3.5 rounded border-app" />
                   Top-N
                 </label>
                 <select
                   v-model="topN"
                   :disabled="!topNMode"
-                  class="rounded border px-1.5 py-1 bg-white disabled:opacity-50"
+                  class="rounded border-app bg-card text-app px-1.5 py-1 disabled:opacity-50"
                   title="How many sections to show"
                 >
                   <option :value="5">5</option>
@@ -639,61 +647,61 @@ onBeforeUnmount(stopTimer)
                 </select>
               </div>
             </div>
-            <div v-if="!hasBarData && !isLoading" class="h-64 md:h-80 flex items-center justify-center text-sm text-gray-500">
+            <div v-if="!hasBarData && !isLoading" class="h-64 md:h-80 flex items-center justify-center text-sm text-muted">
               No data for current filters
             </div>
-            <div class="rounded-2xl border bg-white p-4">
-              <div class="mb-2 text-sm font-semibold text-gray-700 flex items-center justify-between">
+            <div class="rounded-2xl border-app bg-card text-app p-4">
+              <div class="mb-2 text-sm font-semibold text-app flex items-center justify-between">
                 <span>Status by Section</span>
               </div>
 
               <div class="relative h-[300px]">
                 <!-- Loading skeleton -->
                 <div v-if="isLoading" class="absolute inset-0 p-4">
-                  <div class="h-6 w-40 rounded bg-gray-200 animate-pulse mb-4"></div>
+                  <div class="h-6 w-40 rounded bg-[var(--border)]/40 animate-pulse mb-4"></div>
                   <div class="grid grid-cols-6 gap-3 items-end h-[220px]">
-                    <div v-for="i in 6" :key="'skb'+i" class="rounded bg-gray-200 animate-pulse" :style="{ height: (20 + i*10) + 'px' }"></div>
+                    <div v-for="i in 6" :key="'skb'+i" class="rounded bg-[var(--border)]/40 animate-pulse" :style="{ height: (20 + i*10) + 'px' }"></div>
                   </div>
                 </div>
 
                 <!-- No data -->
                 <div v-else-if="!hasBarData" class="absolute inset-0 flex items-center justify-center">
-                  <div class="text-sm text-gray-500">
+                  <div class="text-sm text-muted">
                     No data for the current filters.
                   </div>
                 </div>
 
                 <!-- Chart -->
                 <div v-else class="absolute inset-0">
-                  <BarChart :data="statusBySection" :options="barOptions" />
+                  <BarChart :key="ui.theme + '-bar-' + barKey" :data="statusBySection" :options="barOptions" />
                 </div>
               </div>
             </div>
 
-            <div v-if="isLoading" class="absolute inset-0 bg-white/70 flex items-center justify-center rounded-2xl">
-              <svg class="animate-spin h-6 w-6 text-gray-700" viewBox="0 0 24 24">
+            <div v-if="isLoading" class="absolute inset-0 bg-card/70 flex items-center justify-center rounded-2xl">
+              <svg class="animate-spin h-6 w-6 text-app" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"/>
               </svg>
             </div>
           </div>
           <!-- Line -->
-          <div class="rounded-2xl border bg-white p-4 relative">
-            <div class="mb-2 text-sm font-semibold text-gray-700 flex items-center justify-between">
+          <div class="rounded-2xl border-app bg-card text-app p-4 relative">
+            <div class="mb-2 text-sm font-semibold text-app flex items-center justify-between">
               <span>Resolved over Time ({{ rangeLabel }})</span>
               <label class="inline-flex items-center gap-1 text-xs font-normal">
-                <input type="checkbox" v-model="cumulativeMode" class="h-3.5 w-3.5 rounded border" />
+                <input type="checkbox" v-model="cumulativeMode" class="h-3.5 w-3.5 rounded border-app" />
                 Cumulative
               </label>
             </div>
-            <div v-if="!hasLineData && !isLoading" class="h-64 md:h-80 flex items-center justify-center text-sm text-gray-500">
+            <div v-if="!hasLineData && !isLoading" class="h-64 md:h-80 flex items-center justify-center text-sm text-muted">
               No data for current filters
             </div>
-            <div class="rounded-2xl border bg-white p-4">
-              <div class="mb-2 text-sm font-semibold text-gray-700 flex items-center justify-between">
+            <div class="rounded-2xl border-app bg-card text-app p-4">
+              <div class="mb-2 text-sm font-semibold text-app flex items-center justify-between">
                 <span>Resolved over Time ({{ rangeLabel }})</span>
                 <label class="inline-flex items-center gap-1 text-xs font-normal">
-                  <input type="checkbox" v-model="cumulativeMode" class="h-3.5 w-3.5 rounded border" />
+                  <input type="checkbox" v-model="cumulativeMode" class="h-3.5 w-3.5 rounded border-app" />
                   Cumulative
                 </label>
               </div>
@@ -701,24 +709,24 @@ onBeforeUnmount(stopTimer)
               <div class="relative h-[300px]">
                 <!-- Loading skeleton -->
                 <div v-if="isLoading" class="absolute inset-0 p-4">
-                  <div class="h-6 w-48 rounded bg-gray-200 animate-pulse mb-4"></div>
-                  <div class="h-[220px] rounded bg-gray-200 animate-pulse"></div>
+                  <div class="h-6 w-48 rounded bg-[var(--border)]/40 animate-pulse mb-4"></div>
+                  <div class="h-[220px] rounded bg-[var(--border)]/40 animate-pulse"></div>
                 </div>
 
                 <!-- No data -->
                 <div v-else-if="!hasLineData" class="absolute inset-0 flex items-center justify-center">
-                  <div class="text-sm text-gray-500">No resolved items in this range.</div>
+                  <div class="text-sm text-muted">No resolved items in this range.</div>
                 </div>
 
                 <!-- Chart -->
                 <div v-else class="absolute inset-0">
-                  <LineChart :data="resolvedOverTime" :options="chartOptions" />
+                  <LineChart :key="ui.theme + '-line-' + lineKey" :data="resolvedOverTime" :options="chartOptions" />
                 </div>
               </div>
             </div>
 
-            <div v-if="isLoading" class="absolute inset-0 bg-white/70 flex items-center justify-center rounded-2xl">
-              <svg class="animate-spin h-6 w-6 text-gray-700" viewBox="0 0 24 24">
+            <div v-if="isLoading" class="absolute inset-0 bg-card/70 flex items-center justify-center rounded-2xl">
+              <svg class="animate-spin h-6 w-6 text-app" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"/>
               </svg>
@@ -727,8 +735,8 @@ onBeforeUnmount(stopTimer)
         </div>
       </template>
       <template #right>
-        <div class="rounded-2xl border bg-white mt-4 lg:mt-0">
-          <div class="px-4 py-3 border-b text-sm font-semibold">Recent Failures</div>
+        <div class="rounded-2xl border-app bg-card text-app mt-4 lg:mt-0">
+          <div class="px-4 py-3 border-b border-app text-sm font-semibold">Recent Failures</div>
           <div class="p-2">
             <RecentFailures
                 :items="recent"

@@ -60,7 +60,9 @@ function setType(e){ emit('update:chartType', e.target.value) }
         v-for="r in ranges"
         :key="r.key"
         class="px-3 py-1.5 text-sm rounded-md border transition"
-        :class="range === r.key ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-700 hover:bg-gray-100'"
+        :class="range === r.key
+          ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-transparent'
+          : 'bg-card text-app border-app hover:bg-card'"
         @click="setRange(r.key)"
       >
         {{ r.label }}

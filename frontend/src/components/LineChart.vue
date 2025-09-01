@@ -1,17 +1,8 @@
 <script setup>
 import { Line } from 'vue-chartjs'
-import {
-  Chart,
-  LineElement,
-  PointElement,
-  CategoryScale,
-  LinearScale,
-  Title,
-  Tooltip,
-  Legend,
-} from 'chart.js'
+import { Chart, LineElement, PointElement, CategoryScale, LinearScale, Title, Tooltip, Legend, Filler } from 'chart.js'
 
-Chart.register(LineElement, PointElement, CategoryScale, LinearScale, Title, Tooltip, Legend)
+Chart.register(LineElement, PointElement, CategoryScale, LinearScale, Title, Tooltip, Legend, Filler)
 
 defineProps({
   data: { type: Object, required: true },

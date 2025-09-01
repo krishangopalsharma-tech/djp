@@ -34,16 +34,18 @@ async function submit() {
 
 <template>
   <div class="min-h-[60vh] flex items-center justify-center p-6">
-    <div class="w-full max-w-sm rounded-2xl border bg-white p-6 space-y-4">
+    <div class="w-full max-w-sm rounded-2xl border bg-white p-6">
       <div>
         <h2 class="text-xl font-semibold">Sign in</h2>
         <p class="text-sm text-gray-500">Demo auth — will connect to Django later.</p>
       </div>
-      <div class="space-y-3">
-        <InputText label="Username" v-model="form.username" :error="errors.username" placeholder="e.g. admin" />
-        <InputText label="Password" v-model="form.password" :error="errors.password" type="password" placeholder="••••••••" />
-      </div>
-      <button @click="submit" class="h-10 w-full rounded-lg bg-gray-900 text-white text-sm">Sign in</button>
+      <form class="space-y-4 mt-4" @submit.prevent="submit">
+        <div class="space-y-3">
+          <InputText label="Username" v-model="form.username" :error="errors.username" placeholder="e.g. admin" />
+          <InputText label="Password" v-model="form.password" :error="errors.password" type="password" placeholder="••••••••" autocomplete="current-password" />
+        </div>
+        <button type="submit" class="btn w-full">Sign in</button>
+      </form>
     </div>
   </div>
 </template>

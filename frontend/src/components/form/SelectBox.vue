@@ -10,9 +10,9 @@ defineEmits(['update:modelValue'])
 
 <template>
   <label class="block space-y-1">
-    <span class="text-sm text-gray-700">{{ label }}</span>
+    <span class="text-sm text-app">{{ label }}</span>
     <select
-      class="h-10 w-full rounded-lg border px-3 text-sm bg-white"
+      class="h-10 w-full rounded-lg border-app bg-card text-app px-3 text-sm"
       :value="modelValue"
       @change="$emit('update:modelValue', $event.target.value)"
     >

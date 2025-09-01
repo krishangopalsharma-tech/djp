@@ -55,7 +55,7 @@ const byStatus = computed(() =>
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <h2 class="text-2xl font-semibold">Logbook</h2>
-        <p class="text-sm text-gray-500">Active and recent failures</p>
+        <p class="text-sm text-muted">Active and recent failures</p>
       </div>
 
       <div class="flex items-center gap-2">
@@ -63,14 +63,14 @@ const byStatus = computed(() =>
           v-model="query"
           type="text"
           placeholder="Search..."
-          class="h-10 w-56 rounded-lg border px-3 text-sm bg-white"
+          class="h-10 w-56 rounded-lg border-app bg-card text-app px-3 text-sm"
         />
-        <div class="inline-flex rounded-lg border bg-white p-1">
+        <div class="inline-flex rounded-lg border-app bg-card p-1">
           <button
             v-for="m in ['table','cards','board','timeline']"
             :key="m"
             class="px-3 py-1.5 text-sm rounded-md capitalize"
-            :class="view === m ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-100'"
+            :class="view === m ? 'selected-primary' : 'text-app hover-primary'"
             @click="view = m"
           >
             {{ m }}
@@ -80,13 +80,13 @@ const byStatus = computed(() =>
     </div>
 
     <!-- Loading -->
-    <div v-if="loading" class="rounded-2xl border bg-white p-6 text-sm text-gray-700 flex items-center gap-3">
+    <div v-if="loading" class="rounded-2xl border-app bg-card p-6 text-sm text-app flex items-center gap-3">
       <Spinner :size="18" />
       Loading logbook...
     </div>
 
     <!-- Error -->
-    <div v-else-if="error" class="rounded-2xl border bg-white p-6 text-sm text-red-600">
+    <div v-else-if="error" class="rounded-2xl border-app bg-card p-6 text-sm text-red-600">
       {{ error }}
     </div>
 
@@ -111,7 +111,7 @@ const byStatus = computed(() =>
       </div>
 
       <!-- Fallback -->
-      <div v-else class="rounded-2xl border bg-white p-6 text-sm text-gray-500">
+      <div v-else class="rounded-2xl border-app bg-card p-6 text-sm text-muted">
         "{{ view }}" view coming soon.
       </div>
     </div>

@@ -40,14 +40,14 @@ function toggleStatus(key) {
 <template>
   <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
     <!-- Range pills -->
-    <div class="inline-flex rounded-xl border bg-white p-1">
+    <div class="inline-flex rounded-xl border border-app bg-card p-1">
       <button
         v-for="r in ranges"
         :key="r.key"
         class="px-3 py-1.5 text-sm rounded-lg transition"
         :class="selectedRange === r.key
-          ? 'bg-gray-900 text-white'
-          : 'text-gray-600 hover:bg-gray-100'"
+          ? 'bg-[var(--primary)] text-[var(--primary-foreground)]'
+          : 'text-muted hover:bg-card'"
         @click="setRange(r.key)"
       >
         {{ r.label }}
@@ -61,8 +61,8 @@ function toggleStatus(key) {
         :key="s.key"
         class="px-3 py-1.5 text-sm rounded-full border transition"
         :class="selectedStatuses.has(s.key)
-          ? 'bg-gray-900 text-white border-gray-900'
-          : 'bg-white text-gray-700 hover:bg-gray-100'"
+          ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-transparent'
+          : 'bg-card text-app border-app hover:bg-card'"
         @click="toggleStatus(s.key)"
       >
         {{ s.label }}
