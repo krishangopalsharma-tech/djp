@@ -29,10 +29,10 @@ function onSidebarPointerUp(){
 </script>
 
 <template>
-  <div class="min-h-screen bg-app text-app" :class="`theme-${ui.theme}`" :style="{ '--sidebar-w': ui.computedSidebarWidth + 'px' }">
+  <div class="min-h-screen bg-app text-app" :style="{ '--sidebar-w': ui.computedSidebarWidth + 'px' }">
     <!-- Sidebar: fixed always; slide-in on mobile -->
     <div
-      class="fixed inset-y-0 left-0 z-40 bg-card text-app border-r border-app transform transition-transform transition-all duration-200 motion-reduce:transition-none"
+      class="fixed inset-y-0 left-0 z-40 sidebar border-r border-app transform transition-transform transition-all duration-200 motion-reduce:transition-none"
       :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'"
       :style="{ width: ui.computedSidebarWidth + 'px' }"
       :data-collapsed="ui.sidebarCollapsed"
@@ -41,7 +41,7 @@ function onSidebarPointerUp(){
       <AppSidebar @navigate="sidebarOpen = false" />
       <!-- Drag handle -->
       <div
-        class="absolute top-0 right-0 h-full w-2 cursor-col-resize bg-[var(--border)] hover:bg-[var(--text)]/30"
+        class="absolute top-0 right-0 h-full w-2 cursor-col-resize bg-[var(--sidebar-bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sidebar-fg)]/40 focus-visible:ring-offset-0"
         title="Drag to resize"
         tabindex="0"
         role="separator"

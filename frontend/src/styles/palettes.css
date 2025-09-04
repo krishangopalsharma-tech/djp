@@ -1,135 +1,54 @@
-/* Palettes: set one on <html data-palette="...">. Each exposes --p1..--p5 */
+/* Unified global palette and shadows (grayscale scheme) */
 :root {
-  /* fallback in case data-palette is missing */
-  --p1: #F2F2F2;
-  --p2: #A6A6A6;
-  --p3: #404040;
-  --p4: #262626;
-  --p5: #0D0D0D;
-}
+  /* Base Palette */
+  --seasalt: #f8f9fa;
+  --antiflash-white: #e9ecef;
+  --platinum: #dee2e6;
+  --french-gray: #ced4da;
+  --french-gray-2: #adb5bd;
+  --slate-gray: #6c757d;
+  --outer-space: #495057;
+  --onyx: #343a40;
+  --eerie-black: #212529;
 
-/* Feather Step Classic */
-[data-palette="feather-step-classic"] {
-  --p1: #BEBFBD;
-  --p2: #403F38;
-  --p3: #737065;
-  --p4: #BFBAA8;
-  --p5: #F2F2F2;
-}
+  /* Nearby Shades */
+  --seasalt-lighter: #ffffff;
+  --antiflash-white-lighter: #f2f4f6;
+  --platinum-lighter: #e7ebed;
+  --french-gray-lighter: #d7dde3;
+  --french-gray-2-lighter: #b6bec6;
+  --slate-gray-lighter: #858e96;
+  --outer-space-lighter: #626b73;
+  --onyx-lighter: #4d5359;
+  --eerie-black-lighter: #3a3e42;
+  --off-white: #f5f5f5;
+  --body-text: #2c3135;
 
-/* Fashion */
-[data-palette="fashion"] {
-  --p1: #F2F2F2;
-  --p2: #8C8C8C;
-  --p3: #595959;
-  --p4: #262626;
-  --p5: #0D0D0D;
-}
+  /* Component Assignments */
+  --bg-main: var(--antiflash-white);
+  --navbar-bg: var(--outer-space); /* keep for compatibility but unified with sidebar */
+  --sidebar-bg: var(--outer-space);
+  --sidebar-fg: var(--seasalt);
+  --sidebar-fg-muted: var(--french-gray-2);
+  --button-primary: var(--slate-gray);
+  --button-hover: var(--slate-gray-lighter);
+  --card-bg: var(--seasalt);
+  --input-bg: var(--off-white);
+  --error: var(--slate-gray);
 
-/* The Cherry Tree */
-[data-palette="cherry"] {
-  --p1: #517367;
-  --p2: #D9C8A9;
-  --p3: #59381B;
-  --p4: #8C5E4D;
-  --p5: #BF988A;
-}
+  /* Status Colors (hex-mapped) */
+  --status-green: #BBD9AD; /* Resolved */
+  --status-yellow: #F2D194; /* In Progress */
+  --status-amber: #D98236; /* On Hold */
+  --status-red: #F2A0A0; /* Active */
+  --on-status-green: #1F2937; /* gray-800 for readability */
+  --on-status-yellow: #1F2937;
+  --on-status-amber: #FFFFFF;
+  --on-status-red: #1F2937;
 
-/* lgm */
-[data-palette="lgm"] {
-  --p1: #2F4673;
-  --p2: #64758C;
-  --p3: #949BA6;
-  --p4: #D9D9D9;
-  --p5: #0D0D0D;
-}
-
-/* HAQQ Brand */
-[data-palette="haqq"] {
-  --p1: #D9CBBA;
-  --p2: #59514D;
-  --p3: #8C8480;
-  --p4: #F2F2F2;
-  --p5: #0D0D0D;
-}
-
-/* Axencis */
-[data-palette="axencis"] {
-  --p1: #2E38F2;
-  --p2: #3037BF;
-  --p3: #32408C;
-  --p4: #B4B9D9;
-  --p5: #333640;
-}
-
-/* Gantry */
-[data-palette="gantry"] {
-  --p1: #F2F2F2;
-  --p2: #A6A6A6;
-  --p3: #404040;
-  --p4: #262626;
-  --p5: #0D0D0D;
-}
-
-/* Lukas Vane */
-[data-palette="lukas"] {
-  --p1: #293C73;
-  --p2: #253259;
-  --p3: #8C5E35;
-  --p4: #BF9B7A;
-  --p5: #D9D8D7;
-}
-
-/* ASK-IT Digital agency */
-[data-palette="askit"] {
-  --p1: #8C8C8C;
-  --p2: #595959;
-  --p3: #404040;
-  --p4: #262626;
-  --p5: #0D0D0D;
-}
-
-/* SHIPP Logistics */
-[data-palette="shipp"] {
-  --p1: #D7D7D9;
-  --p2: #023059;
-  --p3: #4B7BA6;
-  --p4: #A69F41;
-  --p5: #BFBA75;
-}
-
-/* Wemakefab—X */
-[data-palette="wemakefab"] {
-  --p1: #0D260D;
-  --p2: #2D402A;
-  --p3: #1C261A;
-  --p4: #888C87;
-  --p5: #F2F2F2;
-}
-
-/* STEREOTYPE. Web Site */
-[data-palette="stereotype"] {
-  --p1: #1A2E40;
-  --p2: #023859;
-  --p3: #364C59;
-  --p4: #BF947A;
-  --p5: #F2CCB6;
-}
-
-/* Wild Goats */
-[data-palette="wild-goats"] {
-  --p1: #030C26;
-  --p2: #031740;
-  --p3: #01050D;
-  --p4: #364959;
-  --p5: #70818C;
-}
-
-/* Gym Icon Set */
-[data-palette="gym"] {
-  --p1: #F2E088;
-  --p2: #A69A60;
-  --p3: #736B43;
-  --p4: #403B25;
-  --p5: #0D0D0D;
+  /* Shadow Variables */
+  --shadow-resting: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-hover: 0 4px 8px rgba(0, 0, 0, 0.15);
+  --shadow-card: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-card-hover: 0 6px 12px rgba(0, 0, 0, 0.15);
 }

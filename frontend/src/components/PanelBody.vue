@@ -60,8 +60,8 @@ const props = defineProps({
           labels: data.labels,
           datasets: [{
             ...data.datasets?.[0],
-            backgroundColor: withAlpha(getCssVar('--primary', '#2563eb'), 0.35),
-            borderColor: getCssVar('--primary', '#2563eb')
+            backgroundColor: withAlpha(getCssVar('--slate-gray', '#6c757d'), 0.35),
+            borderColor: getCssVar('--slate-gray', '#6c757d')
           }]
         }"
         :options="chartOptions"
@@ -76,8 +76,8 @@ const props = defineProps({
             ...data.datasets?.[0],
             fill: true,
             tension: 0.3,
-            backgroundColor: withAlpha(getCssVar('--primary', '#2563eb'), 0.2),
-            borderColor: getCssVar('--primary', '#2563eb')
+            backgroundColor: withAlpha(getCssVar('--slate-gray', '#6c757d'), 0.2),
+            borderColor: getCssVar('--slate-gray', '#6c757d')
           }]
         }"
         :options="chartOptions"

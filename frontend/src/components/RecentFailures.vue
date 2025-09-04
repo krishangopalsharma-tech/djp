@@ -13,6 +13,8 @@ const props = defineProps({
   loading: { type: Boolean, default: false },
   // add this prop
   storageKey: { type: String, default: 'recentFailures' },
+  // allow hiding the component's own title when embedded in dashboards
+  showHeader: { type: Boolean, default: true },
 
 })
 
@@ -167,7 +169,7 @@ function badgeClasses(s) {
 
 <template>
   <div class="space-y-4">
-    <div class="text-center">
+    <div class="text-center" v-if="showHeader">
       <h2 class="text-2xl font-semibold leading-tight">Recent Failure Logs</h2>
     </div>
 

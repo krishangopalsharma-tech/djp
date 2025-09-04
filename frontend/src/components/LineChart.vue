@@ -11,9 +11,10 @@ defineProps({
 </script>
 
 <template>
-  <div class="relative h-64 md:h-80">
+  <div class="relative w-full h-full min-h-[300px]">
     <Line :data="data" :options="options" />
   </div>
+  
 </template>
 
 <style scoped>

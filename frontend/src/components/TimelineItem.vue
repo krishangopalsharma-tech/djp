@@ -2,6 +2,14 @@
 defineProps({
   item: { type: Object, required: true }, // { fail_id, status, severity, circuit, reported_at, assigned_to }
 })
+
+function statusBadge(s) {
+  if (s === 'Resolved')     return 'badge-success'
+  if (s === 'Active')       return 'badge-danger'
+  if (s === 'In Progress')  return 'badge-warning'
+  if (s === 'On Hold')      return 'badge-hold'
+  return 'badge-neutral'
+}
 </script>
 
 <template>
@@ -20,7 +28,7 @@ defineProps({
       <div class="flex items-center justify-between">
         <div class="text-sm font-semibold">{{ item.fail_id }}</div>
         <span class="badge"
-              :class="item.status === 'Resolved' ? 'badge-success' : 'badge-warning'">
+              :class="statusBadge(item.status)">
           {{ item.status }}
         </span>
       </div>

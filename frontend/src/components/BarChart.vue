@@ -11,10 +11,11 @@ defineProps({
 </script>
 
 <template>
-  <!-- Fixed-height wrapper stops infinite growth -->
-  <div class="relative h-64 md:h-80">
+  <!-- Fill parent; keep a safe minimum for axes + legend -->
+  <div class="relative w-full h-full min-h-[260px]">
     <Bar :data="data" :options="options" />
   </div>
+  
 </template>
 
 <style scoped>

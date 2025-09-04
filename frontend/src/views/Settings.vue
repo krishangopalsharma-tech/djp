@@ -1,11 +1,9 @@
 <script setup>
 import InputText from '@/components/form/InputText.vue'
 import SelectBox from '@/components/form/SelectBox.vue'
-import PaletteSwitcher from '@/components/PaletteSwitcher.vue'
 import { reactive } from 'vue'
 import { useAppStore } from '@/stores/app'
 import { useUIStore } from '@/stores/ui'
-import ThemeSwitch from '@/components/ThemeSwitch.vue'
 
 const app = useAppStore()
 const ui = useUIStore()
@@ -37,15 +35,7 @@ function save() {
     <div>
       <h2 class="text-2xl font-semibold">Settings</h2>
       <p class="text-sm text-gray-500">UI-only for now. We’ll wire to Django later.</p>
-      <!-- THEME -->
-      <section class="mt-6">
-        <ThemeSwitch />
-      </section>
-
     </div>
-    <section class="rounded-2xl border bg-white p-4 mt-4">
-      <PaletteSwitcher />
-    </section>
     <div class="rounded-2xl border bg-white p-4 space-y-6">
       <section class="space-y-3">
         <h3 class="text-sm font-semibold text-gray-700">General</h3>

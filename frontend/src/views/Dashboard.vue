@@ -305,8 +305,14 @@ const chartOptions = computed(() => {
     responsive: true,
     maintainAspectRatio: false,
     resizeDelay: 200,
+    layout: { padding: { top: 8, right: 8, bottom: 28, left: 8 } },
     plugins: {
-      legend: { position: 'bottom', labels: { color: text } },
+      title: { display: false },
+      legend: {
+        display: true,
+        position: 'bottom',
+        labels: { color: text, boxWidth: 12, boxHeight: 12, usePointStyle: false }
+      },
       tooltip: {
         callbacks: {
           title(ctx) { return ctx?.[0]?.label ?? '' },
@@ -319,11 +325,13 @@ const chartOptions = computed(() => {
     },
     scales: {
       x: {
+        display: true,
         ticks: { color: text },
         grid:  { color: withAlpha(border, 0.3) },
       },
       y: {
         beginAtZero: true,
+        display: true,
         ticks: {
           color: text,
           callback: (v) => nf.format(v),
@@ -535,14 +543,23 @@ onBeforeUnmount(stopTimer)
 
 <template>
   <div class="space-y-6">
-    <div>
-      <h2 class="text-2xl font-semibold">Dashboard</h2>
-      <p class="text-sm text-muted">Overview</p>
+    <!-- Header: left (range chips) | center (title) | right (status chips) -->
+    <div class="grid grid-cols-1 gap-3 md:grid-cols-3 md:items-center">
+      <!-- Left: Range chips -->
+      <div class="order-2 md:order-1 md:justify-self-start">
+        <DashboardFilterBar v-model="filters" :show-statuses="false" />
+      </div>
+      <!-- Center: Title -->
+      <div class="order-1 md:order-2 md:justify-self-center">
+        <h2 class="text-2xl font-semibold text-center">Dashboard</h2>
+      </div>
+      <!-- Right: Status chips -->
+      <div class="order-3 md:order-3 md:justify-self-end">
+        <DashboardFilterBar v-model="filters" :show-ranges="false" />
+      </div>
     </div>
-    
-    <!-- Filters -->
-    <DashboardFilterBar v-model="filters" />
-        <div class="mt-1">
+
+    <div class="mt-1">
       <SectionPicker v-model="filters.sections" :sections="allSectionsMaster" :max-inline="6" placeholder="Search sections…" />
     </div>
     
@@ -626,7 +643,7 @@ onBeforeUnmount(stopTimer)
       <template #left>
         <div class="grid gap-4 lg:grid-cols-2">
           <!-- Bar -->
-          <div class="rounded-2xl border-app bg-card text-app p-4 relative">
+          <div class="rounded-2xl border-app bg-card text-app p-4 relative overflow-hidden shadow-card">
             <div class="mb-2 text-sm font-semibold text-app flex items-center justify-between">
               <span>Status by Section</span>
               <div class="flex items-center gap-2 text-xs font-normal">
@@ -650,31 +667,18 @@ onBeforeUnmount(stopTimer)
             <div v-if="!hasBarData && !isLoading" class="h-64 md:h-80 flex items-center justify-center text-sm text-muted">
               No data for current filters
             </div>
-            <div class="rounded-2xl border-app bg-card text-app p-4">
-              <div class="mb-2 text-sm font-semibold text-app flex items-center justify-between">
-                <span>Status by Section</span>
+            <div v-else class="relative h-[300px]">
+              <!-- Loading skeleton -->
+              <div v-if="isLoading" class="absolute inset-0 p-4">
+                <div class="h-6 w-40 rounded bg-[var(--border)]/40 animate-pulse mb-4"></div>
+                <div class="grid grid-cols-6 gap-3 items-end h-[220px]">
+                  <div v-for="i in 6" :key="'skb'+i" class="rounded bg-[var(--border)]/40 animate-pulse" :style="{ height: (20 + i*10) + 'px' }"></div>
+                </div>
               </div>
 
-              <div class="relative h-[300px]">
-                <!-- Loading skeleton -->
-                <div v-if="isLoading" class="absolute inset-0 p-4">
-                  <div class="h-6 w-40 rounded bg-[var(--border)]/40 animate-pulse mb-4"></div>
-                  <div class="grid grid-cols-6 gap-3 items-end h-[220px]">
-                    <div v-for="i in 6" :key="'skb'+i" class="rounded bg-[var(--border)]/40 animate-pulse" :style="{ height: (20 + i*10) + 'px' }"></div>
-                  </div>
-                </div>
-
-                <!-- No data -->
-                <div v-else-if="!hasBarData" class="absolute inset-0 flex items-center justify-center">
-                  <div class="text-sm text-muted">
-                    No data for the current filters.
-                  </div>
-                </div>
-
-                <!-- Chart -->
-                <div v-else class="absolute inset-0">
-                  <BarChart :key="ui.theme + '-bar-' + barKey" :data="statusBySection" :options="barOptions" />
-                </div>
+              <!-- Chart -->
+              <div v-else class="absolute inset-0">
+                <BarChart :key="'bar-' + barKey" :data="statusBySection" :options="barOptions" />
               </div>
             </div>
 
@@ -686,7 +690,7 @@ onBeforeUnmount(stopTimer)
             </div>
           </div>
           <!-- Line -->
-          <div class="rounded-2xl border-app bg-card text-app p-4 relative">
+          <div class="rounded-2xl border-app bg-card text-app p-4 relative overflow-hidden shadow-card">
             <div class="mb-2 text-sm font-semibold text-app flex items-center justify-between">
               <span>Resolved over Time ({{ rangeLabel }})</span>
               <label class="inline-flex items-center gap-1 text-xs font-normal">
@@ -697,31 +701,16 @@ onBeforeUnmount(stopTimer)
             <div v-if="!hasLineData && !isLoading" class="h-64 md:h-80 flex items-center justify-center text-sm text-muted">
               No data for current filters
             </div>
-            <div class="rounded-2xl border-app bg-card text-app p-4">
-              <div class="mb-2 text-sm font-semibold text-app flex items-center justify-between">
-                <span>Resolved over Time ({{ rangeLabel }})</span>
-                <label class="inline-flex items-center gap-1 text-xs font-normal">
-                  <input type="checkbox" v-model="cumulativeMode" class="h-3.5 w-3.5 rounded border-app" />
-                  Cumulative
-                </label>
+            <div v-else class="relative h-[320px]">
+              <!-- Loading skeleton -->
+              <div v-if="isLoading" class="absolute inset-0 p-4">
+                <div class="h-6 w-48 rounded bg-[var(--border)]/40 animate-pulse mb-4"></div>
+                <div class="h-[220px] rounded bg-[var(--border)]/40 animate-pulse"></div>
               </div>
 
-              <div class="relative h-[300px]">
-                <!-- Loading skeleton -->
-                <div v-if="isLoading" class="absolute inset-0 p-4">
-                  <div class="h-6 w-48 rounded bg-[var(--border)]/40 animate-pulse mb-4"></div>
-                  <div class="h-[220px] rounded bg-[var(--border)]/40 animate-pulse"></div>
-                </div>
-
-                <!-- No data -->
-                <div v-else-if="!hasLineData" class="absolute inset-0 flex items-center justify-center">
-                  <div class="text-sm text-muted">No resolved items in this range.</div>
-                </div>
-
-                <!-- Chart -->
-                <div v-else class="absolute inset-0">
-                  <LineChart :key="ui.theme + '-line-' + lineKey" :data="resolvedOverTime" :options="chartOptions" />
-                </div>
+              <!-- Chart -->
+              <div v-else class="absolute inset-0">
+                <LineChart :key="'line-' + lineKey" :data="resolvedOverTime" :options="chartOptions" />
               </div>
             </div>
 
@@ -735,7 +724,7 @@ onBeforeUnmount(stopTimer)
         </div>
       </template>
       <template #right>
-        <div class="rounded-2xl border-app bg-card text-app mt-4 lg:mt-0">
+        <div class="rounded-2xl border-app bg-card text-app mt-4 lg:mt-0 overflow-hidden shadow-card">
           <div class="px-4 py-3 border-b border-app text-sm font-semibold">Recent Failures</div>
           <div class="p-2">
             <RecentFailures
@@ -744,6 +733,7 @@ onBeforeUnmount(stopTimer)
                 :show-bottom-actions="false"
                 :show-row-actions="false"
                 :loading="isLoading"
+                :show-header="false"
                  storage-key="rf-dashboard"
                 @view="openDetails"
               />

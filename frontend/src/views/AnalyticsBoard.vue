@@ -62,7 +62,7 @@
             v-for="r in ranges"
             :key="r.key"
             class="px-3 py-1.5 text-sm rounded-lg border"
-            :class="state[p.id].range === r.key ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)]' : 'bg-card text-app border-app hover:bg-card'"
+            :class="state[p.id].range === r.key ? 'selected-primary' : 'bg-card text-app border-app hover-primary'"
             @click="setRange(p.id, r.key)"
           >
             {{ r.label }}
@@ -85,16 +85,14 @@
               v-for="s in statuses"
               :key="s"
               class="px-2.5 py-1 text-xs rounded-full border"
-              :class="(state[p.id].statuses || []).includes(s)
-                ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)]'
-                : 'bg-card text-app border-app hover:bg-card'"
+              :class="(state[p.id].statuses || []).includes(s) ? 'selected-primary' : 'bg-card text-app border-app hover-primary'"
               @click="togglePanelStatus(p.id, s)"
             >
               {{ s }}
             </button>
 
             <button
-              class="ml-auto px-2.5 py-1 text-xs rounded-full border-app bg-card hover:bg-card"
+              class="ml-auto px-2.5 py-1 text-xs rounded-full border-app bg-card hover-primary"
               title="Select all statuses"
               @click="clearPanelStatuses(p.id)"
             >
@@ -108,7 +106,7 @@
         <div class="px-4 pb-4">
           <div class="relative rounded-xl border-app bg-card text-app overflow-auto" style="min-height: 240px; resize: both;">
             <PanelBody
-              :key="themeKey + '-' + p.id"
+              :key="'panel-' + p.id"
               :panel="p"
               :state="state[p.id]"
               :data="panelData(p)"
@@ -127,10 +125,9 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch, onMounted, onBeforeUnmount, computed } from 'vue'
+import { ref, reactive, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useUIStore } from '@/stores/ui'
 const ui = useUIStore()
-const themeKey = computed(() => ui.theme)
 import PanelBody from '@/components/PanelBody.vue'
 
 /* ------------------- sample data generator ------------------- */

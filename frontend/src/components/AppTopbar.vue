@@ -1,11 +1,21 @@
 <script setup>
 import { useUIStore } from '@/stores/ui'
 import { useAuthStore } from '@/stores/auth'
-import ThemeSwitcherInline from '@/components/ThemeSwitcherInline.vue'
+import { useRoute } from 'vue-router'
+import { computed } from 'vue'
 const emit = defineEmits(['toggleSidebar'])
 
 const ui = useUIStore()
 const auth = useAuthStore()
+const route = useRoute()
+
+const titleMap = {
+  '/dashboard': 'Dashboard',
+  '/logbook': 'Logbook',
+  '/failures/new': 'New Failure',
+  '/analytics': 'Analytics Board',
+}
+const pageTitle = computed(() => route.meta?.title || titleMap[route.path] || titleMap['/' + (route.path.split('/')[1] || '')] || 'RFMS')
 
 function doLogout() {
   auth.logout()
@@ -14,9 +24,8 @@ function doLogout() {
 </script>
 
 <template>
-  <header class="h-14 bg-card border-b border-app text-app flex items-center justify-between px-4">
+  <header class="h-14 navbar border-b border-app flex items-center justify-between px-4">
     <div class="flex items-center gap-2">
-      <ThemeSwitcherInline />
       <button
         class="md:hidden inline-flex items-center justify-center w-9 h-9 rounded-lg border border-app bg-card text-app hover-primary"
         @click="emit('toggleSidebar')"
@@ -25,22 +34,10 @@ function doLogout() {
       >
         ☰
       </button>
-      <div>
-        <h1 class="text-base font-semibold">Railway Failure System</h1>
-        <p class="text-xs text-muted">Frontend scaffold</p>
-      </div>
+      <h1 class="text-base font-semibold">{{ pageTitle }}</h1>
     </div>
 
     <div class="text-sm flex items-center gap-2">
-      <!-- Settings icon-only button -->
-      <button
-        class="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-app bg-card text-app hover-primary"
-        :aria-pressed="String(ui.sidebarCollapsed)"
-        title="Toggle sidebar"
-        @click="ui.toggleSidebarCollapsed()"
-      >
-        <svg viewBox="0 0 24 24" class="w-4 h-4"><path fill="currentColor" d="M3 4h18v2H3zm3 4h12v2H6zm-3 4h18v2H3zm3 4h12v2H6z"/></svg>
-      </button>
       <RouterLink
         to="/settings"
         class="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-app bg-card text-app hover-primary"

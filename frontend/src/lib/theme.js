@@ -41,12 +41,12 @@ export function withAlpha(color, alpha) {
 
 export function currentThemeColors() {
   return {
-    text: getCssVar('--text', '#0f172a'),
-    muted: getCssVar('--muted', '#64748b'),
-    border: getCssVar('--border', '#e5e7eb'),
-    card: getCssVar('--card', '#ffffff'),
-    primary: getCssVar('--primary', '#2563eb'),
-    primary600: getCssVar('--primary-600', '#1d4ed8'),
+    text: getCssVar('--body-text', '#2c3135'),
+    muted: getCssVar('--french-gray-2', '#adb5bd'),
+    border: getCssVar('--platinum', '#dee2e6'),
+    card: getCssVar('--card-bg', '#f8f9fa'),
+    // Chart accent defaults to slate-gray family
+    primary: getCssVar('--slate-gray', '#6c757d'),
+    primary600: getCssVar('--slate-gray-lighter', '#858e96'),
   }
 }
-

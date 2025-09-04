@@ -2,40 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
 export const useUIStore = defineStore('ui', () => {
-  // --- THEME ---
-  const theme = ref(localStorage.getItem('theme') || 'light')
-
-// Add the palettes you want to expose in the UI
-const themes = ref([
-  'light',
-  'dark',
-  'railway',
-  'feather',  // Feather Step Classic
-  'fashion',  // Fashion
-  'cherry',   // The Cherry Tree
-  'lgm',
-  'haqq', 'axencis', 'gantry', 'lukas', 'askit', 'shipp', 'wemakefab', 'stereotype', 'wildgoats', 'gymicons',
-  // you can keep adding more here later:
-  // 'lgm', 'haqq', 'axencis', 'gantry', 'lukas', 'askit', 'shipp', 'wemakefab', 'stereotype', 'wildgoats', 'gymicons'
-])
-
-  /**
-   * Set the active theme and persist it.
-   * @param {string} name - Theme key (e.g., 'light', 'dark', 'railway').
-   * @returns {void}
-   */
-  function setTheme(name) {
-    if (!themes.value.includes(name)) return
-    theme.value = name
-    localStorage.setItem('theme', name)
-  }
-  /**
-   * Toggle between 'light' and 'dark' themes.
-   * @returns {void}
-   */
-  function toggleDark() {
-    setTheme(theme.value === 'dark' ? 'light' : 'dark')
-  }
+  // No theme switching — single unified palette
 
   // --- SIDEBAR ---
   const SIDEBAR_MIN = 56
@@ -97,7 +64,6 @@ const themes = ref([
   }
 
   return {
-    theme, themes, setTheme, toggleDark,
     // sidebar
     sidebarWidth, sidebarCollapsed, computedSidebarWidth,
     setSidebarWidth, setSidebarCollapsed, toggleSidebarCollapsed, snapSidebar,
