@@ -5,9 +5,12 @@ import FailureCard from '@/components/FailureCard.vue'
 import KanbanColumn from '@/components/KanbanColumn.vue'
 import TimelineItem from '@/components/TimelineItem.vue'
 import Spinner from '@/components/ui/Spinner.vue'
+import SearchSelect from '@/components/form/SearchSelect.vue'
+import SectionFilterChips from '@/components/SectionFilterChips.vue'
+import { Bell, Pencil, Trash2, FileDown, FileText, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-vue-next'
 
 import { ref, computed, onMounted } from 'vue'
-import { listFailures } from '@/api/mock'
+import { listFailures, getCircuits, getSections, getStations, getSupervisors, getStatuses } from '@/api/mock'
 
 const view = ref('table') // table | cards | board | timeline
 const query = ref('')
@@ -21,12 +24,44 @@ const rows = ref([])
 const drawerOpen = ref(false)
 const activeItem = ref(null)
 
+// Filter options
+const circuitOptions = ref([])
+const sectionOptions = ref([])
+const stationOptions = ref([])
+const supervisorOptions = ref([])
+const statusOptions = ref([])
+
+// Selected filters
+const selectedCircuits = ref([])
+const selectedSections = ref([])
+const selectedStations = ref([])
+const selectedSupervisors = ref([])
+const selectedStatuses = ref([])
+
+// Pagination and sorting
+const rowsPerPage = ref(20)
+const currentPage = ref(1)
+const sortKey = ref('reported_at')
+const sortDir = ref('desc')
+
 onMounted(async () => {
   loading.value = true
   error.value = ''
   try {
-    const { results } = await listFailures()
-    rows.value = results
+    const [failures, circuits, sections, stations, supervisors, statuses] = await Promise.all([
+      listFailures(),
+      getCircuits(),
+      getSections(),
+      getStations(),
+      getSupervisors(),
+      getStatuses(),
+    ])
+    rows.value = failures.results
+    circuitOptions.value = circuits
+    sectionOptions.value = sections
+    stationOptions.value = stations
+    supervisorOptions.value = supervisors
+    statusOptions.value = statuses
   } catch (e) {
     error.value = e?.message || 'Failed to load logbook data'
   } finally {
@@ -40,15 +75,28 @@ const toTs = (s) => {
   return Number.isNaN(d.getTime()) ? 0 : d.getTime()
 }
 
+function formatDuration(start, end) {
+  if (!start || !end) return '–'
+  const diff = toTs(end) - toTs(start)
+  if (diff < 0) return '–'
+  const minutes = Math.floor(diff / 60000)
+  if (minutes < 60) return `${minutes}m`
+  const hours = Math.floor(minutes / 60)
+  const mins = minutes % 60
+  return `${hours}h ${mins}m`
+}
+
 const columns = [
-  { key: 'reported_at', label: 'Reported', sortAccessor: (r) => toTs(r.reported_at) },
-  { key: 'fail_id',     label: 'FailID' },
-  { key: 'circuit',     label: 'Circuit' },
-  { key: 'station',     label: 'Station' },
-  { key: 'section',     label: 'Section' },
-  { key: 'assigned_to', label: 'Assigned' },
-  { key: 'status',      label: 'Status', sortAccessor: (r) => statusOrder[r.status] || 99 },
-  { key: 'actions',     label: 'Actions', sortable: false, align: 'text-right', width: '120px' },
+  { key: 'reported_at', label: 'Reported', sortAccessor: (r) => toTs(r.reported_at), align: 'text-left' },
+  { key: 'resolved_at', label: 'Resolve Time', sortAccessor: (r) => toTs(r.resolved_at), align: 'text-center' },
+  { key: 'duration',    label: 'Duration', sortable: false, align: 'text-center' },
+  { key: 'fail_id',     label: 'FailID', align: 'text-center' },
+  { key: 'circuit',     label: 'Circuit', align: 'text-center' },
+  { key: 'station',     label: 'Station', align: 'text-center' },
+  { key: 'section',     label: 'Section', align: 'text-center' },
+  { key: 'assigned_to', label: 'Assigned', align: 'text-center' },
+  { key: 'status',      label: 'Status', sortAccessor: (r) => statusOrder[r.status] || 99, align: 'text-center' },
+  { key: 'actions',     label: 'Actions', sortable: false, align: 'text-center', width: '120px' },
 ]
 
 function rangeStartEnd() {
@@ -77,7 +125,59 @@ const filteredRows = computed(() => {
       return inRange
     })
     .filter(r => !q || Object.values(r).some(v => String(v).toLowerCase().includes(q)))
+    .filter(r => selectedCircuits.value.length === 0 || selectedCircuits.value.includes(r.circuit))
+    .filter(r => selectedSections.value.length === 0 || selectedSections.value.includes(r.section))
+    .filter(r => selectedStations.value.length === 0 || selectedStations.value.includes(r.station))
+    .filter(r => selectedSupervisors.value.length === 0 || selectedSupervisors.value.includes(r.assigned_to))
+    .filter(r => selectedStatuses.value.length === 0 || selectedStatuses.value.includes(r.status))
 })
+
+const sortedRows = computed(() => {
+  const data = [...filteredRows.value]
+  const col = columns.find(c => c.key === sortKey.value)
+  if (!col) return data
+  const dir = sortDir.value === 'asc' ? 1 : -1
+  const acc = typeof col.sortAccessor === 'function'
+    ? (r) => col.sortAccessor(r)
+    : (r) => r[col.key]
+  return data.sort((a, b) => {
+    const av = acc(a)
+    const bv = acc(b)
+    if (av == null && bv == null) return 0
+    if (av == null) return -1 * dir
+    if (bv == null) return  1 * dir
+    const na = Number(av), nb = Number(bv)
+    const va = Number.isNaN(na) ? String(av) : na
+    const vb = Number.isNaN(nb) ? String(bv) : nb
+    return (va > vb ? 1 : va < vb ? -1 : 0) * dir
+  })
+})
+
+const totalPages = computed(() => Math.ceil(sortedRows.value.length / rowsPerPage.value))
+
+const paginatedRows = computed(() => {
+  const start = (currentPage.value - 1) * rowsPerPage.value
+  const end = start + rowsPerPage.value
+  return sortedRows.value.slice(start, end)
+})
+
+const activeFilters = computed(() => {
+  const filters = {}
+  if (selectedCircuits.value.length) filters['Circuit'] = selectedCircuits.value
+  if (selectedSections.value.length) filters['Section'] = selectedSections.value
+  if (selectedStations.value.length) filters['Station'] = selectedStations.value
+  if (selectedSupervisors.value.length) filters['Supervisor'] = selectedSupervisors.value
+  if (selectedStatuses.value.length) filters['Status'] = selectedStatuses.value
+  return filters
+})
+
+function removeFilter(category, value) {
+  if (category === 'Circuit') selectedCircuits.value = selectedCircuits.value.filter(v => v !== value)
+  if (category === 'Section') selectedSections.value = selectedSections.value.filter(v => v !== value)
+  if (category === 'Station') selectedStations.value = selectedStations.value.filter(v => v !== value)
+  if (category === 'Supervisor') selectedSupervisors.value = selectedSupervisors.value.filter(v => v !== value)
+  if (category === 'Status') selectedStatuses.value = selectedStatuses.value.filter(v => v !== value)
+}
 
 function openDetails(r) {
   // map to FailureDetailsDrawer schema
@@ -89,7 +189,7 @@ function openDetails(r) {
     station: r.station,
     circuit: r.circuit,
     reportedAt: toTs(r.reported_at),
-    resolvedAt: null,
+    resolvedAt: r.resolved_at ? toTs(r.resolved_at) : null,
     notes: r.notes || ''
   }
   drawerOpen.value = true
@@ -151,6 +251,21 @@ const statuses = ['Active', 'Resolved']
 const byStatus = computed(() =>
   Object.fromEntries(statuses.map(s => [s, filteredRows.value.filter(r => r.status === s)]))
 )
+
+function toggleSort(key) {
+  if (sortKey.value === key) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortKey.value = key
+    sortDir.value = 'asc'
+  }
+}
+
+function goToFirstPage() { currentPage.value = 1 }
+function goToLastPage() { currentPage.value = totalPages.value }
+function goToNextPage() { if (currentPage.value < totalPages.value) currentPage.value++ }
+function goToPreviousPage() { if (currentPage.value > 1) currentPage.value-- }
+
 </script>
 
 <template>
@@ -196,14 +311,34 @@ const byStatus = computed(() =>
       </div>
     </div>
 
-    <!-- Search below header row -->
-    <div>
+    <!-- Search and Filter Bar -->
+    <div class="flex flex-wrap items-center gap-4">
       <input
         v-model="query"
         type="text"
         placeholder="Search..."
-        class="h-10 w-full sm:w-96 rounded-lg border-app bg-card text-app px-3 text-sm"
+        class="h-10 w-full rounded-lg border-app bg-card text-app px-3 text-sm md:w-auto"
       />
+      <SearchSelect v-model="selectedCircuits" :options="circuitOptions" placeholder="Filter by Circuit" multiple />
+      <SearchSelect v-model="selectedSections" :options="sectionOptions" placeholder="Filter by Section" multiple />
+      <SearchSelect v-model="selectedStations" :options="stationOptions" placeholder="Filter by Station" multiple />
+      <SearchSelect v-model="selectedSupervisors" :options="supervisorOptions" placeholder="Filter by Supervisor" multiple />
+      <SearchSelect v-model="selectedStatuses" :options="statusOptions" placeholder="Filter by Status" multiple />
+      <div class="flex items-center gap-2 ml-auto">
+          <span class="text-sm text-muted">Per page</span>
+          <select v-model="rowsPerPage" class="chip text-app hover-primary">
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="30">30</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+      </div>
+    </div>
+
+    <!-- Filter Chips -->
+    <div v-if="Object.keys(activeFilters).length">
+      <SectionFilterChips :filters="activeFilters" @remove="removeFilter" />
     </div>
 
     <!-- Loading -->
@@ -226,56 +361,86 @@ const byStatus = computed(() =>
 
       <!-- Cards view -->
       <div v-else-if="view === 'cards'" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <FailureCard v-for="(r, i) in filteredRows" :key="i" :item="r" />
+        <FailureCard v-for="(r, i) in paginatedRows" :key="i" :item="r" />
       </div>
 
       <!-- Table view -->
       <div v-else-if="view === 'table'">
       <DataTable
         :columns="columns"
-        :rows="filteredRows"
-        default-sort-key="reported_at"
-        default-sort-dir="desc"
+        :rows="paginatedRows"
+        :sort-key="sortKey"
+        :sort-dir="sortDir"
+        @sort="toggleSort"
         @rowclick="openDetails"
       >
         <template #reported_at="{ row }">
           {{ new Date(row.reported_at.replace(' ', 'T')).toLocaleString() }}
         </template>
+        <template #resolved_at="{ row }">
+          {{ row.resolved_at ? new Date(row.resolved_at.replace(' ', 'T')).toLocaleString() : '–' }}
+        </template>
+        <template #duration="{ row }">
+          {{ formatDuration(row.reported_at, row.resolved_at) }}
+        </template>
         <template #status="{ row }">
           <span class="badge"
-            :class="row.status==='Resolved' ? 'badge-success' : row.status==='Active' ? 'badge-danger' : row.status==='In Progress' ? 'badge-warning' : row.status==='On Hold' ? 'badge-hold' : 'badge-neutral'">
+            :class="row.status==='Resolved' ? 'badge-success' : row.status==='Active' ? 'badge-danger' : row.status==='In Progress' ? 'badge-warning' : row.status==='On Hold' ? 'badge-hold' : 'badge-neutral'"
+          >
             {{ row.status }}
           </span>
         </template>
         <template #actions="{ row }">
-          <div class="flex items-center justify-end gap-1.5">
+          <div class="flex items-center justify-center gap-1.5">
             <button class="btn-ghost border-app rounded-md hover-primary p-2" aria-label="Notify" title="Notify" @click.stop>
-              <svg viewBox="0 0 24 24" class="w-4 h-4"><path fill="currentColor" d="M12 22a2 2 0 0 0 2-2H10a2 2 0 0 0 2 2Zm6-6V11a6 6 0 1 0-12 0v5l-2 2v1h16v-1Z"/></svg>
+              <Bell class="w-4 h-4" />
             </button>
             <button class="btn-ghost border-app rounded-md hover-primary p-2" aria-label="Edit" title="Edit" @click.stop>
-              <svg viewBox="0 0 24 24" class="w-4 h-4"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75ZM20.71 7.04a1.003 1.003 0 0 0 0-1.42l-2.34-2.34a1.003 1.003 0 0 0-1.42 0l-1.83 1.83l3.75 3.75l1.84-1.82Z"/></svg>
+              <Pencil class="w-4 h-4" />
             </button>
             <button class="btn-ghost border-app rounded-md hover-primary p-2" aria-label="Delete" title="Delete" @click.stop>
-              <svg viewBox="0 0 24 24" class="w-4 h-4"><path fill="currentColor" d="M6 7h12l-1 14H7L6 7Zm3-4h6l1 2h4v2H4V5h4l1-2Z"/></svg>
+              <Trash2 class="w-4 h-4" />
             </button>
           </div>
         </template>
       </DataTable>
 
-      <!-- Bottom export buttons -->
-      <div class="mt-4 flex items-center justify-end gap-2">
-        <button class="btn-ghost border-app rounded-md hover-primary p-2" aria-label="Export CSV" title="Export CSV" @click="exportCSV(filteredRows)">
-          <svg viewBox="0 0 24 24" class="w-5 h-5"><path fill="currentColor" d="M5 20h14v-2H5v2ZM5 4v2h14V4H5Zm7 8l-4 4h3v4h2v-4h3l-4-4Z"/></svg>
-        </button>
-        <button class="btn-ghost border-app rounded-md hover-primary p-2" aria-label="Export PDF" title="Export PDF" @click="exportPDF(filteredRows, 'Logbook Export')">
-          <svg viewBox="0 0 24 24" class="w-5 h-5"><path fill="currentColor" d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm8 7V3.5L19.5 9H14Z"/></svg>
-        </button>
+      <!-- Bottom controls -->
+      <div>
+        <!-- Export buttons -->
+        <div class="mt-4 flex items-center justify-center gap-2">
+            <button class="chip capitalize text-app hover-primary gap-2" @click="exportCSV(sortedRows)">
+              <FileDown class="w-4 h-4" />
+              <span>Export CSV</span>
+            </button>
+            <button class="chip capitalize text-app hover-primary gap-2" @click="exportPDF(sortedRows, 'Logbook Export')">
+              <FileText class="w-4 h-4" />
+              <span>Export PDF</span>
+            </button>
+        </div>
+
+        <!-- Pagination -->
+        <div class="mt-4 flex items-center justify-end gap-2">
+            <button @click="goToFirstPage" :disabled="currentPage === 1" class="btn-ghost border-app rounded-md hover-primary p-2" title="First Page">
+              <ChevronsLeft class="w-4 h-4" />
+            </button>
+            <button @click="goToPreviousPage" :disabled="currentPage === 1" class="btn-ghost border-app rounded-md hover-primary p-2" title="Previous Page">
+              <ChevronLeft class="w-4 h-4" />
+            </button>
+            <span class="text-sm text-muted">Page {{ currentPage }} of {{ totalPages }}</span>
+            <button @click="goToNextPage" :disabled="currentPage === totalPages" class="btn-ghost border-app rounded-md hover-primary p-2" title="Next Page">
+              <ChevronRight class="w-4 h-4" />
+            </button>
+            <button @click="goToLastPage" :disabled="currentPage === totalPages" class="btn-ghost border-app rounded-md hover-primary p-2" title="Last Page">
+              <ChevronsRight class="w-4 h-4" />
+            </button>
+        </div>
       </div>
       </div>
 
       <!-- Timeline view -->
       <div v-else-if="view === 'timeline'" class="space-y-4">
-        <TimelineItem v-for="(r, i) in filteredRows" :key="i" :item="r" />
+        <TimelineItem v-for="(r, i) in sortedRows" :key="i" :item="r" />
       </div>
 
       <!-- Fallback -->

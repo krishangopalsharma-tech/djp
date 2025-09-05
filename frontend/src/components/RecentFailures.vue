@@ -27,6 +27,15 @@ const q = ref('')
 const status = ref('all') // 'all' | 'Active' | 'In Progress' | 'Resolved' | 'On Hold'
 const statusTabs = ['all', 'Active', 'In Progress', 'Resolved', 'On Hold']
 
+function statusTabVariant(tab) {
+  if (tab === 'all') return 'chip-variant-all'
+  if (tab === 'Active') return 'chip-variant-active'
+  if (tab === 'In Progress') return 'chip-variant-inprog'
+  if (tab === 'Resolved') return 'chip-variant-resolved'
+  if (tab === 'On Hold') return 'chip-variant-onhold'
+  return ''
+}
+
 /* -------- Sorting -------- */
 const sortKey = ref('reportedAt') // 'id' | 'circuit' | 'station' | 'section' | 'status' | 'reportedAt' | 'resolvedAt'
 const sortDir = ref('desc')       // 'asc' | 'desc'
@@ -197,12 +206,13 @@ function rowStyle(s) {
     <div class="rounded-2xl border-app bg-card text-app p-4">
       <!-- Toolbar -->
       <div v-if="showToolbar" class="p-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div class="inline-flex rounded-lg border-app bg-card p-1 w-fit">
+        <div class="chip-group">
           <button
             v-for="tab in statusTabs"
             :key="tab"
-            class="px-3 py-1.5 text-sm rounded-md capitalize"
-            :class="status === tab ? 'selected-primary' : 'text-app hover-primary'"
+            class="chip capitalize"
+            :class="status === tab ? statusTabVariant(tab) + ' is-active' : 'text-app hover-primary'"
+            :aria-pressed="String(status === tab)"
             @click="status = tab"
           >
             {{ tab }}

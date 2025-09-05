@@ -39,14 +39,26 @@ function toggleStatus(key) {
   emit('update:modelValue', { ...props.modelValue, status: Array.from(set) })
 }
 
-function chipClassForStatus(key) {
+function statusStyle(key) {
+  if (!selectedStatuses.value.has(key)) return {}
+  const style = { color: '#0b1b1f' } // --s-on-light
   switch (key) {
-    case 'Resolved':    return 'chip chip-active-resolved'
-    case 'In Progress': return 'chip chip-active-inprogress'
-    case 'On Hold':     return 'chip chip-active-onhold'
-    case 'Active':      return 'chip chip-active-active'
-    default:            return 'chip'
+    case 'Resolved':
+      style.backgroundColor = '#8FE0AD'
+      break
+    case 'Active':
+      style.backgroundColor = '#FC9796'
+      break
+    case 'In Progress':
+      style.backgroundColor = '#EEEE96'
+      break
+    case 'On Hold':
+      style.backgroundColor = '#FFC08C'
+      break
+    default:
+      return {}
   }
+  return style
 }
 </script>
 
@@ -66,13 +78,14 @@ function chipClassForStatus(key) {
       </button>
     </div>
 
-    <!-- Status toggles -->
+    <!-- Status toggles (colored by status; no hover change when active) -->
     <div v-if="showStatuses" class="flex flex-wrap gap-2">
       <button
         v-for="s in statusOptions"
         :key="s.key"
         class="chip"
-        :class="selectedStatuses.has(s.key) ? 'selected-primary' : 'text-app hover-primary'"
+        :class="{ 'is-active': selectedStatuses.has(s.key), 'text-app hover-primary': !selectedStatuses.has(s.key) }"
+        :style="statusStyle(s.key)"
         :aria-pressed="String(selectedStatuses.has(s.key))"
         @click="toggleStatus(s.key)"
       >

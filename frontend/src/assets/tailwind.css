@@ -37,13 +37,16 @@
   /* Sidebar link styling */
   .sidebar-link { color: var(--sidebar-fg-muted); }
   .sidebar-link:hover { color: var(--sidebar-fg); background-color: color-mix(in srgb, var(--sidebar-fg) 8%, transparent); }
-  .sidebar-link-active { color: var(--sidebar-fg); background-color: color-mix(in srgb, var(--sidebar-fg) 12%, transparent); }
+  .sidebar-link-active, .sidebar-link-active:hover { color: var(--sidebar-fg); background-color: color-mix(in srgb, var(--sidebar-fg) 12%, transparent); }
 
   /* Hover/selected state helpers */
   .hover-primary:not(.selected-primary):hover { background-color: var(--slate-gray-lighter); color: var(--seasalt); }
   .selected-primary { background-color: var(--slate-gray); color: var(--seasalt); border-color: var(--slate-gray); }
   /* Treat aria-pressed=true as active for chips */
   .chip[aria-pressed="true"] { background-color: var(--slate-gray); color: var(--seasalt); border-color: var(--slate-gray); box-shadow: var(--shadow-resting); }
+  /* Disable hover visual change when active */
+  .chip.selected-primary:hover,
+  .chip[aria-pressed="true"]:hover { background-color: var(--slate-gray); color: var(--seasalt); border-color: var(--slate-gray); box-shadow: var(--shadow-resting); }
 
   /* Chips */
   /* Inactive/neutral pill with subtle elevation */
@@ -57,6 +60,15 @@
   .chip:focus-visible { outline: 2px solid color-mix(in srgb, var(--slate-gray) 40%, transparent); outline-offset: 0; }
   /* Compact transparent chip cluster (no background strip) */
   .chip-group { @apply inline-flex rounded-lg p-1 gap-2; }
+
+  /* Status-colored chip variants (for Dashboard/New Failure filters) */
+  .chip-variant-all       { background-color: var(--s-all);        color: var(--s-on-dark); }
+  .chip-variant-active    { background-color: var(--s-active);     color: var(--s-on-light); }
+  .chip-variant-inprog    { background-color: var(--s-inprogress); color: var(--s-on-light); }
+  .chip-variant-resolved  { background-color: var(--s-resolved);   color: var(--s-on-light); }
+  .chip-variant-onhold    { background-color: var(--s-onhold);     color: var(--s-on-light); }
+  /* Remove hover change for any active status chip */
+  .chip.is-active:hover { background: inherit; color: inherit; box-shadow: var(--shadow-resting); }
 
   /* Badges for statuses (use global status palette) */
   .badge { @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border; }

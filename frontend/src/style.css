@@ -1,4 +1,8 @@
 /* Trim default Vite styles to avoid conflicting with Tailwind + token-based theming. */
+/* palettes */
+@import "@/styles/palettes.css";
+/* status palette */
+@import "@/styles/status-palette.css";
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;

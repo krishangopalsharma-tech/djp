@@ -8,7 +8,13 @@ import './style.css'
 import { applyChartTheme } from './lib/chartTheme'
 
 const app = createApp(App)
-app.use(createPinia())
+const pinia = createPinia()
+app.use(pinia)
+
+// Hydrate auth store from localStorage
+import { useAuthStore } from './stores/auth'
+const authStore = useAuthStore()
+authStore.initFromStorage()
 app.use(router)
 // Apply Chart.js theme defaults from CSS vars (single theme)
 applyChartTheme()
