@@ -1,5 +1,6 @@
 /* Unified palette */
 @import "@/styles/palettes.css";
+@import "@/styles/status-palette.css";
 
 @tailwind base;
 @tailwind components;
@@ -41,30 +42,40 @@
   /* Hover/selected state helpers */
   .hover-primary:not(.selected-primary):hover { background-color: var(--slate-gray-lighter); color: var(--seasalt); }
   .selected-primary { background-color: var(--slate-gray); color: var(--seasalt); border-color: var(--slate-gray); }
+  /* Treat aria-pressed=true as active for chips */
+  .chip[aria-pressed="true"] { background-color: var(--slate-gray); color: var(--seasalt); border-color: var(--slate-gray); box-shadow: var(--shadow-resting); }
 
   /* Chips */
-  .chip { @apply px-3 py-1.5 text-sm rounded-md; background: transparent; color: var(--body-text); }
+  /* Inactive/neutral pill with subtle elevation */
+  .chip { @apply inline-flex items-center justify-center h-10 px-4 text-sm rounded-full transition;
+    background-color: var(--card-bg);
+    color: var(--body-text);
+    box-shadow: var(--shadow-resting);
+  }
+  .chip:hover { box-shadow: var(--shadow-hover); background-color: var(--seasalt-lighter); }
+  .chip:active { box-shadow: var(--shadow-resting); }
   .chip:focus-visible { outline: 2px solid color-mix(in srgb, var(--slate-gray) 40%, transparent); outline-offset: 0; }
-  .chip-group { @apply inline-flex rounded-lg p-1 bg-card; }
+  /* Compact transparent chip cluster (no background strip) */
+  .chip-group { @apply inline-flex rounded-lg p-1 gap-2; }
 
-  /* Badges for statuses */
+  /* Badges for statuses (use global status palette) */
   .badge { @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border; }
-  /* Resolved → green */
-  .badge-success { background-color: var(--status-green); color: var(--on-status-green); border-color: color-mix(in srgb, var(--status-green) 70%, transparent); }
-  /* In Progress → yellow */
-  .badge-warning { background-color: var(--status-yellow); color: var(--on-status-yellow); border-color: color-mix(in srgb, var(--status-yellow) 70%, transparent); }
-  /* Active → red */
-  .badge-danger  { background-color: var(--status-red); color: var(--on-status-red); border-color: color-mix(in srgb, var(--status-red) 70%, transparent); }
-  /* On Hold → amber */
-  .badge-hold    { background-color: var(--status-amber); color: var(--on-status-amber); border-color: color-mix(in srgb, var(--status-amber) 70%, transparent); }
+  .badge-success { background-color: var(--s-resolved);    color: var(--eerie-black); border-color: color-mix(in srgb, var(--s-resolved) 70%, transparent); }
+  .badge-warning { background-color: var(--s-inprogress);  color: var(--eerie-black); border-color: color-mix(in srgb, var(--s-inprogress) 70%, transparent); }
+  .badge-danger  { background-color: var(--s-active);      color: var(--eerie-black); border-color: color-mix(in srgb, var(--s-active) 70%, transparent); }
+  .badge-hold    { background-color: var(--s-onhold);      color: var(--eerie-black); border-color: color-mix(in srgb, var(--s-onhold) 70%, transparent); }
   /* Neutral */
   .badge-neutral { background-color: var(--seasalt); color: var(--body-text); border-color: var(--platinum); }
 
   /* Status chip active fills */
-  .chip-active-resolved    { background-color: var(--status-green); color: var(--on-status-green); }
-  .chip-active-inprogress  { background-color: var(--status-yellow); color: var(--on-status-yellow); }
-  .chip-active-onhold      { background-color: var(--status-amber); color: var(--on-status-amber); }
-  .chip-active-active      { background-color: var(--status-red); color: var(--on-status-red); }
+  .chip-active-resolved    { background-color: var(--s-resolved);    color: var(--eerie-black); box-shadow: var(--shadow-resting); }
+  .chip-active-inprogress  { background-color: var(--s-inprogress);  color: var(--eerie-black); box-shadow: var(--shadow-resting); }
+  .chip-active-onhold      { background-color: var(--s-onhold);      color: var(--eerie-black); box-shadow: var(--shadow-resting); }
+  .chip-active-active      { background-color: var(--s-active);      color: var(--eerie-black); box-shadow: var(--shadow-resting); }
+  .chip-active-resolved:hover,
+  .chip-active-inprogress:hover,
+  .chip-active-onhold:hover,
+  .chip-active-active:hover { box-shadow: var(--shadow-hover); }
 
   /* Buttons */
   .btn { @apply inline-flex items-center justify-center gap-2 h-10 px-4 rounded-lg text-sm font-medium transition; background-color: var(--button-primary); color: var(--seasalt); box-shadow: var(--shadow-resting); }
@@ -88,4 +99,8 @@
   /* Cards */
   .card { @apply rounded-2xl border p-4 overflow-hidden; background: var(--card-bg); border-color: var(--platinum); color: var(--body-text); box-shadow: var(--shadow-card); transition: box-shadow 0.2s ease, background-color 0.2s ease; }
   .card:hover { background-color: var(--seasalt-lighter); box-shadow: var(--shadow-card-hover); }
+
+  /* Equal-height widget helper */
+  .widget-eq { @apply min-h-[420px] h-full; }
+  .widget-eq-body { @apply h-full; }
 }

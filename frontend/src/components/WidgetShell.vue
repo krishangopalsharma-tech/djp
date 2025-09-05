@@ -6,7 +6,7 @@ const props = defineProps({
 
   // v-models
   chartType: { type: String, default: 'bar' },              // 'bar' | 'line' | 'pie' | 'doughnut' | 'table'
-  range:     { type: String, default: 'today' },            // 'today' | 'week' | 'month' | 'year' | 'custom'
+  range:     { type: String, default: 'today' },            // 'today' | '7d' | '30d' | 'custom'
 
   // optional: show the small “…” action icons later
   dense: { type: Boolean, default: false },
@@ -16,9 +16,8 @@ const emit = defineEmits(['update:chartType', 'update:range', 'refresh'])
 
 const ranges = [
   { key: 'today', label: 'Today' },
-  { key: 'week',  label: 'This Week' },
-  { key: 'month', label: 'This Month' },
-  { key: 'year',  label: 'This Year' },
+  { key: '7d',    label: 'Last 7 days' },
+  { key: '30d',   label: 'Last 30 days' },
   { key: 'custom',label: 'Custom' },
 ]
 
@@ -54,13 +53,14 @@ function setType(e){ emit('update:chartType', e.target.value) }
       -->
     </div>
 
-    <!-- Time filters -->
-    <div class="mb-3 flex flex-wrap gap-2">
+    <!-- Time filters (chips) -->
+    <div class="mb-3 chip-group">
       <button
         v-for="r in ranges"
         :key="r.key"
-        class="px-3 py-1.5 text-sm rounded-md border transition"
-        :class="range === r.key ? 'selected-primary' : 'bg-card text-app border-app hover-primary'"
+        class="chip"
+        :class="range === r.key ? 'selected-primary' : 'text-app hover-primary'"
+        :aria-pressed="String(range === r.key)"
         @click="setRange(r.key)"
       >
         {{ r.label }}

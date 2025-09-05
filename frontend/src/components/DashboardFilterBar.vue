@@ -59,6 +59,7 @@ function chipClassForStatus(key) {
         :key="r.key"
         class="chip"
         :class="selectedRange === r.key ? 'selected-primary' : 'text-app hover-primary'"
+        :aria-pressed="String(selectedRange === r.key)"
         @click="setRange(r.key)"
       >
         {{ r.label }}
@@ -70,8 +71,9 @@ function chipClassForStatus(key) {
       <button
         v-for="s in statusOptions"
         :key="s.key"
-        class="rounded-full transition"
-        :class="selectedStatuses.has(s.key) ? chipClassForStatus(s.key) : 'chip text-app hover-primary'"
+        class="chip"
+        :class="selectedStatuses.has(s.key) ? 'selected-primary' : 'text-app hover-primary'"
+        :aria-pressed="String(selectedStatuses.has(s.key))"
         @click="toggleStatus(s.key)"
       >
         {{ s.label }}

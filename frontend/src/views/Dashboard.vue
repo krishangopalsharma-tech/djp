@@ -2,6 +2,7 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useUIStore } from '@/stores/ui'
 import { getCssVar, withAlpha } from '@/lib/theme'
+import { bgColor, borderColor } from '@/lib/statusColors'
 import SplitPane from '@/components/SplitPane.vue'
 import KpiCard from '@/components/KpiCard.vue'
 import BarChart from '@/components/BarChart.vue'
@@ -21,6 +22,8 @@ const topNMode = ref(true)
 const topN = ref(10)
 const autoRefresh = ref(false)
 const intervalMs = ref(30000)
+// Width percentage of left chart (Status by Section)
+const chartsSplit = ref(60)
 const cumulativeMode = ref(true) // true = cumulative (current); false = per-interval
 
 // Load UI controls once (safe even if storage is empty)
@@ -181,8 +184,8 @@ const statusBySection = computed(() => {
     return {
       labels,
       datasets: [
-        { label: 'Active',   data: active,   backgroundColor: 'rgba(239,68,68,0.5)',  borderRadius: 6 },
-        { label: 'Resolved', data: resolved, backgroundColor: 'rgba(34,197,94,0.5)', borderRadius: 6 },
+        { label: 'Active',   data: active,   backgroundColor: bgColor('Active', 0.8),   borderColor: borderColor('Active'),   borderWidth: 1, borderRadius: 6 },
+        { label: 'Resolved', data: resolved, backgroundColor: bgColor('Resolved', 0.8), borderColor: borderColor('Resolved'), borderWidth: 1, borderRadius: 6 },
       ],
     }
   }
@@ -202,8 +205,8 @@ const statusBySection = computed(() => {
   return {
     labels: labels2,
     datasets: [
-      { label: 'Active',   data: active2,   backgroundColor: 'rgba(239,68,68,0.5)',  borderRadius: 6 },
-      { label: 'Resolved', data: resolved2, backgroundColor: 'rgba(34,197,94,0.5)', borderRadius: 6 },
+      { label: 'Active',   data: active2,   backgroundColor: bgColor('Active', 0.8),   borderColor: borderColor('Active'),   borderWidth: 1, borderRadius: 6 },
+      { label: 'Resolved', data: resolved2, backgroundColor: bgColor('Resolved', 0.8), borderColor: borderColor('Resolved'), borderWidth: 1, borderRadius: 6 },
     ],
   }
 })
@@ -264,7 +267,8 @@ const resolvedOverTime = computed(() => {
   // per-interval = first bucket stays same, next buckets are diffs
   const per = cum.map((v, idx) => idx === 0 ? v : v - cum[idx - 1])
   const series = cumulativeMode.value ? cum : per
-  const primary = getCssVar('--primary', '#3b82f6')
+  // Use status color for Resolved series
+  const primary = borderColor('Resolved')
   return {
     labels,
     datasets: [{
@@ -544,14 +548,10 @@ onBeforeUnmount(stopTimer)
 <template>
   <div class="space-y-6">
     <!-- Header: left (range chips) | center (title) | right (status chips) -->
-    <div class="grid grid-cols-1 gap-3 md:grid-cols-3 md:items-center">
+    <div class="grid grid-cols-1 gap-3 md:grid-cols-2 md:items-center">
       <!-- Left: Range chips -->
       <div class="order-2 md:order-1 md:justify-self-start">
         <DashboardFilterBar v-model="filters" :show-statuses="false" />
-      </div>
-      <!-- Center: Title -->
-      <div class="order-1 md:order-2 md:justify-self-center">
-        <h2 class="text-2xl font-semibold text-center">Dashboard</h2>
       </div>
       <!-- Right: Status chips -->
       <div class="order-3 md:order-3 md:justify-self-end">
@@ -559,28 +559,26 @@ onBeforeUnmount(stopTimer)
       </div>
     </div>
 
-    <div class="mt-1">
-      <SectionPicker v-model="filters.sections" :sections="allSectionsMaster" :max-inline="6" placeholder="Search sections…" />
-    </div>
-    
-    <!-- Toolbar -->
-    <div class="flex items-center gap-3 justify-between">
-      <div class="text-xs text-muted">Last updated: {{ timeAgo(lastUpdated) }}</div>
-      <div class="flex items-center gap-2">
-        <select v-model="intervalMs" class="rounded-lg border-app bg-card text-app px-2 py-1 text-sm" title="Auto-refresh interval">
+    <!-- Unified header controls (single responsive row) -->
+    <div class="mt-3 mb-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="min-w-[260px] shrink-0">
+        <SectionPicker v-model="filters.sections" :sections="allSectionsMaster" :max-inline="6" placeholder="Search sections…" />
+      </div>
+      <div class="flex flex-wrap items-center gap-2 shrink-0">
+        <select v-model="intervalMs" class="h-10 rounded-lg border-app bg-card text-app px-2 text-sm" title="Auto-refresh interval">
           <option :value="10000">10s</option>
           <option :value="30000">30s</option>
           <option :value="60000">1m</option>
           <option :value="300000">5m</option>
         </select>
-        <label class="flex items-center gap-2 text-sm text-app">
+        <label class="h-10 inline-flex items-center gap-2 text-sm text-app px-2">
           <input type="checkbox" v-model="autoRefresh" class="h-4 w-4 rounded border-app align-middle" />
           <span class="align-middle">Auto-refresh</span>
         </label>
         <button
           @click="refresh"
           :disabled="isLoading"
-          class="inline-flex items-center gap-2 rounded-lg border-app bg-card text-app px-3 py-2 text-sm hover:bg-card disabled:opacity-60 disabled:cursor-not-allowed"
+          class="h-10 inline-flex items-center gap-2 rounded-lg border-app bg-card text-app px-3 text-sm shadow-card hover:shadow-popover hover:bg-[var(--seasalt-lighter)] transition disabled:opacity-60 disabled:cursor-not-allowed"
           title="Refresh now"
         >
           <svg viewBox="0 0 24 24" class="w-4 h-4 shrink-0 align-middle">
@@ -591,7 +589,7 @@ onBeforeUnmount(stopTimer)
         <button
           @click="(() => { filters.value = { range: 'today', status: ['Active','In Progress','Resolved','On Hold'], sections: [...allSectionsMaster] }; lastUpdated.value = Date.now() })()"
           :disabled="isLoading"
-          class="inline-flex items-center gap-2 rounded-lg border-app bg-card text-app px-3 py-2 text-sm hover:bg-card disabled:opacity-60 disabled:cursor-not-allowed"
+          class="h-10 inline-flex items-center gap-2 rounded-lg border-app bg-card text-app px-3 text-sm shadow-card hover:shadow-popover hover:bg-[var(--seasalt-lighter)] transition disabled:opacity-60 disabled:cursor-not-allowed"
           title="Reset to Today + All statuses + All sections"
         >
           <svg viewBox="0 0 24 24" class="w-4 h-4 shrink-0 align-middle">
@@ -641,90 +639,95 @@ onBeforeUnmount(stopTimer)
     <!-- Split charts (left) and recent list (right) -->
     <SplitPane v-model="split">
       <template #left>
-        <div class="grid gap-4 lg:grid-cols-2">
-          <!-- Bar -->
-          <div class="rounded-2xl border-app bg-card text-app p-4 relative overflow-hidden shadow-card">
-            <div class="mb-2 text-sm font-semibold text-app flex items-center justify-between">
-              <span>Status by Section</span>
-              <div class="flex items-center gap-2 text-xs font-normal">
-                <label class="inline-flex items-center gap-1">
-                  <input type="checkbox" v-model="topNMode" class="h-3.5 w-3.5 rounded border-app" />
-                  Top-N
-                </label>
-                <select
-                  v-model="topN"
-                  :disabled="!topNMode"
-                  class="rounded border-app bg-card text-app px-1.5 py-1 disabled:opacity-50"
-                  title="How many sections to show"
-                >
-                  <option :value="5">5</option>
-                  <option :value="10">10</option>
-                  <option :value="15">15</option>
-                  <option :value="20">20</option>
-                </select>
+        <SplitPane v-model="chartsSplit" :min-left="35" :max-left="80" class="widget-eq">
+          <template #left>
+            <!-- Bar -->
+            <div class="rounded-2xl border-app bg-card text-app p-4 relative overflow-hidden shadow-card mr-2 widget-eq-body">
+              <div class="mb-2 text-sm font-semibold text-app flex items-center justify-between">
+                <span>Status by Section</span>
+                <div class="flex items-center gap-2 text-xs font-normal">
+                  <label class="inline-flex items-center gap-1">
+                    <input type="checkbox" v-model="topNMode" class="h-3.5 w-3.5 rounded border-app" />
+                    Top-N
+                  </label>
+                  <select
+                    v-model="topN"
+                    :disabled="!topNMode"
+                    class="rounded border-app bg-card text-app px-1.5 py-1 disabled:opacity-50"
+                    title="How many sections to show"
+                  >
+                    <option :value="5">5</option>
+                    <option :value="10">10</option>
+                    <option :value="15">15</option>
+                    <option :value="20">20</option>
+                  </select>
+                </div>
+              </div>
+              <div v-if="!hasBarData && !isLoading" class="h-64 md:h-80 flex items-center justify-center text-sm text-muted">
+                No data for current filters
+              </div>
+              <div v-else class="relative h-[300px]">
+                <!-- Loading skeleton -->
+                <div v-if="isLoading" class="absolute inset-0 p-4">
+                  <div class="h-6 w-40 rounded bg-[var(--border)]/40 animate-pulse mb-4"></div>
+                  <div class="grid grid-cols-6 gap-3 items-end h-[220px]">
+                    <div v-for="i in 6" :key="'skb'+i" class="rounded bg-[var(--border)]/40 animate-pulse" :style="{ height: (20 + i*10) + 'px' }"></div>
+                  </div>
+                </div>
+
+                <!-- Chart -->
+                <div v-else class="absolute inset-0">
+                  <BarChart :key="'bar-' + barKey" :data="statusBySection" :options="barOptions" />
+                </div>
+              </div>
+              <div class="mt-2 text-xs text-muted">Last updated: {{ timeAgo(lastUpdated) }}</div>
+
+              <div v-if="isLoading" class="absolute inset-0 bg-card/70 flex items-center justify-center rounded-2xl">
+                <svg class="animate-spin h-6 w-6 text-app" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"/>
+                </svg>
               </div>
             </div>
-            <div v-if="!hasBarData && !isLoading" class="h-64 md:h-80 flex items-center justify-center text-sm text-muted">
-              No data for current filters
-            </div>
-            <div v-else class="relative h-[300px]">
-              <!-- Loading skeleton -->
-              <div v-if="isLoading" class="absolute inset-0 p-4">
-                <div class="h-6 w-40 rounded bg-[var(--border)]/40 animate-pulse mb-4"></div>
-                <div class="grid grid-cols-6 gap-3 items-end h-[220px]">
-                  <div v-for="i in 6" :key="'skb'+i" class="rounded bg-[var(--border)]/40 animate-pulse" :style="{ height: (20 + i*10) + 'px' }"></div>
+          </template>
+          <template #right>
+            <!-- Line -->
+            <div class="rounded-2xl border-app bg-card text-app p-4 relative overflow-hidden shadow-card ml-2 widget-eq-body">
+              <div class="mb-2 text-sm font-semibold text-app flex items-center justify-between">
+                <span>Resolved over Time ({{ rangeLabel }})</span>
+                <label class="inline-flex items-center gap-1 text-xs font-normal">
+                  <input type="checkbox" v-model="cumulativeMode" class="h-3.5 w-3.5 rounded border-app" />
+                  Cumulative
+                </label>
+              </div>
+              <div v-if="!hasLineData && !isLoading" class="h-64 md:h-80 flex items-center justify-center text-sm text-muted">
+                No data for current filters
+              </div>
+              <div v-else class="relative h-[320px]">
+                <!-- Loading skeleton -->
+                <div v-if="isLoading" class="absolute inset-0 p-4">
+                  <div class="h-6 w-48 rounded bg-[var(--border)]/40 animate-pulse mb-4"></div>
+                  <div class="h-[220px] rounded bg-[var(--border)]/40 animate-pulse"></div>
+                </div>
+
+                <!-- Chart -->
+                <div v-else class="absolute inset-0">
+                  <LineChart :key="'line-' + lineKey" :data="resolvedOverTime" :options="chartOptions" />
                 </div>
               </div>
 
-              <!-- Chart -->
-              <div v-else class="absolute inset-0">
-                <BarChart :key="'bar-' + barKey" :data="statusBySection" :options="barOptions" />
+              <div v-if="isLoading" class="absolute inset-0 bg-card/70 flex items-center justify-center rounded-2xl">
+                <svg class="animate-spin h-6 w-6 text-app" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"/>
+                </svg>
               </div>
             </div>
-
-            <div v-if="isLoading" class="absolute inset-0 bg-card/70 flex items-center justify-center rounded-2xl">
-              <svg class="animate-spin h-6 w-6 text-app" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"/>
-              </svg>
-            </div>
-          </div>
-          <!-- Line -->
-          <div class="rounded-2xl border-app bg-card text-app p-4 relative overflow-hidden shadow-card">
-            <div class="mb-2 text-sm font-semibold text-app flex items-center justify-between">
-              <span>Resolved over Time ({{ rangeLabel }})</span>
-              <label class="inline-flex items-center gap-1 text-xs font-normal">
-                <input type="checkbox" v-model="cumulativeMode" class="h-3.5 w-3.5 rounded border-app" />
-                Cumulative
-              </label>
-            </div>
-            <div v-if="!hasLineData && !isLoading" class="h-64 md:h-80 flex items-center justify-center text-sm text-muted">
-              No data for current filters
-            </div>
-            <div v-else class="relative h-[320px]">
-              <!-- Loading skeleton -->
-              <div v-if="isLoading" class="absolute inset-0 p-4">
-                <div class="h-6 w-48 rounded bg-[var(--border)]/40 animate-pulse mb-4"></div>
-                <div class="h-[220px] rounded bg-[var(--border)]/40 animate-pulse"></div>
-              </div>
-
-              <!-- Chart -->
-              <div v-else class="absolute inset-0">
-                <LineChart :key="'line-' + lineKey" :data="resolvedOverTime" :options="chartOptions" />
-              </div>
-            </div>
-
-            <div v-if="isLoading" class="absolute inset-0 bg-card/70 flex items-center justify-center rounded-2xl">
-              <svg class="animate-spin h-6 w-6 text-app" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"/>
-              </svg>
-            </div>
-          </div>
-        </div>
+          </template>
+        </SplitPane>
       </template>
       <template #right>
-        <div class="rounded-2xl border-app bg-card text-app mt-4 lg:mt-0 overflow-hidden shadow-card">
+        <div class="rounded-2xl border-app bg-card text-app mt-4 lg:mt-0 overflow-hidden shadow-card widget-eq">
           <div class="px-4 py-3 border-b border-app text-sm font-semibold">Recent Failures</div>
           <div class="p-2">
             <RecentFailures

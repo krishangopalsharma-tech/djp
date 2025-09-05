@@ -165,6 +165,7 @@ const byStatus = computed(() =>
             :key="r.k"
             class="chip"
             :class="range===r.k ? 'selected-primary' : 'text-app hover-primary'"
+            :aria-pressed="String(range===r.k)"
             @click="range = r.k"
           >
             {{ r.l }}
@@ -179,12 +180,14 @@ const byStatus = computed(() =>
       <div class="order-1 md:order-2 md:justify-self-center"><h2 class="text-2xl font-semibold text-center">Logbook</h2></div>
       <!-- Right: view modes -->
       <div class="order-3 md:order-3 md:justify-self-end">
-        <div class="inline-flex rounded-lg border-app bg-card p-1">
+        <!-- Transparent chip group: use same chip styles as date chips -->
+        <div class="chip-group">
           <button
             v-for="m in ['table','cards','board','timeline']"
             :key="m"
-            class="px-3 py-1.5 text-sm rounded-md capitalize"
+            class="chip capitalize"
             :class="view === m ? 'selected-primary' : 'text-app hover-primary'"
+            :aria-pressed="String(view === m)"
             @click="view = m"
           >
             {{ m }}

@@ -22,31 +22,31 @@ function isSelected(s) {
 </script>
 
 <template>
-  <div class="flex flex-wrap items-center gap-2">
+  <div class="chip-group flex-wrap items-center gap-2">
     <span class="text-sm text-muted mr-1">Sections:</span>
 
     <button
-      class="px-2.5 py-1 text-xs rounded-full border"
+      class="chip text-xs"
       :class="(modelValue?.length || 0) === sections.length && sections.length
-        ? 'selected-primary' : 'bg-card text-app hover-primary'"
+        ? 'selected-primary' : 'text-app hover-primary'"
       @click="setAll"
       title="Select all sections"
     >All</button>
 
     <button
-      class="px-2.5 py-1 text-xs rounded-full border"
+      class="chip text-xs"
       :class="(modelValue?.length || 0) === 0
-        ? 'selected-primary' : 'bg-card text-app hover-primary'"
+        ? 'selected-primary' : 'text-app hover-primary'"
       @click="clearAll"
       title="Clear all sections"
     >None</button>
 
     <button
       v-for="s in sections" :key="s"
-      class="px-2.5 py-1 text-xs rounded-full border transition"
+      class="chip text-xs transition"
       :class="isSelected(s)
         ? 'selected-primary'
-        : 'bg-card text-app hover-primary'"
+        : 'text-app hover-primary'"
       @click="toggle(s)"
     >{{ s }}</button>
   </div>

@@ -165,6 +165,27 @@ function badgeClasses(s) {
   if (s === 'On Hold')      return 'badge-hold'
   return 'badge-neutral'
 }
+
+// For Dashboard: status pill sized to text, text hidden
+function statusPillClass(s) {
+  if (s === 'Active')       return 'bg-[var(--s-active)]'
+  if (s === 'In Progress')  return 'bg-[var(--s-inprogress)]'
+  if (s === 'Resolved')     return 'bg-[var(--s-resolved)]'
+  if (s === 'On Hold')      return 'bg-[var(--s-onhold)]'
+  return 'bg-[var(--platinum)]'
+}
+
+// Light row tint based on status color (new global palette)
+function rowStyle(s) {
+  const mixed =
+    s === 'Active'       ? 'color-mix(in srgb, var(--s-active) 50%, white)' :
+    s === 'In Progress'  ? 'color-mix(in srgb, var(--s-inprogress) 50%, white)' :
+    s === 'Resolved'     ? 'color-mix(in srgb, var(--s-resolved) 50%, white)' :
+    s === 'On Hold'      ? 'color-mix(in srgb, var(--s-onhold) 50%, white)' :
+    'transparent'
+  return { background: mixed }
+}
+
 </script>
 
 <template>
@@ -200,49 +221,42 @@ function badgeClasses(s) {
       <div class="overflow-x-hidden">
         <table class="min-w-full text-sm table-fixed">
           <colgroup>
-            <col class="w-1/7" /><col class="w-1/7" /><col class="w-1/7" />
-            <col class="w-1/7" /><col class="w-1/7" />  <!-- Reported -->
-            <col class="w-1/7" />
-            <col v-if="showRowActions" class="w-1/7" />
+            <col class="w-1/6" /><col class="w-1/6" /><col class="w-1/6" />
+            <col class="w-1/6" /><col class="w-1/6" />  <!-- Reported -->
+            <col v-if="showRowActions" class="w-1/6" />
           </colgroup>
 
           <thead class="bg-card">
             <tr>
-              <th class="text-center font-semibold text-app px-4 py-2 cursor-pointer select-none"
+              <th class="text-center font-semibold text-app px-3 py-1.5 cursor-pointer select-none"
                   :aria-sort="sortKey==='id' ? (sortDir==='asc'?'ascending':'descending') : 'none'"
                   @click="setSort('id')">
                 <div class="inline-flex items-center gap-1">RF ID <span v-if="sortKey==='id'">{{ sortDir==='asc' ? '▲' : '▼' }}</span></div>
               </th>
-              <th class="text-center font-semibold text-app px-4 py-2 cursor-pointer select-none"
+              <th class="text-center font-semibold text-app px-3 py-1.5 cursor-pointer select-none"
                   :aria-sort="sortKey==='circuit' ? (sortDir==='asc'?'ascending':'descending') : 'none'"
                   @click="setSort('circuit')">
                 <div class="inline-flex items-center gap-1">Circuit <span v-if="sortKey==='circuit'">{{ sortDir==='asc' ? '▲' : '▼' }}</span></div>
               </th>
-              <th class="text-center font-semibold text-app px-4 py-2 cursor-pointer select-none"
+              <th class="text-center font-semibold text-app px-3 py-1.5 cursor-pointer select-none"
                   :aria-sort="sortKey==='station' ? (sortDir==='asc'?'ascending':'descending') : 'none'"
                   @click="setSort('station')">
                 <div class="inline-flex items-center gap-1">Station <span v-if="sortKey==='station'">{{ sortDir==='asc' ? '▲' : '▼' }}</span></div>
               </th>
-              <th class="text-center font-semibold text-app px-4 py-2 cursor-pointer select-none"
+              <th class="text-center font-semibold text-app px-3 py-1.5 cursor-pointer select-none"
                   :aria-sort="sortKey==='section' ? (sortDir==='asc'?'ascending':'descending') : 'none'"
                   @click="setSort('section')">
                 <div class="inline-flex items-center gap-1">Section <span v-if="sortKey==='section'">{{ sortDir==='asc' ? '▲' : '▼' }}</span></div>
               </th>
 
               <!-- NEW: Reported (sortable) -->
-              <th class="text-center font-semibold text-app px-4 py-2 cursor-pointer select-none"
+              <th class="text-center font-semibold text-app px-3 py-1.5 cursor-pointer select-none"
                   :aria-sort="sortKey==='reportedAt' ? (sortDir==='asc'?'ascending':'descending') : 'none'"
                   @click="setSort('reportedAt')">
                 <div class="inline-flex items-center gap-1">Reported <span v-if="sortKey==='reportedAt'">{{ sortDir==='asc' ? '▲' : '▼' }}</span></div>
               </th>
 
-              <th class="text-center font-semibold text-app px-4 py-2 cursor-pointer select-none"
-                  :aria-sort="sortKey==='status' ? (sortDir==='asc'?'ascending':'descending') : 'none'"
-                  @click="setSort('status')">
-                <div class="inline-flex items-center gap-1">Status <span v-if="sortKey==='status'">{{ sortDir==='asc' ? '▲' : '▼' }}</span></div>
-              </th>
-
-              <th v-if="showRowActions" class="text-center font-semibold text-app px-4 py-2">Actions</th>
+              <th v-if="showRowActions" class="text-center font-semibold text-app px-3 py-1.5">Actions</th>
             </tr>
           </thead>
 
@@ -255,29 +269,29 @@ function badgeClasses(s) {
             <td class="px-4 py-3"><div class="h-4 rounded bg-[var(--border)]/40 animate-pulse mx-auto w-24" /></td>
             <td class="px-4 py-3"><div class="h-4 rounded bg-[var(--border)]/40 animate-pulse mx-auto w-28" /></td>
             <td class="px-4 py-3"><div class="h-4 rounded bg-[var(--border)]/40 animate-pulse mx-auto w-20" /></td>
-            <td class="px-4 py-3"><div class="h-4 rounded bg-[var(--border)]/40 animate-pulse mx-auto w-16" /></td>
             <td v-if="showRowActions" class="px-4 py-3"> 
               <div class="h-4 rounded bg-[var(--border)]/40 animate-pulse mx-auto w-24" />
             </td>
-            <td :colspan="showRowActions ? 7 : 6" class="px-4 py-6 text-center text-muted"></td>
+            <td :colspan="showRowActions ? 6 : 5" class="px-4 py-6 text-center text-muted"></td>
           </tr>
 
             <tr
               v-if="!loading" v-for="r in pagedRows"
               :key="r.id"
               class="border-t hover-primary cursor-pointer"
+              :style="rowStyle(r.status)"
               role="button"
               tabindex="0"
               @click="emit('view', r)"
               @keydown.enter.space="emit('view', r)"
             >
-              <td class="px-4 py-2 text-center"><div class="truncate">{{ r.id ?? '—' }}</div></td>
-              <td class="px-4 py-2 text-center"><div class="truncate">{{ r.circuit ?? '—' }}</div></td>
-              <td class="px-4 py-2 text-center"><div class="truncate">{{ r.station ?? '—' }}</div></td>
-              <td class="px-4 py-2 text-center"><div class="truncate">{{ r.section ?? '—' }}</div></td>
+              <td class="px-3 py-1.5 text-center"><div class="truncate">{{ r.id ?? '—' }}</div></td>
+              <td class="px-3 py-1.5 text-center"><div class="truncate">{{ r.circuit ?? '—' }}</div></td>
+              <td class="px-3 py-1.5 text-center"><div class="truncate">{{ r.station ?? '—' }}</div></td>
+              <td class="px-3 py-1.5 text-center"><div class="truncate">{{ r.section ?? '—' }}</div></td>
 
               <!-- NEW: Reported cell (relative text + PrimeVue tooltip + native title) -->
-              <td class="px-4 py-2 text-center">
+              <td class="px-3 py-1.5 text-center">
                 <span
                  
                   :title="fmt(r.reportedAt)"
@@ -285,14 +299,9 @@ function badgeClasses(s) {
                   {{ timeAgo(r.reportedAt) }}
                 </span>
               </td>
-              <td class="px-4 py-2 text-center">
-                <span class="badge" :class="badgeClasses(r.status)">
-                  {{ r.status ?? '—' }}
-                </span>
-              </td>
 
               <!-- PrimeVue black action buttons -->
-             <td v-if="showRowActions" class="px-4 py-2 text-center">
+             <td v-if="showRowActions" class="px-3 py-1.5 text-center">
               <div class="inline-flex items-center justify-center gap-2">
                 <button
                   class="btn-ghost border-app rounded-md hover-primary p-2"
@@ -315,7 +324,7 @@ function badgeClasses(s) {
 
             <!-- Empty state -->
             <tr v-if="!loading && filteredSorted.length === 0" class="border-t">
-              <td :colspan="showRowActions ? 7 : 6" class="px-4 py-6 text-center text-muted">
+              <td :colspan="showRowActions ? 6 : 5" class="px-4 py-6 text-center text-muted">
                 No recent failures
               </td>
             </tr>

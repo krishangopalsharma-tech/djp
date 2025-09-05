@@ -44,7 +44,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
     <!-- Trigger button -->
     <button
       type="button"
-      class="w-full sm:w-auto inline-flex items-center gap-2 rounded-lg border-app bg-card text-app px-3 py-2 text-sm hover:bg-card"
+      class="w-full sm:w-auto inline-flex items-center gap-2 rounded-lg border-app bg-card text-app px-3 py-2 text-sm shadow-card hover:shadow-popover hover:bg-[var(--seasalt-lighter)] transition"
       @click="open = !open"
       :title="selectedList.length ? selectedList.join(', ') : 'All sections selected'"
     >
@@ -81,8 +81,8 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
           :placeholder="placeholder"
           class="flex-1 rounded-lg border-app bg-card text-app px-3 py-1.5 text-sm"
         />
-        <button class="text-xs px-2 py-1 rounded-lg border-app bg-card hover:bg-card" @click="setAll">All</button>
-        <button class="text-xs px-2 py-1 rounded-lg border-app bg-card hover:bg-card" @click="clearAll">None</button>
+        <button class="text-xs px-2 py-1 rounded-lg border-app bg-card shadow-card hover:shadow-popover hover:bg-[var(--seasalt-lighter)] transition" @click="setAll">All</button>
+        <button class="text-xs px-2 py-1 rounded-lg border-app bg-card shadow-card hover:shadow-popover hover:bg-[var(--seasalt-lighter)] transition" @click="clearAll">None</button>
       </div>
 
       <!-- list -->

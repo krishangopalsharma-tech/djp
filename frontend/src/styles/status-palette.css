@@ -1,0 +1,13 @@
+:root {
+  /* Solid status colors */
+  --s-active: #FC9796;
+  --s-inprogress: #EEEE96;
+  --s-resolved: #8FE0AD;
+  --s-onhold: #FFC08C;
+
+  /* Weak/tint variants for subtle row/card backgrounds */
+  --s-active-weak: color-mix(in oklab, var(--s-active) 18%, transparent);
+  --s-inprogress-weak: color-mix(in oklab, var(--s-inprogress) 18%, transparent);
+  --s-resolved-weak: color-mix(in oklab, var(--s-resolved) 18%, transparent);
+  --s-onhold-weak: color-mix(in oklab, var(--s-onhold) 18%, transparent);
+}
