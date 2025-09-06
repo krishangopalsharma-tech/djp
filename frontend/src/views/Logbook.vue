@@ -312,27 +312,29 @@ function goToPreviousPage() { if (currentPage.value > 1) currentPage.value-- }
     </div>
 
     <!-- Search and Filter Bar -->
-    <div class="flex flex-wrap items-center gap-4">
-      <input
-        v-model="query"
-        type="text"
-        placeholder="Search..."
-        class="h-10 w-full rounded-lg border-app bg-card text-app px-3 text-sm md:w-auto"
-      />
-      <SearchSelect v-model="selectedCircuits" :options="circuitOptions" placeholder="Filter by Circuit" multiple />
-      <SearchSelect v-model="selectedSections" :options="sectionOptions" placeholder="Filter by Section" multiple />
-      <SearchSelect v-model="selectedStations" :options="stationOptions" placeholder="Filter by Station" multiple />
-      <SearchSelect v-model="selectedSupervisors" :options="supervisorOptions" placeholder="Filter by Supervisor" multiple />
-      <SearchSelect v-model="selectedStatuses" :options="statusOptions" placeholder="Filter by Status" multiple />
-      <div class="flex items-center gap-2 ml-auto">
-          <span class="text-sm text-muted">Per page</span>
-          <select v-model="rowsPerPage" class="chip text-app hover-primary">
-            <option value="10">10</option>
-            <option value="20">20</option>
-            <option value="30">30</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-          </select>
+    <div class="sticky top-0 z-50 bg-app py-4">
+      <div class="flex flex-wrap items-center gap-4">
+        <input
+          v-model="query"
+          type="text"
+          placeholder="Search..."
+          class="h-10 w-full rounded-lg border-app bg-card text-app px-3 text-sm shadow-card md:w-auto placeholder:text-gray-700"
+        />
+        <SearchSelect v-model="selectedCircuits" :options="circuitOptions" placeholder="Filter by Circuit" multiple class="shadow-card" />
+        <SearchSelect v-model="selectedSections" :options="sectionOptions" placeholder="Filter by Section" multiple class="shadow-card" />
+        <SearchSelect v-model="selectedStations" :options="stationOptions" placeholder="Filter by Station" multiple class="shadow-card" />
+        <SearchSelect v-model="selectedSupervisors" :options="supervisorOptions" placeholder="Filter by Supervisor" multiple class="shadow-card" />
+        <SearchSelect v-model="selectedStatuses" :options="statusOptions" placeholder="Filter by Status" multiple class="shadow-card" />
+        <div class="flex items-center gap-2 ml-auto">
+            <span class="text-sm text-muted">Per page</span>
+            <select v-model="rowsPerPage" class="chip text-app hover-primary">
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="30">30</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+        </div>
       </div>
     </div>
 
@@ -365,50 +367,51 @@ function goToPreviousPage() { if (currentPage.value > 1) currentPage.value-- }
       </div>
 
       <!-- Table view -->
-      <div v-else-if="view === 'table'">
-      <DataTable
-        :columns="columns"
-        :rows="paginatedRows"
-        :sort-key="sortKey"
-        :sort-dir="sortDir"
-        @sort="toggleSort"
-        @rowclick="openDetails"
-      >
-        <template #reported_at="{ row }">
-          {{ new Date(row.reported_at.replace(' ', 'T')).toLocaleString() }}
-        </template>
-        <template #resolved_at="{ row }">
-          {{ row.resolved_at ? new Date(row.resolved_at.replace(' ', 'T')).toLocaleString() : '–' }}
-        </template>
-        <template #duration="{ row }">
-          {{ formatDuration(row.reported_at, row.resolved_at) }}
-        </template>
-        <template #status="{ row }">
-          <span class="badge"
-            :class="row.status==='Resolved' ? 'badge-success' : row.status==='Active' ? 'badge-danger' : row.status==='In Progress' ? 'badge-warning' : row.status==='On Hold' ? 'badge-hold' : 'badge-neutral'"
-          >
-            {{ row.status }}
-          </span>
-        </template>
-        <template #actions="{ row }">
-          <div class="flex items-center justify-center gap-1.5">
-            <button class="btn-ghost border-app rounded-md hover-primary p-2" aria-label="Notify" title="Notify" @click.stop>
-              <Bell class="w-4 h-4" />
-            </button>
-            <button class="btn-ghost border-app rounded-md hover-primary p-2" aria-label="Edit" title="Edit" @click.stop>
-              <Pencil class="w-4 h-4" />
-            </button>
-            <button class="btn-ghost border-app rounded-md hover-primary p-2" aria-label="Delete" title="Delete" @click.stop>
-              <Trash2 class="w-4 h-4" />
-            </button>
-          </div>
-        </template>
-      </DataTable>
+      <div v-else-if="view === 'table'" class="rounded-2xl border-app bg-card p-4 shadow-card">
+        <DataTable
+          :columns="columns"
+          :rows="paginatedRows"
+          :sort-key="sortKey"
+          :sort-dir="sortDir"
+          @sort="toggleSort"
+          @rowclick="openDetails"
+        >
+          <template #reported_at="{ row }">
+            {{ new Date(row.reported_at.replace(' ', 'T')).toLocaleString() }}
+          </template>
+          <template #resolved_at="{ row }">
+            {{ row.resolved_at ? new Date(row.resolved_at.replace(' ', 'T')).toLocaleString() : '–' }}
+          </template>
+          <template #duration="{ row }">
+            {{ formatDuration(row.reported_at, row.resolved_at) }}
+          </template>
+          <template #status="{ row }">
+            <span class="badge"
+              :class="row.status==='Resolved' ? 'badge-success' : row.status==='Active' ? 'badge-danger' : row.status==='In Progress' ? 'badge-warning' : row.status==='On Hold' ? 'badge-hold' : 'badge-neutral'"
+            >
+              {{ row.status }}
+            </span>
+          </template>
+          <template #actions="{ row }">
+            <div class="flex items-center justify-center gap-1.5">
+              <button class="btn-ghost border-app rounded-md hover-primary p-2" aria-label="Notify" title="Notify" @click.stop>
+                <Bell class="w-4 h-4" />
+              </button>
+              <button class="btn-ghost border-app rounded-md hover-primary p-2" aria-label="Edit" title="Edit" @click.stop>
+                <Pencil class="w-4 h-4" />
+              </button>
+              <button class="btn-ghost border-app rounded-md hover-primary p-2" aria-label="Delete" title="Delete" @click.stop>
+                <Trash2 class="w-4 h-4" />
+              </button>
+            </div>
+          </template>
+        </DataTable>
+      </div>
 
-      <!-- Bottom controls -->
-      <div>
+      <!-- Sticky Bottom controls for Table view -->
+      <div v-if="view === 'table'" class="sticky bottom-0 z-50 bg-app p-4 flex items-center justify-between">
         <!-- Export buttons -->
-        <div class="mt-4 flex items-center justify-center gap-2">
+        <div class="flex items-center justify-center gap-2 p-2 rounded-lg">
             <button class="chip capitalize text-app hover-primary gap-2" @click="exportCSV(sortedRows)">
               <FileDown class="w-4 h-4" />
               <span>Export CSV</span>
@@ -420,7 +423,7 @@ function goToPreviousPage() { if (currentPage.value > 1) currentPage.value-- }
         </div>
 
         <!-- Pagination -->
-        <div class="mt-4 flex items-center justify-end gap-2">
+        <div class="flex items-center justify-end gap-2 p-2 rounded-lg shadow-card">
             <button @click="goToFirstPage" :disabled="currentPage === 1" class="btn-ghost border-app rounded-md hover-primary p-2" title="First Page">
               <ChevronsLeft class="w-4 h-4" />
             </button>
@@ -435,7 +438,6 @@ function goToPreviousPage() { if (currentPage.value > 1) currentPage.value-- }
               <ChevronsRight class="w-4 h-4" />
             </button>
         </div>
-      </div>
       </div>
 
       <!-- Timeline view -->
