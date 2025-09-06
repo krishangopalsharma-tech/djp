@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { Bell, Pencil, Trash2, ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import { Bell, Pencil, Trash2, ChevronLeft, ChevronRight, History, FileSpreadsheet, FileText } from 'lucide-vue-next'
 
 
 /* -------- Props -------- */
@@ -63,7 +63,14 @@ const fallbackRows = [
   { id: 'RF003', circuit: 'CKT-003', station: 'Dadar',   section: 'Central Line',  status: 'Resolved',    reportedAt: Date.now() - 8600_000, resolvedAt: Date.now() - 1800_000 },
   { id: 'RF004', circuit: 'CKT-004', station: 'Virar',   section: 'Western Line',  status: 'On Hold',     reportedAt: Date.now() - 9300_000 },
 ]
-const sourceRows = computed(() => (props.items?.length ? props.items : fallbackRows))
+// Filter out UI-only 'message' entries from the dashboard list
+const sourceRows = computed(() => {
+  const base = (props.items?.length ? props.items : fallbackRows)
+  return base.filter(i => {
+    const t = i?.entryType ?? i?.type ?? i?.kind ?? i?.severity ?? ''
+    return String(t).toLowerCase() !== 'message'
+  })
+})
 
 /* -------- Time helpers (robust: numbers or ISO strings) -------- */
 function toMs(ts) {
@@ -185,14 +192,17 @@ function statusPillClass(s) {
 }
 
 // Light row tint based on status color (new global palette)
-function rowStyle(s) {
-  const mixed =
-    s === 'Active'       ? 'color-mix(in srgb, var(--s-active) 50%, white)' :
-    s === 'In Progress'  ? 'color-mix(in srgb, var(--s-inprogress) 50%, white)' :
-    s === 'Resolved'     ? 'color-mix(in srgb, var(--s-resolved) 50%, white)' :
-    s === 'On Hold'      ? 'color-mix(in srgb, var(--s-onhold) 50%, white)' :
+// Hover handling for rows to intensify background tint slightly
+const hoveredIndex = ref(-1)
+function rowBg(s, hovered = false) {
+  const pct = hovered ? 65 : 50
+  return (
+    s === 'Active'       ? `color-mix(in srgb, var(--s-active) ${pct}%, white)` :
+    s === 'In Progress'  ? `color-mix(in srgb, var(--s-inprogress) ${pct}%, white)` :
+    s === 'Resolved'     ? `color-mix(in srgb, var(--s-resolved) ${pct}%, white)` :
+    s === 'On Hold'      ? `color-mix(in srgb, var(--s-onhold) ${pct}%, white)` :
     'transparent'
-  return { background: mixed }
+  )
 }
 
 </script>
@@ -205,7 +215,7 @@ function rowStyle(s) {
 
     <div class="rounded-2xl border-app bg-card text-app p-4">
       <!-- Toolbar -->
-      <div v-if="showToolbar" class="p-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div v-if="showToolbar" class="p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between flex-wrap gap-2">
         <div class="chip-group">
           <button
             v-for="tab in statusTabs"
@@ -223,7 +233,7 @@ function rowStyle(s) {
           v-model="q"
           type="text"
           placeholder="Search..."
-          class="h-10 w-full sm:w-64 rounded-lg border-app bg-card text-app px-3 text-sm"
+          class="h-10 w-full sm:w-64 max-w-full min-w-0 rounded-lg border-app bg-card text-app px-3 text-sm"
         />
       </div>
 
@@ -273,7 +283,7 @@ function rowStyle(s) {
           <tbody>
             <!-- Rows -->
              <!-- SKELETON ROWS (show while loading) -->
-          <tr v-if="!loading && filteredSorted.length === 0" class="border-t">
+          <tr v-if="!loading && filteredSorted.length === 0">
             <td class="px-4 py-3"><div class="h-4 rounded bg-[var(--border)]/40 animate-pulse mx-auto w-20" /></td>
             <td class="px-4 py-3"><div class="h-4 rounded bg-[var(--border)]/40 animate-pulse mx-auto w-24" /></td>
             <td class="px-4 py-3"><div class="h-4 rounded bg-[var(--border)]/40 animate-pulse mx-auto w-24" /></td>
@@ -286,24 +296,25 @@ function rowStyle(s) {
           </tr>
 
             <tr
-              v-if="!loading" v-for="r in pagedRows"
-              :key="r.id"
-              class="border-t hover-primary cursor-pointer"
-              :style="rowStyle(r.status)"
+              v-if="!loading" v-for="(r, i) in pagedRows"
+              :key="r.id ?? i"
+              class="cursor-pointer"
               role="button"
               tabindex="0"
               @click="emit('view', r)"
               @keydown.enter.space="emit('view', r)"
+              @mouseenter="hoveredIndex = i"
+              @mouseleave="hoveredIndex = -1"
             >
-              <td class="px-3 py-1.5 text-center"><div class="truncate">{{ r.id ?? '—' }}</div></td>
-              <td class="px-3 py-1.5 text-center"><div class="truncate">{{ r.circuit ?? '—' }}</div></td>
-              <td class="px-3 py-1.5 text-center"><div class="truncate">{{ r.station ?? '—' }}</div></td>
-              <td class="px-3 py-1.5 text-center"><div class="truncate">{{ r.section ?? '—' }}</div></td>
+              <td class="px-3 py-1.5 text-center rounded-l-xl" :style="{ background: rowBg(r.status, hoveredIndex === i) }"><div class="truncate">{{ r.id ?? '—' }}</div></td>
+              <td class="px-3 py-1.5 text-center" :style="{ background: rowBg(r.status, hoveredIndex === i) }"><div class="truncate">{{ r.circuit ?? '—' }}</div></td>
+              <td class="px-3 py-1.5 text-center" :style="{ background: rowBg(r.status, hoveredIndex === i) }"><div class="truncate">{{ r.station ?? '—' }}</div></td>
+              <td class="px-3 py-1.5 text-center" :style="{ background: rowBg(r.status, hoveredIndex === i) }"><div class="truncate">{{ r.section ?? '—' }}</div></td>
 
               <!-- NEW: Reported cell (relative text + PrimeVue tooltip + native title) -->
-              <td class="px-3 py-1.5 text-center">
+              <td class="px-3 py-1.5 text-center" :style="{ background: rowBg(r.status, hoveredIndex === i) }">
                 <span
-                 
+                
                   :title="fmt(r.reportedAt)"
                 >
                   {{ timeAgo(r.reportedAt) }}
@@ -311,7 +322,7 @@ function rowStyle(s) {
               </td>
 
               <!-- PrimeVue black action buttons -->
-             <td v-if="showRowActions" class="px-3 py-1.5 text-center">
+             <td v-if="showRowActions" class="px-3 py-1.5 text-center rounded-r-xl" :style="{ background: rowBg(r.status, hoveredIndex === i) }">
               <div class="inline-flex items-center justify-center gap-2">
                 <button
                   class="btn-ghost border-app rounded-md hover-primary p-2"
@@ -330,10 +341,11 @@ function rowStyle(s) {
                 </button>
               </div>
             </td>
+            <td v-else class="px-3 py-1.5 text-center rounded-r-xl" :style="{ background: rowBg(r.status, hoveredIndex === i) }"></td>
             </tr>
 
             <!-- Empty state -->
-            <tr v-if="!loading && filteredSorted.length === 0" class="border-t">
+            <tr v-if="!loading && filteredSorted.length === 0" class="rounded-xl overflow-hidden">
               <td :colspan="showRowActions ? 6 : 5" class="px-4 py-6 text-center text-muted">
                 No recent failures
               </td>
@@ -378,27 +390,27 @@ function rowStyle(s) {
       </div>
 
       <!-- Bottom actions (Dashboard hides via prop) -->
-      <div v-if="showBottomActions" class="flex justify-center gap-4 px-3 py-5">
+      <div v-if="showBottomActions" class="flex justify-center gap-3 px-3 py-5">
         <button
-          class="btn shadow-lg hover:shadow-xl inline-flex h-11 w-11 rounded-full p-0"
+          class="btn-ghost border-app rounded-md hover-primary p-2"
           aria-label="Retrieve Drafts"
           title="Retrieve Drafts"
         >
-          ⟳
+          <History class="w-4 h-4" />
         </button>
         <button
-          class="btn shadow-lg hover:shadow-xl inline-flex h-11 w-11 rounded-full p-0"
+          class="btn-ghost border-app rounded-md hover-primary p-2"
           aria-label="Export CSV"
           title="Export CSV"
         >
-          ⭳
+          <FileSpreadsheet class="w-4 h-4" />
         </button>
         <button
-          class="btn shadow-lg hover:shadow-xl inline-flex h-11 w-11 rounded-full p-0"
+          class="btn-ghost border-app rounded-md hover-primary p-2"
           aria-label="Export PDF"
           title="Export PDF"
         >
-          ⎙
+          <FileText class="w-4 h-4" />
         </button>
       </div>
     </div>

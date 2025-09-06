@@ -12,10 +12,12 @@ const route = useRoute()
 const titleMap = {
   '/dashboard': 'Dashboard',
   '/logbook': 'Logbook',
-  '/failures/new': 'New Failure',
+  '/failures/new': 'Logbook Entry',
   '/analytics': 'Analytics Board',
 }
 const pageTitle = computed(() => route.meta?.title || titleMap[route.path] || titleMap['/' + (route.path.split('/')[1] || '')] || 'RFMS')
+
+const displayName = computed(() => auth.user?.name || auth.user?.username || '')
 
 function doLogout() {
   auth.logout()
@@ -24,33 +26,31 @@ function doLogout() {
 </script>
 
 <template>
-  <header class="h-14 navbar border-b border-app flex items-center justify-between px-4">
+  <header
+    class="h-14 flex items-center justify-between px-4
+           bg-[var(--sidebar-bg)] text-[var(--sidebar-fg)]
+           rounded-none border-0 shadow-none relative z-10"
+  >
     <div class="flex items-center gap-2">
+      <!-- Toggle sidebar moved/kept on the LEFT, visible at all sizes -->
       <button
-        class="md:hidden inline-flex items-center justify-center w-9 h-9 rounded-lg border border-app bg-card text-app hover-primary"
+        class="inline-flex items-center justify-center w-9 h-9 rounded-lg
+               text-[var(--sidebar-fg)]
+               hover:bg-[color-mix(in_oklab,var(--sidebar-fg)/_12%,_transparent)]
+               focus-visible:outline-none focus-visible:ring-2
+               focus-visible:ring-[var(--sidebar-fg)]/40"
         @click="emit('toggleSidebar')"
-        aria-label="Open menu"
-        title="Open menu"
+        aria-label="Toggle sidebar"
+        title="Toggle sidebar"
       >
-        ☰
+        <svg viewBox="0 0 24 24" class="w-5 h-5"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
       </button>
       <h1 class="text-base font-semibold">{{ pageTitle }}</h1>
     </div>
 
-    <div class="text-sm flex items-center gap-2">
-      <RouterLink
-        to="/settings"
-        class="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-app bg-card text-app hover-primary"
-        aria-label="Settings"
-        title="Settings"
-      >
-        <i class="pi pi-cog"></i>
-      </RouterLink>
-      <template v-if="auth.user">
-        <span class="mr-2 text-muted">Hi, <span class="font-medium text-app">{{ auth.user.username }}</span></span>
-        <button class="btn btn-ghost h-9" @click="doLogout">Logout</button>
-      </template>
-      <RouterLink v-else class="btn btn-outline h-9" to="/login">Login</RouterLink>
+    <!-- Right side: show current user name -->
+    <div class="flex items-center gap-2">
+      <span v-if="displayName" class="text-sm opacity-90 truncate max-w-[200px]">{{ displayName }}</span>
     </div>
   </header>
 </template>

@@ -90,7 +90,7 @@ const columns = [
   { key: 'reported_at', label: 'Reported', sortAccessor: (r) => toTs(r.reported_at), align: 'text-left' },
   { key: 'resolved_at', label: 'Resolve Time', sortAccessor: (r) => toTs(r.resolved_at), align: 'text-center' },
   { key: 'duration',    label: 'Duration', sortable: false, align: 'text-center' },
-  { key: 'fail_id',     label: 'FailID', align: 'text-center' },
+  { key: 'fail_id',     label: 'Event ID', align: 'text-center' },
   { key: 'circuit',     label: 'Circuit', align: 'text-center' },
   { key: 'station',     label: 'Station', align: 'text-center' },
   { key: 'section',     label: 'Section', align: 'text-center' },
@@ -197,7 +197,7 @@ function openDetails(r) {
 
 function exportCSV(data, filename = 'logbook.csv') {
   const cols = ['reported_at','fail_id','circuit','station','section','assigned_to','status']
-  const header = ['Reported','FailID','Circuit','Station','Section','Assigned','Status']
+  const header = ['Reported','Event ID','Circuit','Station','Section','Assigned','Status']
   const lines = [header.join(',')]
   for (const r of data) {
     const row = [
@@ -241,7 +241,7 @@ function exportPDF(data, title = 'Logbook Export') {
   </head><body>
     <h1>${title}</h1>
     <table><thead><tr>
-      <th>Reported</th><th>FailID</th><th>Circuit</th><th>Station</th><th>Section</th><th>Assigned</th><th>Status</th>
+      <th>Reported</th><th>Event ID</th><th>Circuit</th><th>Station</th><th>Section</th><th>Assigned</th><th>Status</th>
     </tr></thead><tbody>${rowsHtml}</tbody></table>
   </body></html>`)
   w.document.close(); w.focus(); w.print()

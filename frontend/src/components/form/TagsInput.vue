@@ -47,7 +47,7 @@ function onKeydown(e) {
 </script>
 
 <template>
-  <div class="min-h-10 w-full rounded-lg border-app bg-card text-app px-2 py-1.5">
+  <div class="field-shell min-h-10 w-full px-2 py-1.5">
     <div class="flex flex-wrap items-center gap-1">
       <!-- preset (auto) tags – non-removable -->
       <span v-for="t in preset" :key="'p'+t"
@@ -66,7 +66,7 @@ function onKeydown(e) {
       <input
         v-model="input"
         :placeholder="preset.length || local.length ? '' : placeholder"
-        class="flex-1 min-w-[10ch] outline-none text-sm bg-transparent py-1"
+        class="input-reset flex-1 min-w-[10ch] text-sm px-1 h-9"
         @keydown="onKeydown"
         @blur="addFromInput"
       />

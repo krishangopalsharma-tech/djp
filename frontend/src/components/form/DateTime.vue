@@ -12,7 +12,7 @@ defineEmits(['update:modelValue'])
     <span class="text-sm text-app">{{ label }}</span>
     <input
       type="datetime-local"
-      class="h-10 w-full rounded-lg border-app bg-card text-app px-3 text-sm"
+      class="field"
       :value="modelValue"
       @input="$emit('update:modelValue', $event.target.value)"
     />

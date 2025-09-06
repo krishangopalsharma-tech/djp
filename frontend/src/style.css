@@ -21,5 +21,4 @@ button {
   cursor: pointer;
 }
 
-/* Keep card demo helper minimal; real card style in Tailwind utilities */
-.card { padding: 0; }
+/* .card styles live in Tailwind layer; do not override here */

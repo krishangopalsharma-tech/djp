@@ -52,6 +52,7 @@ const statusOptions = [
 const form = reactive({
   fail_id: '',
   circuit: null,
+  entryType: 'item',
   station: null,
   section: null,
   sub_section: null,
@@ -63,6 +64,15 @@ const form = reactive({
   duration_minutes: '',
   remark_right: '',
 })
+
+// Entry Type options (UI only for now)
+const entryTypeOptions = [
+  { value: 'item',     label: 'Item' },
+  { value: 'message',  label: 'Message' },
+  { value: 'warning',  label: 'Warning' },
+  { value: 'major',    label: 'Major' },
+  { value: 'critical', label: 'Critical' },
+]
 
 const errors = reactive({})
 
@@ -133,6 +143,7 @@ function resetForm() {
     resolved_at: '',
     duration_minutes: '',
     remark_right: '',
+    entryType: 'item',
   })
   userTags.value = []
 }
@@ -143,21 +154,35 @@ function resetForm() {
     <!-- LEFT: New Failure form -->
     <div class="space-y-4" :style="{ width: split + '%' }">
       <div class="text-center">
-        <h2 class="text-2xl font-semibold leading-tight">New Failure</h2>
+        <h2 class="text-2xl font-semibold leading-tight">Logbook Entry</h2>
       </div>
 
       <div class="card">
         <div class="grid gap-4 sm:grid-cols-2">
-          <!-- Fail ID / Circuit -->
-          <div>
-            <InputText label="Fail ID (server will assign)" v-model="form.fail_id" placeholder="Leave empty" />
-          </div>
-          <div>
-            <label class="block space-y-1">
-              <span class="text-sm text-app">Circuit</span>
-              <SearchSelect v-model="form.circuit" :options="circuitOptions" placeholder="Select circuit..." />
-              <p v-if="errors.circuit" class="text-xs text-red-600">{{ errors.circuit }}</p>
-            </label>
+          <!-- Event ID / Entry Type / Circuit (same row on xl) -->
+          <div class="sm:col-span-2 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <!-- Event ID (use .field to align height with selects) -->
+            <div>
+              <label class="block space-y-1">
+                <span class="text-sm text-app">Event ID (server will assign)</span>
+                <input v-model="form.fail_id" class="field" placeholder="Leave empty" />
+              </label>
+            </div>
+            <!-- Entry Type (use SearchSelect for consistent style) -->
+            <div>
+              <label class="block space-y-1">
+                <span class="text-sm text-app">Entry Type</span>
+                <SearchSelect v-model="form.entryType" :options="entryTypeOptions" placeholder="Select type..." />
+              </label>
+            </div>
+            <!-- Circuit -->
+            <div>
+              <label class="block space-y-1">
+                <span class="text-sm text-app">Circuit</span>
+                <SearchSelect v-model="form.circuit" :options="circuitOptions" placeholder="Select circuit..." />
+                <p v-if="errors.circuit" class="text-xs text-red-600">{{ errors.circuit }}</p>
+              </label>
+            </div>
           </div>
 
           <!-- Circuit Tags -->
@@ -169,30 +194,55 @@ function resetForm() {
             </label>
           </div>
 
-          <!-- Station / Section / Sub Section -->
+          <!-- Station / Section / Sub Section (labels on top) -->
           <div class="sm:col-span-2 grid gap-4 sm:grid-cols-3">
-            <SearchSelect v-model="form.station" :options="[]" placeholder="Select station..." />
-            <SearchSelect v-model="form.section" :options="[]" placeholder="Select section..." />
-            <SearchSelect v-model="form.sub_section" :options="[]" placeholder="Select sub section..." />
+            <div>
+              <label class="block space-y-1">
+                <span class="text-sm text-app">Station</span>
+                <SearchSelect v-model="form.station" :options="[]" placeholder="Select station..." />
+              </label>
+            </div>
+            <div>
+              <label class="block space-y-1">
+                <span class="text-sm text-app">Section</span>
+                <SearchSelect v-model="form.section" :options="[]" placeholder="Select section..." />
+              </label>
+            </div>
+            <div>
+              <label class="block space-y-1">
+                <span class="text-sm text-app">Sub Section</span>
+                <SearchSelect v-model="form.sub_section" :options="[]" placeholder="Select sub section..." />
+              </label>
+            </div>
           </div>
 
-          <!-- Reported At / Assigned To / Current Status -->
-          <div class="sm:col-span-2 grid gap-4 sm:grid-cols-3">
+          <!-- Reported At / Assigned To / Current Status (same line on md+) -->
+          <div class="sm:col-span-2 grid gap-4 grid-cols-1 md:grid-cols-3">
             <DateTime label="Reported At" v-model="form.reported_at" />
-            <SearchSelect v-model="form.assigned_to" :options="[]" placeholder="Select assignee..." />
-            <SelectBox label="Current Status" v-model="form.current_status" :options="statusOptions" />
+            <div>
+              <label class="block space-y-1">
+                <span class="text-sm text-app">Assigned To</span>
+                <SearchSelect v-model="form.assigned_to" :options="[]" placeholder="Select assignee..." />
+              </label>
+            </div>
+            <div>
+              <label class="block space-y-1">
+                <span class="text-sm text-app">Current Status</span>
+                <SearchSelect v-model="form.current_status" :options="statusOptions" placeholder="Select status..." />
+              </label>
+            </div>
           </div>
 
           <!-- Remark of Fail -->
           <div class="sm:col-span-2">
-            <textarea v-model="form.remark_fail" rows="2" class="w-full rounded-lg border-app bg-card text-app p-3 text-sm" placeholder="Notes..."></textarea>
+            <textarea v-model="form.remark_fail" rows="2" class="field-textarea" placeholder="Notes..."></textarea>
           </div>
 
           <!-- Resolved-only fields -->
           <template v-if="form.current_status === 'Resolved'">
             <DateTime label="Resolve At" v-model="form.resolved_at" />
             <InputText label="Duration (minutes)" v-model="form.duration_minutes" />
-            <textarea v-model="form.remark_right" rows="2" class="sm:col-span-2 w-full rounded-lg border-app bg-card text-app p-3 text-sm" placeholder="Notes on resolution..."></textarea>
+            <textarea v-model="form.remark_right" rows="2" class="sm:col-span-2 field-textarea" placeholder="Notes on resolution..."></textarea>
           </template>
 
           <!-- Attachments -->

@@ -3,7 +3,7 @@
     <div class="flex items-baseline justify-between">
       <div>
         <h2 class="text-2xl font-semibold">Analytics Board</h2>
-        <p class="text-sm text-muted">Build your own board: drag cards, resize, pick chart types and ranges.</p>
+        <!-- helper text removed per request -->
       </div>
 
       <div class="flex items-center gap-2 text-sm">
@@ -18,12 +18,15 @@
       </div>
     </div>
 
+    <!-- Global filters: ranges + statuses -->
+    <DashboardFilterBar v-model="filters" />
+
     <!-- Board grid -->
     <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       <div
         v-for="(p, idx) in panels"
         :key="p.id"
-        class="rounded-2xl border-app bg-card text-app"
+        class="rounded-2xl border-app bg-card text-app overflow-hidden shadow-card"
         :class="fullscreen === p.id ? 'fixed inset-6 z-50' : 'relative'"
         draggable="true"
         @dragstart="onDragStart(idx)"
@@ -49,14 +52,11 @@
             <svg v-else class="w-4 h-4" viewBox="0 0 24 24"><path fill="currentColor" d="M14 10V6h4V4h-6v6h2ZM6 10V6h4V4H4v6h2Zm8 8v-4h2v6h-6v-2h4ZM6 14H4v6h6v-2H6v-4Z"/></svg>
           </button>
 
-          <!-- Remove card -->
-          <button class="p-1.5 rounded hover:bg-card" title="Remove" @click="removePanel(p.id)">
-            <svg class="w-4 h-4" viewBox="0 0 24 24"><path fill="currentColor" d="M7 21q-.825 0-1.412-.587T5 19V7H4V5h5V4h6v1h5v2h-1v12q0 .825-.587 1.413T17 21H7Zm2-4h2V9H9v8Zm4 0h2V9h-2v8Z"/></svg>
-          </button>
+          <!-- Remove button hidden as per request -->
         </div>
 
-        <!-- Toolbar -->
-        <div class="px-4 pt-2 pb-3 flex flex-wrap items-center gap-2">
+        <!-- Toolbar (per-card filters): show only in fullscreen -->
+        <div v-if="fullscreen === p.id" class="px-4 pt-2 pb-3 flex flex-wrap items-center gap-2">
           <!-- Time range pills -->
           <button
             v-for="r in ranges"
@@ -98,6 +98,17 @@
             >
               All
             </button>
+
+            <!-- Severity filter (only for Failure card) -->
+            <div v-if="p.kind==='failureSeverity'" class="ml-2 inline-flex items-center gap-2">
+              <label class="text-xs text-muted">Severity</label>
+              <select v-model="state[p.id].severity" class="rounded border-app bg-card text-app px-2 py-1 text-xs">
+                <option value="all">All</option>
+                <option value="minor">Minor</option>
+                <option value="major">Major</option>
+                <option value="critical">Critical</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -125,10 +136,11 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, watch, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useUIStore } from '@/stores/ui'
 const ui = useUIStore()
 import PanelBody from '@/components/PanelBody.vue'
+import DashboardFilterBar from '@/components/DashboardFilterBar.vue'
 
 /* ------------------- sample data generator ------------------- */
 const sections = ['Western Line', 'Central Line', 'Harbour Line', 'Trans Harbour', 'Metro Line 1', 'Metro Line 2A']
@@ -165,14 +177,12 @@ const allFailures = ref(seedFailures())
 
 /* ------------------- board + per-panel state ------------------- */
 const panels = ref([
-  { id: 'today',       title: "Today's Failures",          kind: 'count' },
-  { id: 'week',        title: "This Week's Failures",      kind: 'count' },
-  { id: 'pending',     title: 'Pending Failures',          kind: 'pending' },
+  { id: 'today',       title: "Failure",                    kind: 'count' },
+  { id: 'failureSeverity', title: 'Failure',                 kind: 'failureSeverity' },
   { id: 'avgtime',     title: 'Avg. Resolution Time',      kind: 'avgTime' },
   { id: 'bysection',   title: 'Failures by Section',       kind: 'bySection' },
   { id: 'bycircuit',   title: 'Failures by Circuit',       kind: 'byCircuit' },
   { id: 'statusdist',  title: 'Status Distribution',       kind: 'statusDistribution' },
-  { id: 'recent',      title: 'Recent Failures',           kind: 'recent' },
   { id: 'bysuper',     title: 'Failure Count by Supervisor', kind: 'bySupervisor' },
 ])
 
@@ -182,6 +192,7 @@ const defaultState = () => ({
   from: '',
   to: '',
   statuses: [...statuses], // select all by default
+  severity: 'all',
 })
 
 function togglePanelStatus(id, s) {
@@ -196,8 +207,6 @@ function clearPanelStatuses(id) {
 
 
 const state = reactive(Object.fromEntries(panels.value.map(p => [p.id, defaultState()])))
-state.week.range = 'week'
-state.pending.range = 'month'
 state.bysection.range = 'month'
 state.bycircuit.range = 'month'
 state.statusdist.range = 'month'
@@ -205,6 +214,9 @@ state.avgtime.range = 'month'
 
 const liveToday = ref(true)
 const liveRecent = ref(true)
+
+// Global Analytics filters (UI only for now)
+const filters = ref({ range: 'today', status: ['Active','In Progress','Resolved','On Hold'] })
 
 // ---- persistence (localStorage) ----
 const STORAGE_KEY = 'analyticsBoard.v1'
@@ -235,7 +247,16 @@ function loadBoard() {
   if (!saved || typeof saved !== 'object') return
 
   if (Array.isArray(saved.panels) && saved.panels.length) {
-    panels.value = saved.panels.filter(p => p && p.id && p.kind && p.title)
+    panels.value = saved.panels
+      .filter(p => p && p.id && p.kind && p.title)
+      // Remove deprecated KPI panels per spec
+      .filter(p => !['week','pending','recent'].includes(p.id))
+      // Rename today's panel to "Failure"
+      .map(p => p.id === 'today' ? { ...p, title: 'Failure' } : p)
+    // Ensure new Failure-by-Severity card exists
+    if (!panels.value.some(p => p.id === 'failureSeverity')) {
+      panels.value.splice(1, 0, { id: 'failureSeverity', title: 'Failure', kind: 'failureSeverity' })
+    }
   }
 
   const rebuilt = {}
@@ -311,6 +332,10 @@ function panelData(p){
 
 
   switch(p.kind){
+    case 'failureSeverity': {
+      // provide raw records for the card to aggregate by severity
+      return { records: rows }
+    }
     case 'count': {
       const byDay = new Map()
       rows.forEach(r=>{
@@ -398,14 +423,12 @@ function removePanel(id){
 }
 function restoreDefault(){
   panels.value = [
-    { id: 'today',       title: "Today's Failures",          kind: 'count' },
-    { id: 'week',        title: "This Week's Failures",      kind: 'count' },
-    { id: 'pending',     title: 'Pending Failures',          kind: 'pending' },
+    { id: 'today',       title: "Failure",                    kind: 'count' },
+    { id: 'failureSeverity', title: 'Failure',                 kind: 'failureSeverity' },
     { id: 'avgtime',     title: 'Avg. Resolution Time',      kind: 'avgTime' },
     { id: 'bysection',   title: 'Failures by Section',       kind: 'bySection' },
     { id: 'bycircuit',   title: 'Failures by Circuit',       kind: 'byCircuit' },
     { id: 'statusdist',  title: 'Status Distribution',       kind: 'statusDistribution' },
-    { id: 'recent',      title: 'Recent Failures',           kind: 'recent' },
     { id: 'bysuper',     title: 'Failure Count by Supervisor', kind: 'bySupervisor' },
   ]
     // reset state for the new set

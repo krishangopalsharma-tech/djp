@@ -14,6 +14,59 @@
   :root { --text: var(--body-text); --border: var(--platinum); --card: var(--card-bg); }
 }
 
+/* Shared form controls */
+@layer components {
+  /* Shared form control style: matches Event ID look */
+  .field {
+    @apply w-full h-11 rounded-lg border bg-card text-app px-3 transition;
+    border-color: var(--platinum);
+  }
+  .field::placeholder { color: color-mix(in srgb, var(--body-text) 50%, transparent); }
+  .field:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--slate-gray);
+    border-color: color-mix(in srgb, var(--slate-gray) 80%, #000 20%);
+  }
+  /* For multi-line */
+  .field-textarea {
+    @apply w-full min-h-[120px] rounded-lg border bg-card text-app p-3 transition;
+    border-color: var(--platinum);
+  }
+  .field-textarea::placeholder { color: color-mix(in srgb, var(--body-text) 50%, transparent); }
+  .field-textarea:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--slate-gray);
+    border-color: color-mix(in srgb, var(--slate-gray) 80%, #000 20%);
+  }
+  /* For composite inputs (tags/search) needing focus on container */
+  .field-shell {
+    @apply w-full rounded-lg border bg-card text-app transition;
+    border-color: var(--platinum);
+  }
+  .field-shell input::placeholder { color: color-mix(in srgb, var(--body-text) 50%, transparent); }
+  /* Strip borders/rings from inner inputs placed inside .field-shell */
+  .input-reset { @apply bg-transparent border-0 outline-none shadow-none; }
+  .input-reset:focus { outline: none; box-shadow: none; border-color: transparent; }
+  .field-shell:focus,
+  .field-shell:focus-within {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--slate-gray);
+    border-color: color-mix(in srgb, var(--slate-gray) 80%, #000 20%);
+  }
+
+  /* Icon button + sidebar item helpers */
+  .icon-btn {
+    @apply inline-flex items-center justify-center h-10 w-10 rounded-lg text-app transition;
+    background-color: transparent;
+  }
+  .icon-btn:hover { background-color: color-mix(in srgb, var(--card-bg) 92%, black 8%); }
+
+  .side-item {
+    @apply flex items-center gap-3 rounded-lg px-3 py-2 text-app transition;
+  }
+  .side-item:hover { background-color: color-mix(in srgb, var(--sidebar-bg) 92%, white 8%); }
+}
+
 /* Utilities bound to unified vars */
 @layer utilities {
   /* Elevation */
@@ -42,11 +95,22 @@
   /* Hover/selected state helpers */
   .hover-primary:not(.selected-primary):hover { background-color: var(--slate-gray-lighter); color: var(--seasalt); }
   .selected-primary { background-color: var(--slate-gray); color: var(--seasalt); border-color: var(--slate-gray); }
-  /* Treat aria-pressed=true as active for chips */
-  .chip[aria-pressed="true"] { background-color: var(--slate-gray); color: var(--seasalt); border-color: var(--slate-gray); box-shadow: var(--shadow-resting); }
-  /* Disable hover visual change when active */
+  /* Treat aria-pressed=true as active for neutral chips only.
+     Do NOT override status-variant chips (they supply their own colors). */
+  .chip[aria-pressed="true"]:not(.chip-variant-all):not(.chip-variant-active):not(.chip-variant-inprog):not(.chip-variant-resolved):not(.chip-variant-onhold):not(.is-active) {
+    background-color: var(--slate-gray);
+    color: var(--seasalt);
+    border-color: var(--slate-gray);
+    box-shadow: var(--shadow-resting);
+  }
+  /* Disable hover visual change when active; keep variant colors */
   .chip.selected-primary:hover,
-  .chip[aria-pressed="true"]:hover { background-color: var(--slate-gray); color: var(--seasalt); border-color: var(--slate-gray); box-shadow: var(--shadow-resting); }
+  .chip[aria-pressed="true"]:not(.chip-variant-all):not(.chip-variant-active):not(.chip-variant-inprog):not(.chip-variant-resolved):not(.chip-variant-onhold):not(.is-active):hover {
+    background-color: var(--slate-gray);
+    color: var(--seasalt);
+    border-color: var(--slate-gray);
+    box-shadow: var(--shadow-resting);
+  }
 
   /* Chips */
   /* Inactive/neutral pill with subtle elevation */

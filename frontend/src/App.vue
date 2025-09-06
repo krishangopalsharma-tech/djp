@@ -5,7 +5,17 @@ import AppSidebar from './components/AppSidebar.vue'
 import AppTopbar from './components/AppTopbar.vue'
 import Toasts from '@/components/ui/Toasts.vue'
 const ui = useUIStore()
-const sidebarOpen = ref(false)
+// Default: open on md+ screens, closed on mobile
+const sidebarOpen = ref(typeof window !== 'undefined' ? window.matchMedia('(min-width: 768px)').matches : false)
+
+function onTopbarToggle() {
+  const isDesktop = typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches
+  if (isDesktop) {
+    ui.toggleSidebarCollapsed()
+  } else {
+    sidebarOpen.value = !sidebarOpen.value
+  }
+}
 
 // Sidebar drag-resize
 let resizing = false
@@ -32,7 +42,7 @@ function onSidebarPointerUp(){
   <div class="min-h-screen bg-app text-app" :style="{ '--sidebar-w': ui.computedSidebarWidth + 'px' }">
     <!-- Sidebar: fixed always; slide-in on mobile -->
     <div
-      class="fixed inset-y-0 left-0 z-40 sidebar border-r border-app transform transition-transform transition-all duration-200 motion-reduce:transition-none"
+      class="fixed inset-y-0 left-0 z-40 sidebar transform transition-transform transition-all duration-200 motion-reduce:transition-none"
       :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'"
       :style="{ width: ui.computedSidebarWidth + 'px' }"
       :data-collapsed="ui.sidebarCollapsed"
@@ -59,7 +69,7 @@ function onSidebarPointerUp(){
 
     <!-- Main content: shifted right on md+ -->
     <div class="min-h-screen flex flex-col ml-sidebar transition-all duration-200 motion-reduce:transition-none">
-      <AppTopbar @toggleSidebar="sidebarOpen = true" />
+      <AppTopbar @toggleSidebar="onTopbarToggle" />
       <main class="p-6">
         <RouterView />
       </main>

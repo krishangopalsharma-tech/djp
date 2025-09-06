@@ -44,7 +44,7 @@ function save() {
       </section>
 
       <section class="space-y-3">
-        <h3 class="text-sm font-semibold text-gray-700">Failure ID</h3>
+        <h3 class="text-sm font-semibold text-gray-700">Event ID</h3>
         <InputText label="Separator" v-model="form.failIdSeparator" placeholder="-" />
       </section>
 

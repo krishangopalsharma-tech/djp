@@ -17,6 +17,7 @@ const ranges = [
   { key: 'today', label: 'Today' },
   { key: '7d',    label: 'Last 7 days' },
   { key: '30d',   label: 'Last 30 days' },
+  { key: 'custom',label: 'Custom' },
 ]
 
 const statusOptions = [
@@ -37,6 +38,13 @@ function toggleStatus(key) {
   const set = new Set(selectedStatuses.value)
   set.has(key) ? set.delete(key) : set.add(key)
   emit('update:modelValue', { ...props.modelValue, status: Array.from(set) })
+}
+
+function setFrom(dateStr){
+  emit('update:modelValue', { ...props.modelValue, from: dateStr || '' })
+}
+function setTo(dateStr){
+  emit('update:modelValue', { ...props.modelValue, to: dateStr || '' })
 }
 
 function statusStyle(key) {
@@ -76,6 +84,22 @@ function statusStyle(key) {
       >
         {{ r.label }}
       </button>
+      <!-- Custom range inputs -->
+      <span v-if="selectedRange==='custom'" class="inline-flex items-center gap-2 ml-2 align-middle">
+        <input
+          type="date"
+          :value="props.modelValue.from || ''"
+          @input="setFrom($event.target.value)"
+          class="rounded-lg border-app bg-card text-app px-2 py-1 text-sm"
+        />
+        <span class="text-sm text-muted">to</span>
+        <input
+          type="date"
+          :value="props.modelValue.to || ''"
+          @input="setTo($event.target.value)"
+          class="rounded-lg border-app bg-card text-app px-2 py-1 text-sm"
+        />
+      </span>
     </div>
 
     <!-- Status toggles (colored by status; no hover change when active) -->

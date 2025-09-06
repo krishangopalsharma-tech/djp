@@ -93,7 +93,7 @@ watch(() => props.modelValue, (v) => {
     <!-- control -->
     <button
       type="button"
-      class="h-10 w-full rounded-lg border-app bg-card text-app text-left px-3 text-sm flex items-center justify-between gap-2 hover-surface"
+      class="field-shell h-11 w-full text-left px-3 text-sm flex items-center justify-between gap-2"
       :class="disabled ? 'opacity-60 cursor-not-allowed' : ''"
       :aria-expanded="open"
       @click="open ? closeMenu() : openMenu()"
@@ -108,7 +108,7 @@ watch(() => props.modelValue, (v) => {
         ref="inputEl"
         v-model="query"
         type="text"
-        class="w-full outline-none bg-transparent text-app"
+        class="w-full outline-none bg-transparent text-app h-11"
         :placeholder="placeholder"
         @keydown.stop="onKeydown"
       />
@@ -126,7 +126,7 @@ watch(() => props.modelValue, (v) => {
     <!-- dropdown -->
     <div
       v-if="open"
-      class="absolute z-50 mt-1 w-full rounded-lg border-app bg-card text-app shadow-lg max-h-60 overflow-auto"
+      class="absolute z-50 mt-1 w-full rounded-lg border bg-card text-app border-app shadow-lg max-h-60 overflow-auto"
       role="listbox"
     >
       <div

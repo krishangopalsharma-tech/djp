@@ -184,8 +184,8 @@ const statusBySection = computed(() => {
     return {
       labels,
       datasets: [
-        { label: 'Active',   data: active,   backgroundColor: bgColor('Active', 0.8),   borderColor: borderColor('Active'),   borderWidth: 1, borderRadius: 6 },
-        { label: 'Resolved', data: resolved, backgroundColor: bgColor('Resolved', 0.8), borderColor: borderColor('Resolved'), borderWidth: 1, borderRadius: 6 },
+        { label: 'Active',   data: active,   borderRadius: 6 },
+        { label: 'Resolved', data: resolved, borderRadius: 6 },
       ],
     }
   }
@@ -205,8 +205,8 @@ const statusBySection = computed(() => {
   return {
     labels: labels2,
     datasets: [
-      { label: 'Active',   data: active2,   backgroundColor: bgColor('Active', 0.8),   borderColor: borderColor('Active'),   borderWidth: 1, borderRadius: 6 },
-      { label: 'Resolved', data: resolved2, backgroundColor: bgColor('Resolved', 0.8), borderColor: borderColor('Resolved'), borderWidth: 1, borderRadius: 6 },
+      { label: 'Active',   data: active2,   borderRadius: 6 },
+      { label: 'Resolved', data: resolved2, borderRadius: 6 },
     ],
   }
 })
@@ -350,6 +350,7 @@ const barOptions = computed(() => ({
   ...chartOptions.value,
   plugins: {
     ...chartOptions.value.plugins,
+    colors: false,
     tooltip: {
       ...chartOptions.value.plugins.tooltip,
       callbacks: {

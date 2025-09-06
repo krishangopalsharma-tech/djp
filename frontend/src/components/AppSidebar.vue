@@ -1,25 +1,32 @@
 <script setup>
-import { useRoute, RouterLink } from 'vue-router'
+import { useRoute, RouterLink, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
 // RFMS icon is inlined as SVG for reliable theming
 const auth = useAuthStore()
 const ui = useUIStore()
 const route = useRoute()
+const router = useRouter()
 const links = [
   { to: '/dashboard', label: 'Dashboard', icon: 'pi pi-home' },
   { to: '/logbook', label: 'Logbook', icon: 'pi pi-book' },
-  { to: '/failures/new', label: 'New Failure', icon: 'pi pi-plus-circle' },
+  { to: '/failures/new', label: 'Logbook Entry', icon: 'pi pi-plus-circle' },
   { to: '/analytics', label: 'Analytics', icon: 'pi pi-chart-line' },
 ]
 
 const isActive = (to) => route.path.startsWith(to)
+
+function onLogout() {
+  // Frontend-only logout placeholder: navigate to /login
+  try { auth.logout?.() } catch (_) {}
+  router.push('/login')
+}
 </script>
 
 <template>
   <aside class="h-full flex flex-col overflow-hidden sidebar" :data-collapsed="$pinia.state.value.ui?.sidebarCollapsed">
     <!-- Branding + collapse control -->
-    <div class="px-3 py-2 flex items-center justify-between">
+    <div class="px-3 py-2 flex items-center justify-start">
       <div
         class="flex items-center gap-2"
         :class="$pinia.state.value.ui?.sidebarCollapsed ? 'w-full justify-center' : ''"
@@ -47,26 +54,7 @@ const isActive = (to) => route.path.startsWith(to)
         <span class="font-semibold tracking-wide"
               :class="$pinia.state.value.ui?.sidebarCollapsed ? 'sr-only' : ''">RFMS</span>
       </div>
-      <button
-        v-if="!$pinia.state.value.ui?.sidebarCollapsed"
-        class="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-app bg-transparent text-[var(--sidebar-fg)] hover:bg-transparent"
-        :aria-pressed="String(ui.sidebarCollapsed)"
-        aria-label="Toggle sidebar"
-        title="Toggle sidebar"
-        @click="ui.toggleSidebarCollapsed()"
-      >
-        <svg viewBox="0 0 24 24" class="w-4 h-4"><path fill="currentColor" d="M3 4h18v2H3zm3 4h12v2H6zm-3 4h18v2H3zm3 4h12v2H6z"/></svg>
-      </button>
-      <button
-        v-else
-        class="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-app bg-transparent text-[var(--sidebar-fg)] hover:bg-transparent"
-        :aria-pressed="String(ui.sidebarCollapsed)"
-        aria-label="Expand sidebar"
-        title="Expand sidebar"
-        @click="ui.toggleSidebarCollapsed()"
-      >
-        <svg viewBox="0 0 24 24" class="w-4 h-4"><path fill="currentColor" d="M4 11h16v2H4zM4 7h16v2H4zM4 15h10v2H4z"/></svg>
-      </button>
+      
     </div>
 
     <template v-if="auth.user">
@@ -94,7 +82,40 @@ const isActive = (to) => route.path.startsWith(to)
           </span>
         </RouterLink>
       </nav>
-      <div class="mt-auto p-3 text-xs text-muted">v0.1 • Vue + Tailwind</div>
+      <!-- Sidebar footer / utilities -->
+      <div class="mt-auto" :class="$pinia.state.value.ui?.sidebarCollapsed ? 'px-0' : 'px-2'">
+        <div class="space-y-1">
+          <RouterLink
+            to="/settings"
+            class="group flex items-center rounded-lg text-base sidebar-link"
+            :class="{
+              'justify-center h-16 w-full': $pinia.state.value.ui?.sidebarCollapsed,
+              'px-3 py-2 gap-2': !$pinia.state.value.ui?.sidebarCollapsed,
+              'sidebar-link-active': isActive('/settings')
+            }"
+            aria-label="Settings" title="Settings"
+          >
+            <i class="pi pi-cog text-[1.1rem] leading-none"></i>
+            <span class="leading-none transition-all duration-150"
+                  :class="$pinia.state.value.ui?.sidebarCollapsed ? 'w-0 opacity-0 overflow-hidden' : 'w-auto opacity-100'">
+              Settings
+            </span>
+          </RouterLink>
+          <button
+            class="group flex items-center rounded-lg text-base sidebar-link w-full text-left"
+            :class="$pinia.state.value.ui?.sidebarCollapsed ? 'justify-center h-16 w-full' : 'px-3 py-2 gap-2'"
+            aria-label="Logout" title="Logout"
+            @click="onLogout"
+          >
+            <i class="pi pi-sign-out text-[1.1rem] leading-none"></i>
+            <span class="leading-none transition-all duration-150"
+                  :class="$pinia.state.value.ui?.sidebarCollapsed ? 'w-0 opacity-0 overflow-hidden' : 'w-auto opacity-100'">
+              Logout
+            </span>
+          </button>
+        </div>
+        <div class="p-3 text-xs text-muted">v0.1 • Vue + Tailwind</div>
+      </div>
     </template>
 
     <template v-else>

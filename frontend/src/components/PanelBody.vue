@@ -5,6 +5,7 @@ import PieChart from '@/components/PieChart.vue'
 import DoughnutChart from '@/components/DoughnutChart.vue'
 import RecentFailures from '@/components/RecentFailures.vue'
 import { getCssVar, withAlpha } from '@/lib/theme'
+import FailureBySeverityCard from '@/components/analytics/FailureBySeverityCard.vue'
 
 const props = defineProps({
   panel: { type: Object, required: true },
@@ -54,14 +55,17 @@ const props = defineProps({
     </div>
 
     <!-- Charts -->
+    <!-- Special: Failure by Severity card -->
+    <div v-if="panel.kind==='failureSeverity' && state.type==='bar'" class="h-full">
+      <FailureBySeverityCard :range="state.range" :records="data.records || []" :severity="state.severity || 'all'" />
+    </div>
+    
     <div v-else-if="state.type==='bar'" class="h-full">
       <BarChart
         :data="{
           labels: data.labels,
           datasets: [{
             ...data.datasets?.[0],
-            backgroundColor: withAlpha(getCssVar('--slate-gray', '#6c757d'), 0.35),
-            borderColor: getCssVar('--slate-gray', '#6c757d')
           }]
         }"
         :options="chartOptions"
