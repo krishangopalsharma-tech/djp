@@ -86,7 +86,7 @@ function onLogout() {
       <div class="mt-auto" :class="$pinia.state.value.ui?.sidebarCollapsed ? 'px-0' : 'px-2'">
         <div class="space-y-1">
           <RouterLink
-            to="/settings"
+            to="/settings/failure-id"
             class="group flex items-center rounded-lg text-base sidebar-link"
             :class="{
               'justify-center h-16 w-full': $pinia.state.value.ui?.sidebarCollapsed,
