@@ -1,12 +1,18 @@
 <script setup>
-import { reactive, ref } from 'vue'
+import { reactive, ref, onMounted } from 'vue' // <-- Add onMounted
 import { useDepotStore } from '@/stores/depot.js'
 
 const clone = (o) => JSON.parse(JSON.stringify(o))
 
 // Store state
-const depotStore = useDepotStore()
-const depots = depotStore.depots
+const depotStore = useInfrastructureStore()
+// No longer need to reference `depots` directly from the store here
+
+// Fetch data when the component is first mounted
+onMounted(() => {
+  depotStore.fetchDepots()
+})
+
 
 // New depot inline form
 const newDepot = reactive({ name: '', code: '', location: '' })
@@ -18,6 +24,7 @@ const tempEquipments = reactive([]) // local edit list inside modal
 
 function addDepot() {
   if (!newDepot.name.trim()) return
+  // Call the store action instead of modifying state directly
   depotStore.addDepot({
     name: newDepot.name.trim(),
     code: newDepot.code.trim(),
@@ -25,13 +32,15 @@ function addDepot() {
   })
   newDepot.name = ''; newDepot.code = ''; newDepot.location = ''
 }
-function removeDepot(index) {
-  depotStore.removeDepot(index)
+
+function removeDepot(depotId) {
+  // Call the store action with the depot's ID
+  depotStore.removeDepot(depotId)
 }
 
 function openManage(index) {
   selectedDepotIndex.value = index
-  const eq = depots[index]?.equipments ?? []
+  const eq = depotStore.depots[index]?.equipments ?? []
   tempEquipments.splice(0, tempEquipments.length, ...clone(eq))
   showModal.value = true
 }
@@ -42,10 +51,10 @@ function closeModal() {
 }
 function saveEquipments() {
   if (selectedDepotIndex.value == null) return
-  const targetUid = depots[selectedDepotIndex.value].uid
-  depotStore.setEquipments(targetUid, clone(tempEquipments))
+  const targetId = depotStore.depots[selectedDepotIndex.value].id
+  depotStore.setEquipments(targetId, clone(tempEquipments))
   // eslint-disable-next-line no-console
-  console.log('Saved equipments for depot:', depots[selectedDepotIndex.value])
+  console.log('Saved equipments for depot:', depotStore.depots[selectedDepotIndex.value])
   closeModal()
 }
 
@@ -110,21 +119,27 @@ function importCSV() {
             </tr>
           </thead>
           <tbody>
-            <tr v-if="depots.length===0">
-              <td colspan="5" class="px-3 py-6 text-app/60 text-center">No depots yet — add one above.</td>
+            <tr v-if="depotStore.loading">
+                <td colspan="5" class="px-3 py-6 text-center text-muted">Loading...</td>
             </tr>
-            <tr v-for="(d, i) in depots" :key="d.uid" class="border-t border-app/30">
+            <tr v-else-if="depotStore.error">
+                <td colspan="5" class="px-3 py-6 text-center text-red-500">{{ depotStore.error }}</td>
+            </tr>
+            <tr v-else-if="depotStore.depots.length===0">
+                <td colspan="5" class="px-3 py-6 text-app/60 text-center">No depots yet — add one above.</td>
+            </tr>
+            <tr v-for="(d, i) in depotStore.depots" :key="d.id" class="border-t border-app/30">
               <td class="py-2 px-3 align-middle">{{ d.name }}</td>
               <td class="py-2 px-3 align-middle">{{ d.code || '—' }}</td>
               <td class="py-2 px-3 align-middle">{{ d.location || '—' }}</td>
-              <td class="py-2 px-3 align-middle">{{ d.equipments.length }}</td>
+              <td class="py-2 px-3 align-middle">{{ d.equipments?.length || 0 }}</td>
               <td class="py-2 px-3 align-middle">
                 <div class="flex flex-wrap items-center gap-2">
                   <button class="btn" @click="openManage(i)">Manage Equipment</button>
                   <button
                     class="inline-flex items-center justify-center h-9 w-9 rounded-md text-app border border-app hover:bg-[color-mix(in_oklab,_var(--card-bg),_#000_12%)] transition"
                     title="Remove depot"
-                    @click="removeDepot(i)"
+                    @click="removeDepot(d.id)"
                   >
                     <span class="sr-only">Remove depot</span>
                     <svg viewBox="0 0 24 24" class="w-6 h-6" aria-hidden="true">
@@ -148,7 +163,7 @@ function importCSV() {
           <header class="flex items-center justify-between px-4 py-3 border-b border-app/40">
             <div class="min-w-0">
               <h3 class="font-semibold truncate">
-                Manage Equipment — {{ selectedDepotIndex!=null ? depots[selectedDepotIndex].name : '' }}
+                Manage Equipment — {{ selectedDepotIndex!=null ? depotStore.depots[selectedDepotIndex].name : '' }}
               </h3>
               <p class="text-xs text-app/70">Add multiple measuring equipment and their location inside this depot.</p>
             </div>

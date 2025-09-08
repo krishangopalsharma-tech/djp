@@ -1,46 +1,61 @@
 <script setup>
-import { reactive, ref, computed } from 'vue'
-import { useDepotStore } from '@/stores/depot.js'
+import { reactive, ref, computed, onMounted } from 'vue'
+import { useInfrastructureStore } from '@/stores/infrastructure.js'
 
-// helpers
+const infrastructureStore = useInfrastructureStore()
+
+// helpers (no change)
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36)
 const clone = (o) => JSON.parse(JSON.stringify(o))
 
-// depot dropdown options
-const depotStore = useDepotStore()
+// depot dropdown options now come from the live data in the store
 const depotOptions = computed(() =>
-  depotStore.depots.map(d => ({ value: d.uid, label: d.name + (d.code ? ` (${d.code})` : '') }))
+  infrastructureStore.depots.map(d => ({ value: d.id, label: d.name + (d.code ? ` (${d.code})` : '') }))
 )
 
-// stations table (frontend-only)
-const stations = reactive([])
+// Fetch necessary data when the component is first mounted
+onMounted(() => {
+  // Fetch depots if they aren't already loaded, for the dropdown
+  if (infrastructureStore.depots.length === 0) {
+    infrastructureStore.fetchDepots()
+  }
+  // Fetch the stations for this page
+  infrastructureStore.fetchStations()
+})
 
-// modal state for per-station equipment
+
+// The rest of the script for managing the modal and adding/removing rows
+// will be connected to the API in a later step.
+const stations = computed(() => infrastructureStore.stations)
 const showModal = ref(false)
 const selectedIndex = ref(null)
 const tempEquipments = reactive([])
 
+// Functions from original script, adapted for computed property and future API connection
 function addStationRow() {
-  stations.push({
-    uid: uid(),
-    depotUid: depotOptions.value[0]?.value || '',
-    name: '',
-    code: '',
-    equipments: []
-  })
+  // This will be replaced with an API call
+  console.log('addStationRow needs to be connected to the API');
 }
-function removeStationRow(i) { stations.splice(i, 1) }
+function removeStationRow(i) {
+  // This will be replaced with an API call
+  console.log('removeStationRow needs to be connected to the API', i);
+}
 
 function openManage(i) {
   selectedIndex.value = i
-  tempEquipments.splice(0, tempEquipments.length, ...clone(stations[i].equipments))
+  const equipments = stations.value[i]?.equipments ?? []
+  tempEquipments.splice(0, tempEquipments.length, ...clone(equipments))
   showModal.value = true
 }
-function closeModal() { showModal.value = false; selectedIndex.value = null; tempEquipments.splice(0) }
+function closeModal() {
+  showModal.value = false
+  selectedIndex.value = null
+  tempEquipments.splice(0)
+}
 function saveEquipments() {
   if (selectedIndex.value == null) return
-  stations[selectedIndex.value].equipments = clone(tempEquipments)
-  console.log('Saved station equipments:', stations[selectedIndex.value])
+  // This will be replaced with an API call
+  console.log('saveEquipments needs to be connected to the API');
   closeModal()
 }
 
@@ -48,10 +63,15 @@ function saveEquipments() {
 function addEquipmentRow() {
   tempEquipments.push({ uid: uid(), equipmentName: '', modelNumber: '', address: '', installedAt: '', notes: '' })
 }
-function removeEquipmentRow(i) { tempEquipments.splice(i, 1) }
+function removeEquipmentRow(i) {
+  tempEquipments.splice(i, 1)
+}
 function importCSV() { console.log('Import CSV clicked (stations modal)') }
 
-function onSave() { console.log('Saving stations:', clone(stations)) }
+function onSave() {
+  // This will be replaced with an API call
+  console.log('Saving stations needs to be connected to the API');
+}
 </script>
 
 <template>
@@ -71,12 +91,18 @@ function onSave() { console.log('Saving stations:', clone(stations)) }
             </tr>
           </thead>
           <tbody>
-            <tr v-if="stations.length===0">
-              <td colspan="4" class="px-3 py-6 text-app/60 text-center">No stations yet — add a row below.</td>
+            <tr v-if="infrastructureStore.loading.stations">
+              <td colspan="4" class="px-3 py-6 text-center text-muted">Loading stations...</td>
             </tr>
-            <tr v-for="(s, i) in stations" :key="s.uid" class="border-t border-app/30">
+            <tr v-else-if="infrastructureStore.error">
+              <td colspan="4" class="px-3 py-6 text-center text-red-500">{{ infrastructureStore.error }}</td>
+            </tr>
+            <tr v-else-if="stations.length === 0">
+              <td colspan="4" class="px-3 py-6 text-app/60 text-center">No stations yet — add one in the Django Admin.</td>
+            </tr>
+            <tr v-for="(s, i) in stations" :key="s.id" class="border-t border-app/30">
               <td class="py-2 px-3 align-top min-w-[220px]">
-                <select v-model="s.depotUid" class="field h-9">
+                <select v-model="s.depot" class="field h-9">
                   <option v-for="opt in depotOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
                 </select>
               </td>
@@ -89,15 +115,9 @@ function onSave() { console.log('Saving stations:', clone(stations)) }
               <td class="py-2 px-3 align-top">
                 <div class="flex flex-wrap items-center gap-2">
                   <button class="btn" @click="openManage(i)">Manage Equipment</button>
-                  <button
-                    class="inline-flex items-center justify-center h-9 w-9 rounded-md text-app ring-1 ring-app/60 hover:bg-black/10 transition"
-                    title="Remove station"
-                    @click="removeStationRow(i)"
-                  >
+                  <button class="inline-flex items-center justify-center h-9 w-9 rounded-md text-app ring-1 ring-app/60 hover:bg-black/10 transition" title="Remove station" @click="removeStationRow(i)">
                     <span class="sr-only">Remove station</span>
-                    <svg viewBox="0 0 24 24" class="w-6 h-6" aria-hidden="true">
-                      <path fill="currentColor" d="M12 2a10 10 0 1 0 0 20a10 10 0 0 0 0-20Zm3.11 13.11l-1 1L12 13l-2.11 3.11l-1-1L11 12L8.89 9.89l1-1L12 11l2.11-2.11l1 1L13 12z"/>
-                    </svg>
+                    <svg viewBox="0 0 24 24" class="w-6 h-6" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20a10 10 0 0 0 0-20Zm3.11 13.11l-1 1L12 13l-2.11 3.11l-1-1L11 12L8.89 9.89l1-1L12 11l2.11-2.11l1 1L13 12z"/></svg>
                   </button>
                 </div>
               </td>
@@ -175,7 +195,7 @@ function onSave() { console.log('Saving stations:', clone(stations)) }
                           @click="removeEquipmentRow(i)"
                         >
                           <span class="sr-only">Remove row</span>
-                          <svg viewBox="0 0 24 24" class="w-6 h-6" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" class_="w-6 h-6" aria-hidden="true">
                             <path fill="currentColor" d="M12 2a10 10 0 1 0 0 20a10 10 0 0 0 0-20Zm3.11 13.11l-1 1L12 13l-2.11 3.11l-1-1L11 12L8.89 9.89l1-1L12 11l2.11-2.11l1 1L13 12z"/>
                           </svg>
                         </button>
