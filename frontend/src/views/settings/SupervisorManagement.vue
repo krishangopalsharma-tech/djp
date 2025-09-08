@@ -1,61 +1,58 @@
 <script setup lang="ts">
-import { reactive, onMounted } from 'vue'
+import { reactive, onMounted, computed } from 'vue'
 import TagsInput from '@/components/form/TagsInput.vue'
-import { useCatalogStore } from '@/stores/catalog.js'
+import { useInfrastructureStore } from '@/stores/infrastructure.js' // <-- Use new store
 
-type Row = {
-  uid: string
-  depot?: string
-  depotId?: string
-  supervisorName: string
-  designation: string
-  mobile: string
-  email: string
-  stations?: string[]
-  subSections?: string[]
-  assets?: string[]
-}
+const infrastructureStore = useInfrastructureStore()
 
-function uid() {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36)
-}
+// The table will now display data directly from the store
+const rows = computed(() => infrastructureStore.supervisors)
 
-const rows = reactive<Row[]>([
-  { uid: uid(), depotId: '', supervisorName: '', designation: '', mobile: '', email: '', stations: [], subSections: [], assets: [] },
-])
+// Fetch all necessary catalog data when the component mounts
+onMounted(() => {
+  infrastructureStore.fetchSupervisors()
 
+  // Fetch related data for dropdowns if not already present
+  if (infrastructureStore.depots.length === 0) {
+    infrastructureStore.fetchDepots()
+  }
+  if (infrastructureStore.stations.length === 0) {
+    infrastructureStore.fetchStations()
+  }
+  // We will fetch sections and assets later
+})
+
+// The functions below are for the UI and will be fully connected to the API later
 function addRow() {
-  rows.push({ uid: uid(), depotId: '', supervisorName: '', designation: '', mobile: '', email: '', stations: [], subSections: [], assets: [] })
+  console.log('TODO: Implement Add Supervisor API call')
+  alert('This will be connected to the API in a future step.')
 }
 
 function removeRow(index: number) {
-  rows.splice(index, 1)
+  console.log('TODO: Implement Remove Supervisor API call for row index', index)
+  alert('This will be connected to the API in a future step.')
 }
 
 function onSubmit() {
-  // Frontend-only placeholder — wire API later
-  // eslint-disable-next-line no-console
-  console.log('Submitting supervisors:', JSON.parse(JSON.stringify(rows)))
+  console.log('TODO: Implement Save All Supervisors API call')
+  alert('This will be connected to the API in a future step.')
 }
 
-const catalog = useCatalogStore()
+// These functions for populating the TagsInput dropdowns can remain for now
 function stationOptions(depotId?: string) {
-  return catalog.stationsForDepot(depotId || '').map(s => ({ label: s.name, value: s.id }))
+  if (!depotId) return []
+  return infrastructureStore.stations
+    .filter(s => s.depot === depotId)
+    .map(s => ({ label: s.name, value: s.id }))
 }
 function subSectionOptions(depotId?: string) {
-  return catalog.subSectionsForDepot(depotId || '').map(s => ({ label: s.name, value: s.id }))
+  // We will implement sub-sections later
+  return []
 }
 function assetOptions(stationIds: string[] = [], subSectionIds: string[] = []) {
-  return catalog.assetsFor(stationIds, subSectionIds).map(a => ({ label: a.name, value: a.id }))
+  // We will implement assets later
+  return []
 }
-
-onMounted(() => {
-  for (const r of rows) {
-    if (!r.stations) r.stations = []
-    if (!r.subSections) r.subSections = []
-    if (!r.assets) r.assets = []
-  }
-})
 </script>
 
 <template>
@@ -75,76 +72,35 @@ onMounted(() => {
             </tr>
           </thead>
           <tbody>
-            <template v-for="(r, i) in rows" :key="r.uid">
-              <!-- Row 1: compact line -->
+            <tr v-if="infrastructureStore.loading.supervisors">
+              <td colspan="4" class="py-6 px-3 text-center text-muted">Loading supervisors...</td>
+            </tr>
+            <tr v-else-if="infrastructureStore.error">
+              <td colspan="4" class="py-6 px-3 text-center text-red-500">{{ infrastructureStore.error }}</td>
+            </tr>
+
+            <template v-for="(r, i) in rows" :key="r.id">
               <tr class="border-t border-app/30">
                 <td class="py-2 px-3 align-top">
-                  <input v-model="r.supervisorName" class="field h-9" placeholder="e.g., Priya Sharma" />
+                  <input v-model="r.name" class="field h-9" placeholder="e.g., Priya Sharma" />
                 </td>
                 <td class="py-2 px-3 align-top">
                   <input v-model="r.mobile" type="tel" inputmode="tel" class="field h-9" placeholder="e.g., 9876543210" />
                 </td>
                 <td class="py-2 px-3 align-top">
-                  <select class="chip w-full" v-model="r.depotId">
-                    <option :value="''" disabled>Select Depot</option>
-                    <option v-for="d in catalog.depots" :key="d.id" :value="d.id">{{ d.name }}</option>
+                  <select class="chip w-full" v-model="r.depot">
+                    <option :value="null" disabled>Select Depot</option>
+                    <option v-for="d in infrastructureStore.depots" :key="d.id" :value="d.id">{{ d.name }}</option>
                   </select>
                 </td>
                 <td class="py-2 px-3 align-top text-center">
-                  <button
-                    class="inline-flex items-center justify-center h-9 w-9 rounded-md text-app border border-app hover:bg-[color-mix(in_oklab,_var(--card-bg),_#000_12%)] transition"
-                    title="Remove row"
-                    @click="removeRow(i)"
-                  >
+                  <button class="inline-flex items-center justify-center h-9 w-9 rounded-md text-app border border-app hover:bg-[color-mix(in_oklab,_var(--card-bg),_#000_12%)] transition" title="Remove row" @click="removeRow(i)">
                     <span class="sr-only">Remove row</span>
-                    <svg viewBox="0 0 24 24" class="w-6 h-6" aria-hidden="true">
-                      <path fill="currentColor" d="M12 2a10 10 0 1 0 0 20a10 10 0 0 0 0-20Zm3.11 13.11l-1 1L12 13l-2.11 3.11l-1-1L11 12L8.89 9.89l1-1L12 11l2.11-2.11l1 1L13 12z"/>
-                    </svg>
+                    <svg viewBox="0 0 24 24" class="w-6 h-6" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20a10 10 0 0 0 0-20Zm3.11 13.11l-1 1L12 13l-2.11 3.11l-1-1L11 12L8.89 9.89l1-1L12 11l2.11-2.11l1 1L13 12z"/></svg>
                   </button>
                 </td>
               </tr>
-
-              <!-- Row 2: tag fields -->
-              <tr class="border-b border-app/30 bg-[var(--card-bg)]/60">
-                <td class="py-3 px-3" :colspan="4">
-                  <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                    <!-- Stations -->
-                    <div>
-                      <div class="text-xs font-medium mb-1">Stations</div>
-                      <TagsInput
-                        v-model="r.stations"
-                        :options="stationOptions(r.depotId)"
-                        placeholder="Add stations…"
-                        :disabled="!r.depotId"
-                      />
-                      <p v-if="!r.depotId" class="text-xs opacity-70 mt-1">Pick a depot to list stations.</p>
-                    </div>
-                    <!-- Sub-sections -->
-                    <div>
-                      <div class="text-xs font-medium mb-1">Sub-sections</div>
-                      <TagsInput
-                        v-model="r.subSections"
-                        :options="subSectionOptions(r.depotId)"
-                        placeholder="Add sub-sections…"
-                        :disabled="!r.depotId"
-                      />
-                      <p v-if="!r.depotId" class="text-xs opacity-70 mt-1">Pick a depot to list sub-sections.</p>
-                    </div>
-                    <!-- Assets -->
-                    <div>
-                      <div class="text-xs font-medium mb-1">Assets</div>
-                      <TagsInput
-                        v-model="r.assets"
-                        :options="assetOptions(r.stations || [], r.subSections || [])"
-                        placeholder="Select assets…"
-                        :disabled="!(r.stations?.length && r.subSections?.length)"
-                      />
-                      <p class="text-xs opacity-70 mt-1">Options combine selected Stations × Sub-sections.</p>
-                    </div>
-                  </div>
-                </td>
-              </tr>
-            </template>
+              </template>
           </tbody>
         </table>
       </div>

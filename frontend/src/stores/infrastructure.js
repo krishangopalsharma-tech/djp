@@ -46,6 +46,19 @@ export const useInfrastructureStore = defineStore('infrastructure', {
         this.loading.stations = false
       }
     },
+    async fetchSupervisors() {
+      this.loading.supervisors = true
+      this.error = null
+      try {
+        const response = await http.get('/infrastructure/supervisors/')
+        this.supervisors = response.data.results || response.data
+      } catch (err) {
+        this.error = 'Failed to fetch supervisors.'
+        console.error(err)
+      } finally {
+        this.loading.supervisors = false
+      }
+    },
     // We will add more fetch actions for sections, circuits, etc. here later.
   },
 })

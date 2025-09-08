@@ -1,7 +1,8 @@
 # Path: backend/infrastructure/serializers.py
 
 from rest_framework import serializers
-from .models import Depot, Station, Section, Circuit, Supervisor
+# Add SubSection to this import
+from .models import Depot, Station, Section, SubSection, Circuit, Supervisor
 
 class DepotSerializer(serializers.ModelSerializer):
     class Meta:
@@ -22,6 +23,14 @@ class SectionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Section
         fields = ['id', 'depot', 'depot_name', 'name']
+
+# Add this new class
+class SubSectionSerializer(serializers.ModelSerializer):
+    section_name = serializers.CharField(source='section.name', read_only=True)
+
+    class Meta:
+        model = SubSection
+        fields = ['id', 'section', 'section_name', 'name']
 
 class CircuitSerializer(serializers.ModelSerializer):
     class Meta:

@@ -1,25 +1,33 @@
 <script setup>
-import { reactive, ref, computed } from 'vue'
-import { useDepotStore } from '@/stores/depot.js'
+import { reactive, ref, computed, onMounted } from 'vue' // <-- Add onMounted
+import { useInfrastructureStore } from '@/stores/infrastructure.js' // <-- Use new store
 
+const infrastructureStore = useInfrastructureStore() // <-- Use new store
+
+// helpers (no change)
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36)
 const clone = (o) => JSON.parse(JSON.stringify(o))
 
-// Depot options from store
-const depotStore = useDepotStore()
+// Depot options now come from the live data in the store
 const depotOptions = computed(() =>
-  depotStore.depots.map(d => ({ value: d.uid, label: d.name + (d.code ? ` (${d.code})` : '') }))
+  infrastructureStore.depots.map(d => ({ value: d.id, label: d.name + (d.code ? ` (${d.code})` : '') }))
 )
 
-// Sections table (frontend-only)
-const sections = reactive([])
-// shape: { uid, depotUid, sectionName, subsections: [{ uid, name, assets: [...] }] }
+// Fetch data when the component is first mounted
+onMounted(() => {
+  if (infrastructureStore.depots.length === 0) {
+    infrastructureStore.fetchDepots()
+  }
+  // We can also pre-fetch sections if needed, but not required for this component yet
+})
 
-// Modals
+// The rest of the script for managing modals can remain for now
+const sections = reactive([])
 const showSubsModal = ref(false)
 const selectedSectionIdx = ref(null)
-const tempSubsections = reactive([]) // editing copy inside modal
+const tempSubsections = reactive([])
 
+// From original script
 const showAssetsModal = ref(false)
 const selectedSubIdx = ref(null)
 const tempAssets = reactive([]) // editing copy for a sub-section

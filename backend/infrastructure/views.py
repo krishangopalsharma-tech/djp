@@ -1,11 +1,13 @@
 # Path: backend/infrastructure/views.py
 
 from rest_framework import viewsets, permissions
-from .models import Depot, Station, Section, Circuit, Supervisor
+# Add SubSection and SubSectionSerializer to the imports
+from .models import Depot, Station, Section, SubSection, Circuit, Supervisor
 from .serializers import (
     DepotSerializer,
     StationSerializer,
     SectionSerializer,
+    SubSectionSerializer, # Add this
     CircuitSerializer,
     SupervisorSerializer
 )
@@ -26,6 +28,12 @@ class SectionViewSet(viewsets.ModelViewSet):
     queryset = Section.objects.select_related('depot').all().order_by('name')
     serializer_class = SectionSerializer
     permission_classes = [permissions.AllowAny] # <-- CHANGE THIS
+
+# Add this new ViewSet
+class SubSectionViewSet(viewsets.ModelViewSet):
+    queryset = SubSection.objects.select_related('section').all().order_by('name')
+    serializer_class = SubSectionSerializer
+    permission_classes = [permissions.AllowAny]
 
 class CircuitViewSet(viewsets.ModelViewSet):
     queryset = Circuit.objects.all().order_by('circuit_id')

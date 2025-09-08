@@ -4,7 +4,7 @@ import { useInfrastructureStore } from '@/stores/infrastructure.js'
 
 const infrastructureStore = useInfrastructureStore()
 
-// helpers (no change)
+// helpers
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36)
 const clone = (o) => JSON.parse(JSON.stringify(o))
 
@@ -15,63 +15,42 @@ const depotOptions = computed(() =>
 
 // Fetch necessary data when the component is first mounted
 onMounted(() => {
-  // Fetch depots if they aren't already loaded, for the dropdown
   if (infrastructureStore.depots.length === 0) {
     infrastructureStore.fetchDepots()
   }
-  // Fetch the stations for this page
   infrastructureStore.fetchStations()
 })
 
-
-// The rest of the script for managing the modal and adding/removing rows
-// will be connected to the API in a later step.
+// The rest of this is for UI state and will be connected to the API later
 const stations = computed(() => infrastructureStore.stations)
 const showModal = ref(false)
 const selectedIndex = ref(null)
 const tempEquipments = reactive([])
 
-// Functions from original script, adapted for computed property and future API connection
 function addStationRow() {
-  // This will be replaced with an API call
-  console.log('addStationRow needs to be connected to the API');
+  console.log('TODO: Add Station API call');
 }
 function removeStationRow(i) {
-  // This will be replaced with an API call
-  console.log('removeStationRow needs to be connected to the API', i);
+   console.log('TODO: Remove Station API call');
 }
-
 function openManage(i) {
   selectedIndex.value = i
-  const equipments = stations.value[i]?.equipments ?? []
-  tempEquipments.splice(0, tempEquipments.length, ...clone(equipments))
+  tempEquipments.splice(0, tempEquipments.length, ...clone(stations.value[i].equipments || []))
   showModal.value = true
 }
-function closeModal() {
-  showModal.value = false
-  selectedIndex.value = null
-  tempEquipments.splice(0)
-}
+function closeModal() { showModal.value = false; selectedIndex.value = null; tempEquipments.splice(0) }
 function saveEquipments() {
   if (selectedIndex.value == null) return
-  // This will be replaced with an API call
-  console.log('saveEquipments needs to be connected to the API');
+  // This will be an API call later
+  console.log('Saved station equipments:', stations.value[selectedIndex.value])
   closeModal()
 }
-
-// equipment rows (modal)
 function addEquipmentRow() {
   tempEquipments.push({ uid: uid(), equipmentName: '', modelNumber: '', address: '', installedAt: '', notes: '' })
 }
-function removeEquipmentRow(i) {
-  tempEquipments.splice(i, 1)
-}
+function removeEquipmentRow(i) { tempEquipments.splice(i, 1) }
 function importCSV() { console.log('Import CSV clicked (stations modal)') }
-
-function onSave() {
-  // This will be replaced with an API call
-  console.log('Saving stations needs to be connected to the API');
-}
+function onSave() { console.log('Saving stations:', clone(stations.value)) }
 </script>
 
 <template>

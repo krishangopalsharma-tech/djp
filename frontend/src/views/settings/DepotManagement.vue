@@ -1,6 +1,6 @@
 <script setup>
 import { reactive, ref, onMounted } from 'vue' // <-- Add onMounted
-import { useDepotStore } from '@/stores/depot.js'
+import { useInfrastructureStore } from '@/stores/infrastructure.js'
 
 const clone = (o) => JSON.parse(JSON.stringify(o))
 
