@@ -15,7 +15,13 @@ const titleMap = {
   '/failures/new': 'Logbook Entry',
   '/analytics': 'Analytics Board',
 }
-const pageTitle = computed(() => route.meta?.title || titleMap[route.path] || titleMap['/' + (route.path.split('/')[1] || '')] || 'RFMS')
+const pageTitle = computed(() => {
+  if (route.path.startsWith('/settings')) return 'Settings'
+  return route.meta?.title
+      || titleMap[route.path]
+      || titleMap['/' + (route.path.split('/')[1] || '')]
+      || 'RFMS'
+})
 
 const displayName = computed(() => auth.user?.name || auth.user?.username || '')
 

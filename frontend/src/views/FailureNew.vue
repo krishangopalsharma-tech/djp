@@ -246,7 +246,13 @@ function resetForm() {
           </template>
 
           <!-- Attachments -->
-          <div class="sm:col-span-2 text-sm text-muted">Attachments: (uploader to be added)</div>
+          <div class="sm:col-span-2 text-sm text-muted">
+            Attachments: (uploader to be added)
+            <p class="text-xs opacity-70 mt-2">
+              Files will be sent to <span class="font-medium">Alert Group</span> and
+              <span class="font-medium">File Upload Group</span> (frontend mock; bot wiring later).
+            </p>
+          </div>
 
           <!-- Buttons -->
           <div class="sm:col-span-2 flex items-center justify-between pt-2">

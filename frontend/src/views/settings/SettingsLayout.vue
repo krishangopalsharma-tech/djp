@@ -3,13 +3,25 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 const route = useRoute()
 const links = [
+  // 1) Reports Management
+  { to: '/settings/reports',           label: 'Reports Management',             icon: 'reports' },
+  // 2) Failure ID Configuration
   { to: '/settings/failure-id',        label: 'Failure ID Configuration',       icon: 'failure-id' },
+  // 3) Telegram Integration Settings
   { to: '/settings/telegram',          label: 'Telegram Integration Settings',  icon: 'telegram' },
+  { to: '/settings/email',             label: 'Email Settings',                 icon: 'email' },
+  // 4) User and Role Management
   { to: '/settings/users-roles',       label: 'User and Role Management',       icon: 'users-roles' },
+  // 5) Circuit Management
   { to: '/settings/circuits',          label: 'Circuit Management',             icon: 'circuits' },
-  { to: '/settings/supervisors',       label: 'Supervisor Management',          icon: 'supervisors' },
-  { to: '/settings/stations-sections', label: 'Station and Section Management', icon: 'stations-sections' },
+  // 6) Depot Management
   { to: '/settings/depots',            label: 'Depot Management',               icon: 'depot' },
+  // 7) Supervisor Management
+  { to: '/settings/supervisors',       label: 'Supervisor Management',          icon: 'supervisors' },
+  // 8) Station Management
+  { to: '/settings/stations',          label: 'Station Management',             icon: 'stations' },
+  // 9) Section Management
+  { to: '/settings/sections',          label: 'Section Management',             icon: 'sections' },
 ]
 const title = computed(() => route.meta?.title ?? 'Settings')
 </script>
@@ -35,8 +47,17 @@ const title = computed(() => route.meta?.title ?? 'Settings')
             <svg v-else-if="link.icon==='users-roles'" viewBox="0 0 24 24" class="w-5 h-5"><path fill="currentColor" d="M12 12a5 5 0 1 0-5-5a5 5 0 0 0 5 5m-7 8a7 7 0 0 1 14 0v1H5z"/></svg>
             <svg v-else-if="link.icon==='circuits'" viewBox="0 0 24 24" class="w-5 h-5"><path fill="currentColor" d="M7 3h2v4h6V3h2v4h2a2 2 0 0 1 2 2v3h-2V9H5v9h12v-2h2v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2z"/></svg>
             <svg v-else-if="link.icon==='supervisors'" viewBox="0 0 24 24" class="w-5 h-5"><path fill="currentColor" d="M12 12a4 4 0 1 0-4-4a4 4 0 0 0 4 4m6 8v-1a5 5 0 0 0-5-5H7a5 5 0 0 0-5 5v1z"/></svg>
-            <svg v-else-if="link.icon==='stations-sections'" viewBox="0 0 24 24" class="w-5 h-5"><path fill="currentColor" d="M12 2c3.87 0 7 3.13 7 7c0 5.25-7 13-7 13S5 14.25 5 9c0-3.87 3.13-7 7-7m0 9a2 2 0 1 0-2-2a2 2 0 0 0 2 2"/></svg>
+            <svg v-else-if="link.icon==='stations'" viewBox="0 0 24 24" class="w-5 h-5">
+              <path fill="currentColor" d="M12 2c3.9 0 7 3.1 7 7c0 5.3-7 13-7 13S5 14.3 5 9c0-3.9 3.1-7 7-7m0 9a2 2 0 1 0-2-2a2 2 0 0 0 2 2"/>
+            </svg>
+            <svg v-else-if="link.icon==='sections'" viewBox="0 0 24 24" class="w-5 h-5">
+              <path fill="currentColor" d="M12 2l8 4l-8 4l-8-4zm0 6l8 4l-8 4l-8-4zm0 6l8 4l-8 4l-8-4z"/>
+            </svg>
             <svg v-else-if="link.icon==='depot'" viewBox="0 0 24 24" class="w-5 h-5"><path fill="currentColor" d="M3 10.5L12 6l9 4.5V20a1 1 0 0 1-1 1h-6v-6H10v6H4a1 1 0 0 1-1-1z"/></svg>
+            <svg v-else-if="link.icon==='reports'" viewBox="0 0 24 24" class="w-5 h-5">
+              <path fill="currentColor" d="M6 2a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h9l5-5V4a2 2 0 0 0-2-2H6zm9 18v-3a2 2 0 0 1 2-2h3l-5 5zM8 7h8v2H8V7zm0 4h8v2H8v-2zm0 4h5v2H8v-2z"/>
+            </svg>
+            <svg v-else viewBox="0 0 24 24" class="w-5 h-5"><circle cx="12" cy="12" r="5" fill="currentColor"/></svg>
           </span>
           <span class="truncate">{{ link.label }}</span>
         </RouterLink>

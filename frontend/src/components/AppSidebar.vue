@@ -12,6 +12,8 @@ const links = [
   { to: '/logbook', label: 'Logbook', icon: 'pi pi-book' },
   { to: '/failures/new', label: 'Logbook Entry', icon: 'pi pi-plus-circle' },
   { to: '/analytics', label: 'Analytics', icon: 'pi pi-chart-line' },
+  { to: '/reports-now', label: 'Reports Now', icon: 'pi pi-send' },
+  { to: '/supervisor-movements', label: 'Supervisor Movements', icon: 'pi pi-users' },
 ]
 
 const isActive = (to) => route.path.startsWith(to)

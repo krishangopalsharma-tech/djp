@@ -2,7 +2,6 @@
 </script>
 <template>
   <div class="space-y-4">
-    <h2 class="text-xl font-semibold">Failure ID Configuration</h2>
     <p class="text-app/80 text-sm">Configure Event ID/sequence rules, prefixes, padding, and resets. (Frontend placeholder)</p>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -34,4 +33,3 @@
     </div>
   </div>
 </template>
-

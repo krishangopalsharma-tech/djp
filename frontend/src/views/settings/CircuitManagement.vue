@@ -39,7 +39,6 @@ function onSubmit() {
 
 <template>
   <div class="space-y-4">
-    <h2 class="text-xl font-semibold">Circuit Management</h2>
     <p class="text-app/80 text-sm">Manage circuits with severity and equipment mapping.</p>
 
     <!-- Table -->

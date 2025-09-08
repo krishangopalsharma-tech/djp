@@ -2,7 +2,6 @@
 </script>
 <template>
   <div class="space-y-4">
-    <h2 class="text-xl font-semibold">User and Role Management</h2>
     <p class="text-app/80 text-sm">Create users, assign roles/permissions. (Frontend placeholder)</p>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -27,4 +26,3 @@
     </div>
   </div>
 </template>
-

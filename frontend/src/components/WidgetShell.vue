@@ -2,7 +2,8 @@
 import { computed } from 'vue'
 
 const props = defineProps({
-  title: { type: String, required: true },
+  // Make title optional so callers can omit it when header is hidden
+  title: { type: String, default: '' },
 
   // v-models
   chartType: { type: String, default: 'bar' },              // 'bar' | 'line' | 'pie' | 'doughnut' | 'table'
@@ -10,6 +11,8 @@ const props = defineProps({
 
   // optional: show the small “…” action icons later
   dense: { type: Boolean, default: false },
+  // allow hiding the entire header area (title + selector + chips)
+  hideHeader: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['update:chartType', 'update:range', 'refresh'])
@@ -29,7 +32,7 @@ function setType(e){ emit('update:chartType', e.target.value) }
 <template>
   <div class="rounded-2xl border bg-white p-3 md:p-4">
     <!-- Header -->
-    <div class="mb-3 flex items-center gap-2">
+    <div v-if="!hideHeader" class="mb-3 flex items-center gap-2">
       <h3 class="text-lg md:text-xl font-semibold flex-1 leading-tight">{{ title }}</h3>
 
       <!-- Chart type selector -->
@@ -54,7 +57,7 @@ function setType(e){ emit('update:chartType', e.target.value) }
     </div>
 
     <!-- Time filters (chips) -->
-    <div class="mb-3 chip-group">
+    <div v-if="!hideHeader" class="mb-3 chip-group">
       <button
         v-for="r in ranges"
         :key="r.key"

@@ -1,23 +1,18 @@
 <script setup>
-/**
- * IMPORTANT:
- * - Make sure this path exists: src/stores/telegram.js
- * - Make sure Pinia is installed and set up in main.js (app.use(pinia))
- */
 import WidgetShell from '@/components/WidgetShell.vue'
-import { useTelegramStore } from '@/stores/telegram'
+import { useTelegramStore } from '@/stores/telegram.js'
 
 const tg = useTelegramStore()
 
 function onSave(g) {
   // Mock persist
-  console.log('Saved group config:', structuredClone(g))
+  console.log('Saved group config:', { ...g })
   alert(`Saved settings for ${g.name}`)
 }
 
 function onTest(g) {
   // Mock send
-  console.log('Test message to group:', structuredClone(g))
+  console.log('Test message to group:', { ...g })
   alert(`Test message sent to ${g.name}`)
 }
 </script>
@@ -45,9 +40,7 @@ function onTest(g) {
                   :value="g.name"
                   @input="tg.rename(g.key, $event.target.value)"
                 />
-                <p class="text-xs opacity-70 mt-1">
-                  Shown in dropdowns (e.g., “{{ g.name }}”).
-                </p>
+                <p class="text-xs opacity-70 mt-1">Shown in dropdowns (e.g., “{{ g.name }}”).</p>
               </div>
 
               <div>
@@ -84,7 +77,8 @@ function onTest(g) {
       </div>
     </WidgetShell>
   </div>
+  
 </template>
 
-<style scoped>
-</style>
+<style scoped></style>
+

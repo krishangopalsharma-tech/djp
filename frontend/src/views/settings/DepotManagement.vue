@@ -1,54 +1,35 @@
-<script setup lang="ts">
+<script setup>
 import { reactive, ref } from 'vue'
+import { useDepotStore } from '@/stores/depot.js'
 
-// Types
-type EquipmentRow = {
-  uid: string
-  equipment: string
-  model: string
-  assetId: string
-  location: string
-  notes: string
-}
-type Depot = {
-  uid: string
-  name: string
-  code: string
-  location: string
-  equipments: EquipmentRow[]
-}
+const clone = (o) => JSON.parse(JSON.stringify(o))
 
-// Helpers
-const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36)
-const clone = <T>(o: T): T => JSON.parse(JSON.stringify(o))
+// Store state
+const depotStore = useDepotStore()
+const depots = depotStore.depots
 
-// State: list of depots + new depot form
-const depots = reactive<Depot[]>([])
+// New depot inline form
 const newDepot = reactive({ name: '', code: '', location: '' })
 
-// Modal state for managing equipment of a selected depot
+// Modal state for selected depot equipments
 const showModal = ref(false)
-const selectedDepotIndex = ref<number | null>(null)
-const tempEquipments = reactive<EquipmentRow[]>([]) // edited copy while modal is open
+const selectedDepotIndex = ref(null)
+const tempEquipments = reactive([]) // local edit list inside modal
 
-// Actions — depots
 function addDepot() {
   if (!newDepot.name.trim()) return
-  depots.push({
-    uid: uid(),
+  depotStore.addDepot({
     name: newDepot.name.trim(),
     code: newDepot.code.trim(),
     location: newDepot.location.trim(),
-    equipments: []
   })
   newDepot.name = ''; newDepot.code = ''; newDepot.location = ''
 }
-function removeDepot(index: number) {
-  depots.splice(index, 1)
+function removeDepot(index) {
+  depotStore.removeDepot(index)
 }
 
-// Actions — modal open/close and equipments editing
-function openManage(index: number) {
+function openManage(index) {
   selectedDepotIndex.value = index
   const eq = depots[index]?.equipments ?? []
   tempEquipments.splice(0, tempEquipments.length, ...clone(eq))
@@ -61,13 +42,15 @@ function closeModal() {
 }
 function saveEquipments() {
   if (selectedDepotIndex.value == null) return
-  depots[selectedDepotIndex.value].equipments = clone(tempEquipments)
+  const targetUid = depots[selectedDepotIndex.value].uid
+  depotStore.setEquipments(targetUid, clone(tempEquipments))
   // eslint-disable-next-line no-console
   console.log('Saved equipments for depot:', depots[selectedDepotIndex.value])
   closeModal()
 }
 
-// Equipment table row ops (inside modal)
+// Equipment rows inside modal
+const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36)
 function addEquipmentRow() {
   tempEquipments.push({
     uid: uid(),
@@ -78,21 +61,18 @@ function addEquipmentRow() {
     notes: ''
   })
 }
-function removeEquipmentRow(i: number) {
+function removeEquipmentRow(i) {
   tempEquipments.splice(i, 1)
 }
-
-// Placeholder for CSV import in modal
 function importCSV() {
-  // TODO: implement parsing and push rows into tempEquipments
+  // TODO: parse & merge rows
   // eslint-disable-next-line no-console
-  console.log('Import CSV clicked (to be implemented)')
+  console.log('Import CSV clicked (Depot modal)')
 }
 </script>
 
 <template>
   <div class="space-y-5">
-    <h2 class="text-xl font-semibold">Depot Management</h2>
     <p class="text-app/80 text-sm">Add depots first, then manage measuring equipment per depot.</p>
 
     <!-- New Depot form -->
@@ -116,7 +96,7 @@ function importCSV() {
       </div>
     </div>
 
-    <!-- Depots table -->
+    <!-- Depots list -->
     <div class="rounded-2xl border-app bg-card text-app overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
@@ -214,7 +194,8 @@ function importCSV() {
                       </td>
                       <td class="py-2 px-3 align-top text-center">
                         <button
-                          class="inline-flex items-center justify-center h-9 w-9 rounded-md text-app border border-app hover:bg-[color-mix(in_oklab,_var(--card-bg),_#000_12%)] transition"
+                          class="inline-flex items-center justify-center h-9 w-9 rounded-md text-app ring-1 ring-app/60
+                                 hover:bg-[color-mix(in_oklab,_var(--surface),_#000_12%)] transition"
                           title="Remove row"
                           @click="removeEquipmentRow(i)"
                         >
