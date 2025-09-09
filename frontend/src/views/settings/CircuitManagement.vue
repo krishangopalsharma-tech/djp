@@ -1,39 +1,31 @@
 <script setup lang="ts">
-import { reactive } from 'vue'
+import { onMounted, computed } from 'vue'
+import { useInfrastructureStore } from '@/stores/infrastructure.js'
 
+const infrastructureStore = useInfrastructureStore()
+
+// Data for the table now comes directly from the store
+const rows = computed(() => infrastructureStore.circuits)
+
+// Fetch circuit data when the component is mounted
+onMounted(() => {
+  infrastructureStore.fetchCircuits()
+})
+
+// The functions below are for the UI and will be fully connected to the API later
 type Severity = 'Minor' | 'Major' | 'Critical'
-type Row = {
-  uid: string
-  circuitId: string
-  circuitName: string
-  relatedEquipment: string
-  severity: Severity
-  details: string
-}
-
 const severityOptions: Severity[] = ['Minor', 'Major', 'Critical']
 
-function uid() {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36)
-}
-
-const rows = reactive<Row[]>([
-  { uid: uid(), circuitId: '', circuitName: '', relatedEquipment: '', severity: 'Minor', details: '' },
-])
-
 function addRow() {
-  rows.push({ uid: uid(), circuitId: '', circuitName: '', relatedEquipment: '', severity: 'Minor', details: '' })
+  alert('This will be connected to the API in a future step.')
 }
 
 function removeRow(index: number) {
-  rows.splice(index, 1)
+  alert('This will be connected to the API in a future step.')
 }
 
 function onSubmit() {
-  // Frontend-only: replace with API integration later
-  // eslint-disable-next-line no-console
-  console.log('Submitting circuits:', JSON.parse(JSON.stringify(rows)))
-  // Optional UX: keep data, or clear after submit. We keep for now.
+  alert('This will be connected to the API in a future step.')
 }
 </script>
 
@@ -56,15 +48,22 @@ function onSubmit() {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(r, i) in rows" :key="r.uid" class="border-t border-app/30">
+            <tr v-if="infrastructureStore.loading.circuits">
+              <td colspan="6" class="py-6 px-3 text-center text-muted">Loading circuits...</td>
+            </tr>
+            <tr v-else-if="infrastructureStore.error">
+              <td colspan="6" class="py-6 px-3 text-center text-red-500">{{ infrastructureStore.error }}</td>
+            </tr>
+
+            <tr v-for="(r, i) in rows" :key="r.id" class="border-t border-app/30">
               <td class="py-2 px-3 align-top">
-                <input v-model="r.circuitId" class="field h-9" placeholder="e.g., CKT-001" />
+                <input v-model="r.circuit_id" class="field h-9" placeholder="e.g., CKT-001" />
               </td>
               <td class="py-2 px-3 align-top">
-                <input v-model="r.circuitName" class="field h-9" placeholder="e.g., Feeder Line A" />
+                <input v-model="r.name" class="field h-9" placeholder="e.g., Feeder Line A" />
               </td>
               <td class="py-2 px-3 align-top">
-                <input v-model="r.relatedEquipment" class="field h-9" placeholder="e.g., Breaker-12, XFMR-3" />
+                <input v-model="r.related_equipment" class="field h-9" placeholder="e.g., Breaker-12, XFMR-3" />
               </td>
               <td class="py-2 px-3 align-top">
                 <select v-model="r.severity" class="field h-9">
@@ -75,21 +74,12 @@ function onSubmit() {
                 <textarea v-model="r.details" class="field-textarea min-h-[44px]" placeholder="Notes / details..."></textarea>
               </td>
               <td class="py-2 px-3 align-top text-center">
-                <!-- More visible remove button: bold X-circle icon + stronger hover -->
-                <button
-                  class="inline-flex items-center justify-center h-9 w-9 rounded-md text-app border border-app
-                         hover:bg-[color-mix(in_oklab,_var(--card-bg),_#000_12%)] transition"
-                  title="Remove row"
-                  @click="removeRow(i)"
-                >
+                <button class="inline-flex items-center justify-center h-9 w-9 rounded-md text-app border border-app hover:bg-[color-mix(in_oklab,_var(--card-bg),_#000_12%)] transition" title="Remove row" @click="removeRow(i)">
                   <span class="sr-only">Remove row</span>
-                  <svg viewBox="0 0 24 24" class="w-6 h-6" aria-hidden="true">
-                    <!-- X-circle (filled) -->
-                    <path fill="currentColor" d="M12 2a10 10 0 1 0 0 20a10 10 0 0 0 0-20Zm3.11 13.11l-1 1L12 13l-2.11 3.11l-1-1L11 12L8.89 9.89l1-1L12 11l2.11-2.11l1 1L13 12z"/>
-                  </svg>
+                  <svg viewBox="0 0 24 24" class="w-6 h-6" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20a10 10 0 0 0 0-20Zm3.11 13.11l-1 1L12 13l-2.11 3.11l-1-1L11 12L8.89 9.89l1-1L12 11l2.11-2.11l1 1L13 12z"/></svg>
                 </button>
               </td>
-          </tr>
+            </tr>
           </tbody>
         </table>
       </div>

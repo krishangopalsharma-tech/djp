@@ -1,86 +1,41 @@
 <script setup>
-import { reactive, ref, computed, onMounted } from 'vue' // <-- Add onMounted
-import { useInfrastructureStore } from '@/stores/infrastructure.js' // <-- Use new store
+import { reactive, ref, computed, onMounted } from 'vue'
+import { useInfrastructureStore } from '@/stores/infrastructure.js'
 
-const infrastructureStore = useInfrastructureStore() // <-- Use new store
+const infrastructureStore = useInfrastructureStore()
 
-// helpers (no change)
-const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36)
-const clone = (o) => JSON.parse(JSON.stringify(o))
-
-// Depot options now come from the live data in the store
 const depotOptions = computed(() =>
   infrastructureStore.depots.map(d => ({ value: d.id, label: d.name + (d.code ? ` (${d.code})` : '') }))
 )
+const sections = computed(() => infrastructureStore.sections)
 
-// Fetch data when the component is first mounted
 onMounted(() => {
   if (infrastructureStore.depots.length === 0) {
     infrastructureStore.fetchDepots()
   }
-  // We can also pre-fetch sections if needed, but not required for this component yet
+  infrastructureStore.fetchSections()
 })
 
-// The rest of the script for managing modals can remain for now
-const sections = reactive([])
+// --- RESTORED VARIABLES FOR MODALS ---
+const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36)
+const clone = (o) => JSON.parse(JSON.stringify(o))
+
 const showSubsModal = ref(false)
 const selectedSectionIdx = ref(null)
 const tempSubsections = reactive([])
 
-// From original script
 const showAssetsModal = ref(false)
 const selectedSubIdx = ref(null)
-const tempAssets = reactive([]) // editing copy for a sub-section
-
-function addSectionRow() {
-  sections.push({
-    uid: uid(),
-    depotUid: depotOptions.value[0]?.value || '',
-    sectionName: '',
-    subsections: []
-  })
-}
-function removeSectionRow(i) { sections.splice(i, 1) }
+const tempAssets = reactive([])
 
 function openSubsections(i) {
   selectedSectionIdx.value = i
-  const subs = sections[i].subsections || []
+  const subs = sections.value[i]?.subsections || []
   tempSubsections.splice(0, tempSubsections.length, ...clone(subs))
   showSubsModal.value = true
 }
 function closeSubsModal() { showSubsModal.value = false; selectedSectionIdx.value = null; tempSubsections.splice(0) }
-function saveSubsections() {
-  if (selectedSectionIdx.value == null) return
-  sections[selectedSectionIdx.value].subsections = clone(tempSubsections)
-  console.log('Saved subsections for section:', sections[selectedSectionIdx.value])
-  closeSubsModal()
-}
-function addSubRow() { tempSubsections.push({ uid: uid(), name: '', assets: [] }) }
-function removeSubRow(i) { tempSubsections.splice(i, 1) }
-
-// Assets (nested modal within subsections modal)
-const ASSET_TYPES = ['Cable', 'Optical Fiber', 'Joint']
-
-function openAssets(i) {
-  selectedSubIdx.value = i
-  const assets = tempSubsections[i].assets || []
-  tempAssets.splice(0, tempAssets.length, ...clone(assets))
-  showAssetsModal.value = true
-}
-function closeAssetsModal() { showAssetsModal.value = false; selectedSubIdx.value = null; tempAssets.splice(0) }
-function saveAssets() {
-  if (selectedSubIdx.value == null) return
-  tempSubsections[selectedSubIdx.value].assets = clone(tempAssets)
-  console.log('Saved assets for subsection:', tempSubsections[selectedSubIdx.value])
-  closeAssetsModal()
-}
-function addAssetRow() {
-  tempAssets.push({ uid: uid(), type: ASSET_TYPES[0], name: '', spec: '', installedAt: '', notes: '' })
-}
-function removeAssetRow(i) { tempAssets.splice(i, 1) }
-
-function importCSV(where) { console.log('Import CSV clicked in', where) }
-function onSavePage() { console.log('Saving sections:', clone(sections)) }
+// --- END OF RESTORED VARIABLES ---
 </script>
 
 <template>
@@ -99,35 +54,35 @@ function onSavePage() { console.log('Saving sections:', clone(sections)) }
             </tr>
           </thead>
           <tbody>
-            <tr v-if="sections.length===0">
-              <td colspan="3" class="px-3 py-6 text-app/60 text-center">No sections yet — add a row below.</td>
-            </tr>
-            <tr v-for="(s, i) in sections" :key="s.uid" class="border-t border-app/30">
-              <td class="py-2 px-3 align-top min-w-56">
-                <select v-model="s.depotUid" class="field h-9">
-                  <option v-for="opt in depotOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-                </select>
-              </td>
-              <td class="py-2 px-3 align-top">
-                <input v-model="s.sectionName" class="field h-9" placeholder="e.g., Central Line" />
-              </td>
-              <td class="py-2 px-3 align-top">
-                <div class="flex flex-wrap items-center gap-2">
-                  <button class="btn" @click="openSubsections(i)">Manage Sub-sections</button>
-                  <button
-                    class="inline-flex items-center justify-center h-9 w-9 rounded-md text-app border border-app hover:bg-black/10 transition"
-                    title="Remove Section"
-                    @click="removeSectionRow(i)"
-                  >
-                    <span class="sr-only">Remove Section</span>
-                    <svg viewBox="0 0 24 24" class="w-6 h-6" aria-hidden="true">
-                      <path fill="currentColor" d="M12 2a10 10 0 1 0 0 20a10 10 0 0 0 0-20Zm3.11 13.11l-1 1L12 13l-2.11 3.11l-1-1L11 12L8.89 9.89l1-1L12 11l2.11-2.11l1 1L13 12z"/>
-                    </svg>
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
+  <tr v-if="infrastructureStore.loading.sections">
+    <td colspan="3" class="px-3 py-6 text-center text-muted">Loading sections...</td>
+  </tr>
+  <tr v-else-if="infrastructureStore.error">
+    <td colspan="3" class="px-3 py-6 text-center text-red-500">{{ infrastructureStore.error }}</td>
+  </tr>
+  <tr v-else-if="sections.length===0">
+    <td colspan="3" class="px-3 py-6 text-app/60 text-center">No sections yet — add one in the Django Admin.</td>
+  </tr>
+  <tr v-for="(s, i) in sections" :key="s.id" class="border-t border-app/30">
+    <td class="py-2 px-3 align-top min-w-56">
+      <select v-model="s.depot" class="field h-9">
+        <option v-for="opt in depotOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+      </select>
+    </td>
+    <td class="py-2 px-3 align-top">
+      <input v-model="s.name" class="field h-9" placeholder="e.g., Central Line" />
+    </td>
+    <td class="py-2 px-3 align-top">
+      <div class="flex flex-wrap items-center gap-2">
+        <button class="btn" @click="openSubsections(i)">Manage Sub-sections</button>
+        <button class="inline-flex items-center justify-center h-9 w-9 rounded-md text-app border border-app hover:bg-black/10 transition" title="Remove Section" @click="removeSectionRow(i)">
+          <span class="sr-only">Remove Section</span>
+          <svg viewBox="0 0 24 24" class="w-6 h-6" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20a10 10 0 0 0 0-20Zm3.11 13.11l-1 1L12 13l-2.11 3.11l-1-1L11 12L8.89 9.89l1-1L12 11l2.11-2.11l1 1L13 12z"/></svg>
+        </button>
+      </div>
+    </td>
+  </tr>
+</tbody>
         </table>
       </div>
     </div>

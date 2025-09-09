@@ -27,7 +27,7 @@ class Failure(TimestampedModel):
     ]
 
     # Core Fields
-    fail_id = models.CharField(max_length=50, unique=True, help_text="Unique Failure ID, can be auto-generated.")
+    fail_id = models.CharField(max_length=50, unique=True, blank=True, help_text="Unique Failure ID, can be auto-generated.")
     entry_type = models.CharField(max_length=10, choices=ENTRY_TYPE_CHOICES, default='item')
     severity = models.CharField(max_length=10, choices=SEVERITY_CHOICES, default='Minor')
     current_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Active')

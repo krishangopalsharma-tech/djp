@@ -1,14 +1,6 @@
 <script setup>
 import { ref, watch, computed, onMounted, onBeforeUnmount } from 'vue'
 
-/**
- * Props:
- *  - modelValue: current selected value (primitive or object)
- *  - options: [{ label, value }]  (keep simple for now)
- *  - placeholder: string
- *  - disabled: bool
- *  - clearable: bool
- */
 const props = defineProps({
   modelValue: [String, Number, Object, null],
   options: { type: Array, default: () => [] },
@@ -25,6 +17,10 @@ const query = ref('')
 const hoverIndex = ref(-1)
 const rootEl = ref(null)
 const inputEl = ref(null)
+const controlButton = ref(null)
+
+// --- FLAG TO PREVENT IMMEDIATE REOPENING ---
+let justClosed = false;
 
 const selectedLabel = computed(() => {
   const val = props.modelValue
@@ -39,19 +35,39 @@ const filtered = computed(() => {
   return props.options.filter(o => String(o[props.labelKey] ?? o).toLowerCase().includes(q))
 })
 
+function toggleMenu() {
+    if (justClosed) {
+        return;
+    }
+    if (open.value) {
+        closeMenu();
+    } else {
+        openMenu();
+    }
+}
+
 function openMenu() {
   if (props.disabled) return
   open.value = true
   hoverIndex.value = -1
-  // focus input next tick
   requestAnimationFrame(() => inputEl.value?.focus())
 }
-function closeMenu() { open.value = false }
+
+function closeMenu() {
+  open.value = false
+}
 
 function selectOption(opt) {
   const val = opt?.[props.valueKey] ?? opt
   emit('update:modelValue', val)
   closeMenu()
+  controlButton.value?.blur()
+
+  // --- SET FLAG AND CLEAR IT AFTER A SHORT DELAY ---
+  justClosed = true;
+  setTimeout(() => {
+    justClosed = false;
+  }, 150); // 150ms cooldown period
 }
 
 function clearSelection(e) {
@@ -83,7 +99,6 @@ onMounted(() => document.addEventListener('mousedown', onClickOutside))
 onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside))
 
 watch(() => props.modelValue, (v) => {
-  // keep query in sync with selected label when menu closed
   if (!open.value) query.value = ''
 })
 </script>
@@ -92,11 +107,11 @@ watch(() => props.modelValue, (v) => {
   <div ref="rootEl" class="relative">
     <!-- control -->
     <button
-      type="button"
+      ref="controlButton" type="button"
       class="field-shell h-11 w-full text-left px-3 text-sm flex items-center justify-between gap-2"
       :class="disabled ? 'opacity-60 cursor-not-allowed' : ''"
       :aria-expanded="open"
-      @click="open ? closeMenu() : openMenu()"
+      @click="toggleMenu"
       @keydown="onKeydown"
     >
       <span class="truncate" v-if="!open">
@@ -139,7 +154,7 @@ watch(() => props.modelValue, (v) => {
         ]"
         @mouseenter="hoverIndex = i"
         @mouseleave="hoverIndex = -1"
-        @click="selectOption(opt)"
+        @click.stop="selectOption(opt)"
       >
         <span class="truncate">{{ opt[labelKey] ?? String(opt) }}</span>
         <span v-if="(opt[valueKey] ?? opt) === modelValue" class="text-xs text-muted">✓</span>

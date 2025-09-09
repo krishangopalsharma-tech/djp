@@ -13,7 +13,7 @@ class FailureViewSet(viewsets.ModelViewSet):
     queryset = Failure.objects.select_related(
         'circuit', 'station', 'section', 'sub_section', 'assigned_to'
     ).all()
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     def get_serializer_class(self):
         """
