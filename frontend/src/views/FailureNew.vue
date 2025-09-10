@@ -13,7 +13,6 @@ const ui = useUIStore()
 const infrastructureStore = useInfrastructureStore()
 const failureStore = useFailureStore()
 
-// --- Fetch data for dropdowns ---
 onMounted(() => {
   Promise.all([
     infrastructureStore.fetchCircuits(),
@@ -24,7 +23,6 @@ onMounted(() => {
   ]);
 });
 
-// --- Computed properties for dropdown options ---
 const circuitOptions = computed(() => infrastructureStore.circuits.map(c => ({ label: `${c.circuit_id} (${c.name})`, value: c.id })))
 const stationOptions = computed(() => infrastructureStore.stations.map(s => ({ label: s.name, value: s.id })))
 const sectionOptions = computed(() => infrastructureStore.sections.map(s => ({ label: s.name, value: s.id })))
@@ -33,7 +31,6 @@ const supervisorOptions = computed(() => infrastructureStore.supervisors.map(s =
 const statusOptions = [ { label: 'Active', value: 'Active' }, { label: 'In Progress', value: 'In Progress' }, { label: 'Resolved', value: 'Resolved' }, { label: 'On Hold', value: 'On Hold' } ]
 const entryTypeOptions = [ { value: 'item', label: 'Item' }, { value: 'message', label: 'Message' }, { value: 'warning', label: 'Warning' }, { value: 'major', label: 'Major' }, { value: 'critical', label: 'Critical' } ]
 
-// --- Form state ---
 const initialFormState = {
   circuit: null, entryType: 'item', station: null, section: null, sub_section: null,
   reported_at: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
@@ -42,7 +39,6 @@ const initialFormState = {
 const form = reactive({ ...initialFormState })
 const errors = reactive({})
 
-// --- Auto Tags ---
 const userTags = ref([])
 const autoTags = computed(() => {
   const tags = [];
@@ -61,7 +57,6 @@ const autoTags = computed(() => {
   return tags;
 });
 
-// --- Submit function ---
 async function submit() {
   errors.circuit = form.circuit ? '' : 'Circuit is required.'
   if (errors.circuit) {
@@ -82,7 +77,6 @@ function resetForm() {
   userTags.value = []
 }
 
-// Split pane logic
 const split = ref(50)
 </script>
 

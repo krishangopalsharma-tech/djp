@@ -105,7 +105,6 @@ watch(() => props.modelValue, (v) => {
 
 <template>
   <div ref="rootEl" class="relative">
-    <!-- control -->
     <button
       ref="controlButton" type="button"
       class="field-shell h-11 w-full text-left px-3 text-sm flex items-center justify-between gap-2"
@@ -137,8 +136,6 @@ watch(() => props.modelValue, (v) => {
         <span class="text-muted">▾</span>
       </span>
     </button>
-
-    <!-- dropdown -->
     <div
       v-if="open"
       class="absolute z-50 mt-1 w-full rounded-lg border bg-card text-app border-app shadow-lg max-h-60 overflow-auto"

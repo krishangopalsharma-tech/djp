@@ -1,36 +1,52 @@
 # Path: backend/infrastructure/serializers.py
 
 from rest_framework import serializers
-# Add SubSection to this import
-from .models import Depot, Station, Section, SubSection, Circuit, Supervisor
+from .models import Depot, Station, Section, SubSection, Circuit, Supervisor, Equipment, StationEquipment, Asset
+
+class EquipmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Equipment
+        fields = ['id', 'name', 'model_type', 'asset_id', 'location_in_depot', 'notes']
 
 class DepotSerializer(serializers.ModelSerializer):
+    equipments = EquipmentSerializer(many=True, read_only=True)
     class Meta:
         model = Depot
-        fields = ['id', 'name', 'code', 'location']
+        fields = ['id', 'name', 'code', 'location', 'equipments']
+
+class StationEquipmentSerializer(serializers.ModelSerializer):
+     class Meta:
+        model = StationEquipment
+        fields = '__all__'
 
 class StationSerializer(serializers.ModelSerializer):
-    # This adds a read-only field to show the depot's name, which is useful for the frontend.
     depot_name = serializers.CharField(source='depot.name', read_only=True)
+    equipments = StationEquipmentSerializer(many=True, read_only=True)
 
     class Meta:
         model = Station
-        fields = ['id', 'depot', 'depot_name', 'name', 'code']
+        fields = ['id', 'depot', 'depot_name', 'name', 'code', 'category', 'equipments']
 
-class SectionSerializer(serializers.ModelSerializer):
-    depot_name = serializers.CharField(source='depot.name', read_only=True)
-
+class AssetSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Section
-        fields = ['id', 'depot', 'depot_name', 'name']
+        model = Asset
+        fields = ['id', 'name', 'quantity', 'unit']
 
-# Add this new class
 class SubSectionSerializer(serializers.ModelSerializer):
     section_name = serializers.CharField(source='section.name', read_only=True)
+    assets = AssetSerializer(many=True, read_only=True)
 
     class Meta:
         model = SubSection
-        fields = ['id', 'section', 'section_name', 'name']
+        fields = ['id', 'section', 'section_name', 'name', 'assets']
+
+class SectionSerializer(serializers.ModelSerializer):
+    depot_name = serializers.CharField(source='depot.name', read_only=True)
+    subsections = SubSectionSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Section
+        fields = ['id', 'depot', 'depot_name', 'name', 'subsections']
 
 class CircuitSerializer(serializers.ModelSerializer):
     class Meta:
@@ -43,3 +59,4 @@ class SupervisorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Supervisor
         fields = ['id', 'user', 'name', 'designation', 'mobile', 'email', 'depot', 'depot_name', 'stations', 'sections']
+
