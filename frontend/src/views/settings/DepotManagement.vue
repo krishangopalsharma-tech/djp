@@ -1,11 +1,38 @@
 <script setup>
-import { reactive, ref, onMounted } from 'vue'
+import { reactive, ref, onMounted, computed } from 'vue'
 import { useInfrastructureStore } from '@/stores/infrastructure.js'
+import { Trash2 } from 'lucide-vue-next'
 
 const clone = (o) => JSON.parse(JSON.stringify(o))
 
 // Store state
 const depotStore = useInfrastructureStore()
+
+// --- Sorting State ---
+const sortKey = ref('name');
+const sortDir = ref('asc');
+
+const sortedDepots = computed(() => {
+  const data = [...depotStore.depots];
+  data.sort((a, b) => {
+    let valA = a[sortKey.value];
+    let valB = b[sortKey.value];
+    const modifier = sortDir.value === 'asc' ? 1 : -1;
+    if (valA < valB) return -1 * modifier;
+    if (valA > valB) return 1 * modifier;
+    return 0;
+  });
+  return data;
+});
+
+function toggleSort(key) {
+  if (sortKey.value === key) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortKey.value = key;
+    sortDir.value = 'asc';
+  }
+}
 
 // --- State for file upload ---
 const selectedFile = ref(null)
@@ -25,8 +52,25 @@ const isDeleteModalOpen = ref(false)
 const depotToDelete = ref(null)
 const isEquipmentModalOpen = ref(false)
 const selectedDepot = ref(null)
-const tempEquipments = reactive([]) // local edit list inside modal
-const originalEquipments = ref([]) // To compare for changes
+const tempEquipments = reactive([])
+const originalEquipments = ref([])
+
+// --- Edit Modal State ---
+const isEditModalOpen = ref(false);
+const depotToEdit = ref(null);
+
+function openEditModal(depot) {
+  depotToEdit.value = { ...depot };
+  isEditModalOpen.value = true;
+}
+
+async function saveDepotChanges() {
+  if (!depotToEdit.value) return;
+  await depotStore.updateDepot(depotToEdit.value.id, depotToEdit.value);
+  isEditModalOpen.value = false;
+  depotToEdit.value = null;
+}
+
 
 function addDepot() {
   if (!newDepot.name.trim()) return
@@ -95,37 +139,33 @@ async function saveEquipmentChanges() {
     const originalIds = new Set(originalEquipments.value.map(e => e.id));
     const currentIds = new Set(tempEquipments.filter(e => e.id).map(e => e.id));
 
-    // Promises for all API calls
     const promises = [];
 
-    // 1. Find items to DELETE
     for (const original of originalEquipments.value) {
         if (!currentIds.has(original.id)) {
             promises.push(depotStore.removeEquipment(original.id));
         }
     }
 
-    // 2. Find items to ADD or UPDATE
     for (const current of tempEquipments) {
-        if (current.id) { // Existing item, check for updates
+        if (current.id) { 
             const original = originalEquipments.value.find(o => o.id === current.id);
             if (JSON.stringify(original) !== JSON.stringify(current)) {
                 promises.push(depotStore.updateEquipment(current.id, current));
             }
-        } else { // New item
+        } else { 
             const payload = { ...current, depot: selectedDepot.value.id };
             promises.push(depotStore.addEquipment(payload));
         }
     }
 
     await Promise.all(promises);
-    await depotStore.fetchDepots(); // Refresh the main depot list
+    await depotStore.fetchDepots();
     closeManageModal();
 }
 
 function addEquipmentRow() {
   tempEquipments.push({
-    // no 'id' means it's a new item
     name: '',
     model_type: '',
     asset_id: '',
@@ -180,42 +220,55 @@ function removeEquipmentRow(index) {
     <div class="rounded-2xl border-app bg-card text-app overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
+           <colgroup>
+            <col class="w-[25%]">
+            <col class="w-[20%]">
+            <col class="w-[25%]">
+            <col class="w-[15%]">
+            <col class="w-[15%]">
+          </colgroup>
           <thead>
             <tr class="text-left border-b border-app/40">
-              <th class="py-2.5 px-3">Depot Name</th>
-              <th class="py-2.5 px-3">Code</th>
-              <th class="py-2.5 px-3">Location</th>
-              <th class="py-2.5 px-3 whitespace-nowrap">Equipment Count</th>
-              <th class="py-2.5 px-3 w-[240px]">Actions</th>
+              <th @click="toggleSort('name')" class="py-2.5 px-3 cursor-pointer select-none text-center">Depot Name <span v-if="sortKey === 'name'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
+              <th @click="toggleSort('code')" class="py-2.5 px-3 cursor-pointer select-none text-center">Code <span v-if="sortKey === 'code'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
+              <th @click="toggleSort('location')" class="py-2.5 px-3 cursor-pointer select-none text-center">Location <span v-if="sortKey === 'location'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
+              <th class="py-2.5 px-3 text-center">Equipment Count</th>
+              <th class="py-2.5 px-3 text-center">Actions</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="depotStore.loading.depots && depotStore.depots.length === 0">
+            <tr v-if="depotStore.loading.depots && sortedDepots.length === 0">
                 <td colspan="5" class="px-3 py-6 text-center text-muted">Loading...</td>
             </tr>
             <tr v-else-if="depotStore.error">
                 <td colspan="5" class="px-3 py-6 text-center text-red-500">{{ depotStore.error }}</td>
             </tr>
-            <tr v-else-if="depotStore.depots.length===0">
+            <tr v-else-if="sortedDepots.length === 0">
                 <td colspan="5" class="px-3 py-6 text-app/60 text-center">No depots yet — add one above.</td>
             </tr>
-            <tr v-for="(d, i) in depotStore.depots" :key="d.id" class="border-t border-app/30">
-              <td class="py-2 px-3 align-middle">{{ d.name }}</td>
-              <td class="py-2 px-3 align-middle">{{ d.code || '—' }}</td>
-              <td class="py-2 px-3 align-middle">{{ d.location || '—' }}</td>
+            <tr v-for="d in sortedDepots" :key="d.id" class="border-t border-app/30">
+              <td class="py-2 px-3 align-middle text-center">{{ d.name }}</td>
+              <td class="py-2 px-3 align-middle text-center">{{ d.code || '—' }}</td>
+              <td class="py-2 px-3 align-middle text-center">{{ d.location || '—' }}</td>
               <td class="py-2 px-3 align-middle text-center">{{ d.equipments?.length || 0 }}</td>
               <td class="py-2 px-3 align-middle">
-                <div class="flex flex-wrap items-center gap-2">
-                  <button class="btn" @click="openManageModal(d)">Manage Equipment</button>
+                <div class="flex flex-wrap items-center justify-center gap-2">
+                  <button class="h-9 w-9 flex items-center justify-center rounded-lg bg-[var(--button-primary)] text-[var(--seasalt)] hover:bg-[var(--button-hover)] transition" @click="openEditModal(d)" title="Edit Depot">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                    </svg>
+                  </button>
+                  <button class="h-9 w-9 flex items-center justify-center rounded-lg bg-[var(--button-primary)] text-[var(--seasalt)] hover:bg-[var(--button-hover)] transition" @click="openManageModal(d)" title="Manage Equipment">
+                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437 1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008Z" />
+                    </svg>
+                  </button>
                   <button
-                    class="inline-flex items-center justify-center h-9 w-9 rounded-md text-app border border-app hover:bg-[color-mix(in_oklab,_var(--card-bg),_#000_12%)] transition"
+                    class="inline-flex items-center justify-center h-9 w-9 rounded-md text-app ring-1 ring-app/60 hover:bg-black/10 transition"
                     title="Remove depot"
                     @click="openDeleteModal(d)"
                   >
-                    <span class="sr-only">Remove depot</span>
-                    <svg viewBox="0 0 24 24" class="w-6 h-6" aria-hidden="true">
-                      <path fill="currentColor" d="M12 2a10 10 0 1 0 0 20a10 10 0 0 0 0-20Zm3.11 13.11l-1 1L12 13l-2.11 3.11l-1-1L11 12L8.89 9.89l1-1L12 11l2.11-2.11l1 1L13 12z"/>
-                    </svg>
+                    <Trash2 class="w-6 h-6" />
                   </button>
                 </div>
               </td>
@@ -224,6 +277,32 @@ function removeEquipmentRow(index) {
         </table>
       </div>
     </div>
+
+    <!-- Edit Depot Modal -->
+    <div v-if="isEditModalOpen" class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+      <div class="bg-card rounded-2xl p-6 w-full max-w-2xl space-y-4">
+        <h3 class="text-lg font-semibold">Edit Depot</h3>
+        <div v-if="depotToEdit" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium mb-1">Depot Name</label>
+            <input v-model="depotToEdit.name" class="field" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Depot Code</label>
+            <input v-model="depotToEdit.code" class="field" />
+          </div>
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium mb-1">Location</label>
+            <input v-model="depotToEdit.location" class="field" />
+          </div>
+        </div>
+        <div class="flex justify-end gap-3 pt-4">
+          <button @click="isEditModalOpen = false" class="btn btn-outline">Cancel</button>
+          <button @click="saveDepotChanges" class="btn btn-primary">Save Changes</button>
+        </div>
+      </div>
+    </div>
+
 
      <!-- Delete Confirmation Modal -->
     <div v-if="isDeleteModalOpen" class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">

@@ -1,11 +1,43 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useInfrastructureStore } from '@/stores/infrastructure.js'
+import { Trash2 } from 'lucide-vue-next'
 
 const infrastructureStore = useInfrastructureStore()
 const rows = computed(() => infrastructureStore.supervisors)
 const depotOptions = computed(() => infrastructureStore.depots.map(d => ({ label: d.name, value: d.id })));
 
+// --- Sorting State ---
+const sortKey = ref('name');
+const sortDir = ref('asc');
+
+const sortedRows = computed(() => {
+  const data = [...rows.value];
+  data.sort((a, b) => {
+    let valA = a[sortKey.value];
+    let valB = b[sortKey.value];
+    const modifier = sortDir.value === 'asc' ? 1 : -1;
+    
+    if (sortKey.value === 'depot_name') {
+        valA = a.depot_name || '';
+        valB = b.depot_name || '';
+    }
+
+    if (valA < valB) return -1 * modifier;
+    if (valA > valB) return 1 * modifier;
+    return 0;
+  });
+  return data;
+});
+
+function toggleSort(key) {
+  if (sortKey.value === key) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortKey.value = key;
+    sortDir.value = 'asc';
+  }
+}
 
 // --- State for file upload ---
 const selectedFile = ref(null)
@@ -21,7 +53,6 @@ const supervisorToDelete = ref(null)
 onMounted(() => {
   infrastructureStore.fetchSupervisors()
   if (infrastructureStore.depots.length === 0) infrastructureStore.fetchDepots()
-  if (infrastructureStore.stations.length === 0) infrastructureStore.fetchStations()
 })
 
 function handleFileSelect(event) {
@@ -47,13 +78,11 @@ async function handleFileUpload() {
 
 // --- Modal and Form Functions ---
 function openEditModal(supervisor) {
-  // Create a copy for editing
   currentSupervisor.value = { ...supervisor };
   isEditModalOpen.value = true;
 }
 
 function openAddModal() {
-  // Open with a blank object
   currentSupervisor.value = {
     name: '',
     designation: '',
@@ -69,10 +98,8 @@ async function saveSupervisorChanges() {
   if (!currentSupervisor.value) return;
 
   if (currentSupervisor.value.id) {
-    // If it has an ID, it's an update
     await infrastructureStore.updateSupervisor(currentSupervisor.value.id, currentSupervisor.value);
   } else {
-    // Otherwise, it's a new supervisor
     await infrastructureStore.addSupervisor(currentSupervisor.value);
   }
 
@@ -91,64 +118,11 @@ async function confirmDelete() {
   isDeleteModalOpen.value = false;
   supervisorToDelete.value = null;
 }
-
-
-// Dropdown options logic
-function stationOptions(depotId) {
-  if (!depotId) return []
-  return infrastructureStore.stations
-    .filter(s => s.depot === depotId)
-    .map(s => ({ label: s.name, value: s.id }))
-}
-function subSectionOptions(depotId) { return [] }
-function assetOptions(stationIds = [], subSectionIds = []) { return [] }
 </script>
 
 <template>
   <div class="space-y-4">
     <p class="text-app/80 text-sm">Add/update depot supervisors by uploading an Excel file or manage them individually below.</p>
-
-    <!-- Table -->
-    <div class="rounded-2xl border-app bg-card text-app overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm min-w-[1200px]">
-                <thead>
-                    <tr class="text-left border-b border-app/40">
-                        <th class="py-2.5 px-3 whitespace-nowrap">Supervisor</th>
-                        <th class="py-2.5 px-3 whitespace-nowrap">Designation</th>
-                        <th class="py-2.5 px-3 whitespace-nowrap">Depot</th>
-                        <th class="py-2.5 px-3 whitespace-nowrap">Mobile</th>
-                        <th class="py-2.5 px-3 whitespace-nowrap">Email</th>
-                        <th class="py-2.5 px-3 w-40 text-center">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-if="infrastructureStore.loading.supervisors && rows.length === 0">
-                        <td colspan="6" class="py-6 px-3 text-center text-muted">Loading supervisors...</td>
-                    </tr>
-                    <tr v-else-if="infrastructureStore.error">
-                        <td colspan="6" class="py-6 px-3 text-center text-red-500">{{ infrastructureStore.error }}</td>
-                    </tr>
-                    <tr v-for="(r, i) in rows" :key="r.id">
-                        <td class="py-2 px-3 align-top">{{ r.name }}</td>
-                        <td class="py-2 px-3 align-top">{{ r.designation }}</td>
-                        <td class="py-2 px-3 align-top">{{ r.depot_name || 'N/A' }}</td>
-                        <td class="py-2 px-3 align-top">{{ r.mobile || 'N/A' }}</td>
-                        <td class="py-2 px-3 align-top">{{ r.email || 'N/A' }}</td>
-                        <td class="py-2 px-3 align-top text-center">
-                            <div class="flex items-center justify-center gap-2">
-                                <button @click="openEditModal(r)" class="btn h-9 px-3">Edit</button>
-                                <button @click="openDeleteModal(r)" class="inline-flex items-center justify-center h-9 w-9 rounded-md text-app border border-app hover:bg-gray-100 transition">
-                                    &times;
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
     <!-- Bottom action bar -->
     <div class="mt-3 grid grid-cols-[1fr_auto_1fr] items-center">
       <div class="justify-self-start flex items-center gap-2">
@@ -159,9 +133,61 @@ function assetOptions(stationIds = [], subSectionIds = []) { return [] }
           {{ infrastructureStore.loading.supervisors ? 'Uploading...' : 'Upload' }}
         </button>
       </div>
-      <div class="justify-self-center"></div>
       <div class="justify-self-end"><button class="btn" @click="openAddModal">+ Add Row</button></div>
     </div>
+    <!-- Table -->
+    <div class="rounded-2xl border-app bg-card text-app overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                 <colgroup>
+                    <col class="w-[20%]">
+                    <col class="w-[20%]">
+                    <col class="w-[20%]">
+                    <col class="w-[15%]">
+                    <col class="w-[15%]">
+                    <col class="w-[10%]">
+                </colgroup>
+                <thead>
+                    <tr class="text-left border-b border-app/40">
+                        <th @click="toggleSort('name')" class="py-2.5 px-3 whitespace-nowrap cursor-pointer select-none text-center">Supervisor <span v-if="sortKey === 'name'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
+                        <th @click="toggleSort('designation')" class="py-2.5 px-3 whitespace-nowrap cursor-pointer select-none text-center">Designation <span v-if="sortKey === 'designation'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
+                        <th @click="toggleSort('depot_name')" class="py-2.5 px-3 whitespace-nowrap cursor-pointer select-none text-center">Depot <span v-if="sortKey === 'depot_name'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
+                        <th @click="toggleSort('mobile')" class="py-2.5 px-3 whitespace-nowrap cursor-pointer select-none text-center">Mobile <span v-if="sortKey === 'mobile'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
+                        <th @click="toggleSort('email')" class="py-2.5 px-3 whitespace-nowrap cursor-pointer select-none text-center">Email <span v-if="sortKey === 'email'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
+                        <th class="py-2.5 px-3 w-40 text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-if="infrastructureStore.loading.supervisors && sortedRows.length === 0">
+                        <td colspan="6" class="py-6 px-3 text-center text-muted">Loading supervisors...</td>
+                    </tr>
+                    <tr v-else-if="infrastructureStore.error">
+                        <td colspan="6" class="py-6 px-3 text-center text-red-500">{{ infrastructureStore.error }}</td>
+                    </tr>
+                    <tr v-for="r in sortedRows" :key="r.id">
+                        <td class="py-2 px-3 align-middle text-center">{{ r.name }}</td>
+                        <td class="py-2 px-3 align-middle text-center">{{ r.designation }}</td>
+                        <td class="py-2 px-3 align-middle text-center">{{ r.depot_name || 'N/A' }}</td>
+                        <td class="py-2 px-3 align-middle text-center">{{ r.mobile || 'N/A' }}</td>
+                        <td class="py-2 px-3 align-middle text-center">{{ r.email || 'N/A' }}</td>
+                        <td class="py-2 px-3 align-middle text-center">
+                            <div class="flex items-center justify-center gap-2">
+                                <button @click="openEditModal(r)" class="h-9 w-9 flex items-center justify-center rounded-lg bg-[var(--button-primary)] text-[var(--seasalt)] hover:bg-[var(--button-hover)] transition" title="Edit Supervisor">
+                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                                      <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                                    </svg>
+                                </button>
+                                <button @click="openDeleteModal(r)" class="inline-flex items-center justify-center h-9 w-9 rounded-md text-app border border-app hover:bg-gray-100 transition" title="Remove Supervisor">
+                                    <Trash2 class="w-6 h-6" />
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
 
     <!-- Add/Edit Supervisor Modal -->
     <div v-if="isEditModalOpen" class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">

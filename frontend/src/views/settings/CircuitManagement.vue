@@ -1,37 +1,123 @@
-<script setup lang="ts">
-import { onMounted, computed } from 'vue'
+<script setup>
+import { onMounted, computed, ref } from 'vue'
 import { useInfrastructureStore } from '@/stores/infrastructure.js'
+import { Trash2 } from 'lucide-vue-next'
 
 const infrastructureStore = useInfrastructureStore()
 
-// Data for the table now comes directly from the store
 const rows = computed(() => infrastructureStore.circuits)
 
-// Fetch circuit data when the component is mounted
+// --- Sorting State ---
+const sortKey = ref('circuit_id');
+const sortDir = ref('asc');
+
+const sortedRows = computed(() => {
+  const data = [...rows.value];
+  data.sort((a, b) => {
+    let valA = a[sortKey.value] || '';
+    let valB = b[sortKey.value] || '';
+    const modifier = sortDir.value === 'asc' ? 1 : -1;
+    if (valA < valB) return -1 * modifier;
+    if (valA > valB) return 1 * modifier;
+    return 0;
+  });
+  return data;
+});
+
+function toggleSort(key) {
+  if (sortKey.value === key) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortKey.value = key;
+    sortDir.value = 'asc';
+  }
+}
+
 onMounted(() => {
   infrastructureStore.fetchCircuits()
 })
 
-// The functions below are for the UI and will be fully connected to the API later
-type Severity = 'Minor' | 'Major' | 'Critical'
-const severityOptions: Severity[] = ['Minor', 'Major', 'Critical']
+const severityOptions = ['Minor', 'Major', 'Critical']
 
-function addRow() {
-  alert('This will be connected to the API in a future step.')
+// --- Modal State ---
+const isModalOpen = ref(false)
+const currentCircuit = ref(null)
+const isDeleteModalOpen = ref(false)
+const circuitToDelete = ref(null)
+
+// --- File Upload State ---
+const selectedFile = ref(null)
+const fileInput = ref(null)
+
+function handleFileSelect(event) {
+  const target = event.target;
+  if (target.files && target.files[0]) {
+    selectedFile.value = target.files[0];
+  }
 }
 
-function removeRow(index: number) {
-  alert('This will be connected to the API in a future step.')
+function triggerFileInput() {
+  fileInput.value?.click();
 }
 
-function onSubmit() {
-  alert('This will be connected to the API in a future step.')
+async function handleFileUpload() {
+  if (!selectedFile.value) {
+    alert('Please select a file to upload.');
+    return;
+  }
+  await infrastructureStore.uploadCircuitsFile(selectedFile.value);
+  selectedFile.value = null;
+  if(fileInput.value) fileInput.value.value = '';
 }
+
+
+function openAddModal() {
+  currentCircuit.value = {
+    circuit_id: '',
+    name: '',
+    related_equipment: '',
+    severity: 'Minor',
+    details: ''
+  };
+  isModalOpen.value = true;
+}
+
+function openEditModal(circuit) {
+  currentCircuit.value = { ...circuit }; // Create a copy for editing
+  isModalOpen.value = true;
+}
+
+async function saveChanges() {
+  if (!currentCircuit.value) return;
+  if (currentCircuit.value.id) {
+    // Update existing
+    await infrastructureStore.updateCircuit(currentCircuit.value.id, currentCircuit.value);
+  } else {
+    // Create new
+    await infrastructureStore.addCircuit(currentCircuit.value);
+  }
+  isModalOpen.value = false;
+}
+
+function openDeleteModal(circuit) {
+  circuitToDelete.value = circuit;
+  isDeleteModalOpen.value = true;
+}
+
+async function confirmDelete() {
+  if (!circuitToDelete.value) return;
+  await infrastructureStore.removeCircuit(circuitToDelete.value.id);
+  isDeleteModalOpen.value = false;
+}
+
 </script>
 
 <template>
   <div class="space-y-4">
-    <p class="text-app/80 text-sm">Manage circuits with severity and equipment mapping.</p>
+    <div class="flex justify-between items-center">
+        <p class="text-app/80 text-sm">Manage circuits with severity and equipment mapping.</p>
+        <button class="btn btn-primary" @click="openAddModal">+ Add Circuit</button>
+    </div>
 
     <!-- Table -->
     <div class="rounded-2xl border-app bg-card text-app overflow-hidden">
@@ -39,45 +125,41 @@ function onSubmit() {
         <table class="w-full text-sm">
           <thead>
             <tr class="text-left border-b border-app/40">
-              <th class="py-2.5 px-3 whitespace-nowrap">Circuit ID</th>
-              <th class="py-2.5 px-3 whitespace-nowrap">Circuit Name</th>
-              <th class="py-2.5 px-3 whitespace-nowrap">Related Equipment</th>
-              <th class="py-2.5 px-3 whitespace-nowrap">Severity</th>
+              <th @click="toggleSort('circuit_id')" class="py-2.5 px-3 whitespace-nowrap cursor-pointer select-none">Circuit ID <span v-if="sortKey === 'circuit_id'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
+              <th @click="toggleSort('name')" class="py-2.5 px-3 whitespace-nowrap cursor-pointer select-none">Circuit Name <span v-if="sortKey === 'name'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
+              <th @click="toggleSort('related_equipment')" class="py-2.5 px-3 whitespace-nowrap cursor-pointer select-none">Related Equipment <span v-if="sortKey === 'related_equipment'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
+              <th @click="toggleSort('severity')" class="py-2.5 px-3 whitespace-nowrap cursor-pointer select-none">Severity <span v-if="sortKey === 'severity'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
               <th class="py-2.5 px-3 whitespace-nowrap">Details</th>
-              <th class="py-2.5 px-3 w-16 text-center">Remove</th>
+              <th class="py-2.5 px-3 w-40 text-center">Actions</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="infrastructureStore.loading.circuits">
+            <tr v-if="infrastructureStore.loading.circuits && sortedRows.length === 0">
               <td colspan="6" class="py-6 px-3 text-center text-muted">Loading circuits...</td>
             </tr>
             <tr v-else-if="infrastructureStore.error">
               <td colspan="6" class="py-6 px-3 text-center text-red-500">{{ infrastructureStore.error }}</td>
             </tr>
-
-            <tr v-for="(r, i) in rows" :key="r.id" class="border-t border-app/30">
-              <td class="py-2 px-3 align-top">
-                <input v-model="r.circuit_id" class="field h-9" placeholder="e.g., CKT-001" />
-              </td>
-              <td class="py-2 px-3 align-top">
-                <input v-model="r.name" class="field h-9" placeholder="e.g., Feeder Line A" />
-              </td>
-              <td class="py-2 px-3 align-top">
-                <input v-model="r.related_equipment" class="field h-9" placeholder="e.g., Breaker-12, XFMR-3" />
-              </td>
-              <td class="py-2 px-3 align-top">
-                <select v-model="r.severity" class="field h-9">
-                  <option v-for="s in severityOptions" :key="s" :value="s">{{ s }}</option>
-                </select>
-              </td>
-              <td class="py-2 px-3 align-top">
-                <textarea v-model="r.details" class="field-textarea min-h-[44px]" placeholder="Notes / details..."></textarea>
-              </td>
+             <tr v-else-if="sortedRows.length === 0">
+              <td colspan="6" class="py-6 px-3 text-center text-app/60">No circuits defined. Add one above.</td>
+            </tr>
+            <tr v-for="r in sortedRows" :key="r.id" class="border-t border-app/30">
+              <td class="py-2 px-3 align-top">{{ r.circuit_id }}</td>
+              <td class="py-2 px-3 align-top">{{ r.name }}</td>
+              <td class="py-2 px-3 align-top">{{ r.related_equipment }}</td>
+              <td class="py-2 px-3 align-top">{{ r.severity }}</td>
+              <td class="py-2 px-3 align-top">{{ r.details }}</td>
               <td class="py-2 px-3 align-top text-center">
-                <button class="inline-flex items-center justify-center h-9 w-9 rounded-md text-app border border-app hover:bg-[color-mix(in_oklab,_var(--card-bg),_#000_12%)] transition" title="Remove row" @click="removeRow(i)">
-                  <span class="sr-only">Remove row</span>
-                  <svg viewBox="0 0 24 24" class="w-6 h-6" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20a10 10 0 0 0 0-20Zm3.11 13.11l-1 1L12 13l-2.11 3.11l-1-1L11 12L8.89 9.89l1-1L12 11l2.11-2.11l1 1L13 12z"/></svg>
-                </button>
+                 <div class="flex items-center justify-center gap-2">
+                    <button @click="openEditModal(r)" class="h-9 w-9 flex items-center justify-center rounded-lg bg-[var(--button-primary)] text-[var(--seasalt)] hover:bg-[var(--button-hover)] transition" title="Edit Circuit">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                        </svg>
+                    </button>
+                    <button class="inline-flex items-center justify-center h-9 w-9 rounded-md text-app border border-app hover:bg-gray-100 transition" title="Remove row" @click="openDeleteModal(r)">
+                      <Trash2 class="w-6 h-6" />
+                    </button>
+                 </div>
               </td>
             </tr>
           </tbody>
@@ -85,19 +167,64 @@ function onSubmit() {
       </div>
     </div>
 
-    <!-- Bottom action bar: Add (center), Import/Submit (right) -->
-    <div class="mt-3 grid grid-cols-[1fr_auto_1fr] items-center">
-      <!-- left spacer -->
-      <div></div>
-      <!-- center: Add Row -->
-      <div class="justify-self-center">
-        <button class="btn" @click="addRow" title="Add a new row">+ Add Row</button>
+    <!-- Bottom action bar -->
+    <div class="mt-3 flex justify-end">
+        <div class="flex items-center gap-2">
+            <input type="file" ref="fileInput" @change="handleFileSelect" class="hidden" accept=".xlsx, .xls, .csv" />
+            <button class="btn" @click="triggerFileInput">Choose File</button>
+            <span v-if="selectedFile" class="text-sm text-muted truncate max-w-xs">{{ selectedFile.name }}</span>
+            <button v-if="selectedFile" class="btn btn-primary" @click="handleFileUpload" :disabled="infrastructureStore.loading.circuits">
+                {{ infrastructureStore.loading.circuits ? 'Uploading...' : 'Upload' }}
+            </button>
+        </div>
+    </div>
+
+     <!-- Add/Edit Modal -->
+    <div v-if="isModalOpen" class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+      <div class="bg-card rounded-2xl p-6 w-full max-w-3xl space-y-4">
+        <h3 class="text-lg font-semibold">{{ currentCircuit.id ? 'Edit' : 'Add' }} Circuit</h3>
+        <div v-if="currentCircuit" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium mb-1">Circuit ID</label>
+            <input v-model="currentCircuit.circuit_id" class="field h-9" placeholder="e.g., CKT-001" />
+          </div>
+           <div>
+            <label class="block text-sm font-medium mb-1">Circuit Name</label>
+            <input v-model="currentCircuit.name" class="field h-9" placeholder="e.g., Feeder Line A" />
+          </div>
+           <div class="md:col-span-2">
+            <label class="block text-sm font-medium mb-1">Related Equipment</label>
+            <input v-model="currentCircuit.related_equipment" class="field h-9" placeholder="e.g., Breaker-12, XFMR-3" />
+          </div>
+           <div>
+            <label class="block text-sm font-medium mb-1">Severity</label>
+            <select v-model="currentCircuit.severity" class="field h-9">
+              <option v-for="s in severityOptions" :key="s" :value="s">{{ s }}</option>
+            </select>
+          </div>
+           <div class="md:col-span-2">
+            <label class="block text-sm font-medium mb-1">Details</label>
+            <textarea v-model="currentCircuit.details" class="field-textarea min-h-[80px]" placeholder="Notes / details..."></textarea>
+          </div>
+        </div>
+        <div class="flex justify-end gap-3 pt-4">
+          <button @click="isModalOpen = false" class="btn btn-outline">Cancel</button>
+          <button @click="saveChanges" class="btn btn-primary">Save Changes</button>
+        </div>
       </div>
-      <!-- right: Import CSV + Submit -->
-      <div class="justify-self-end flex items-center gap-2">
-        <button class="btn" title="Import CSV">Import CSV</button>
-        <button class="btn btn-primary" @click="onSubmit">Submit</button>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div v-if="isDeleteModalOpen" class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+      <div class="bg-card rounded-2xl p-6 w-full max-w-md space-y-4">
+        <h3 class="text-lg font-semibold">Confirm Deletion</h3>
+        <p>Are you sure you want to delete the circuit "{{ circuitToDelete?.name }}"? This action cannot be undone.</p>
+        <div class="flex justify-end gap-3 pt-4">
+          <button @click="isDeleteModalOpen = false" class="btn btn-outline">Cancel</button>
+          <button @click="confirmDelete" class="btn" style="background-color: #ef4444; color: white;">Delete</button>
+        </div>
       </div>
     </div>
   </div>
 </template>
+

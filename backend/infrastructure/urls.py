@@ -14,7 +14,9 @@ from .views import (
     DepotImportView,
     EquipmentViewSet,
     StationEquipmentViewSet,
-    SectionImportView
+    AssetViewSet,
+    SectionImportView,
+    CircuitImportView
 )
 
 router = DefaultRouter()
@@ -26,6 +28,7 @@ router.register(r'circuits', CircuitViewSet, basename='circuit')
 router.register(r'supervisors', SupervisorViewSet, basename='supervisor')
 router.register(r'equipments', EquipmentViewSet, basename='equipment')
 router.register(r'station-equipments', StationEquipmentViewSet, basename='station-equipment')
+router.register(r'assets', AssetViewSet, basename='asset')
 
 
 urlpatterns = [
@@ -34,7 +37,7 @@ urlpatterns = [
     path('stations/import/', StationImportView.as_view(), name='station-import'),
     path('depots/import/', DepotImportView.as_view(), name='depot-import'),
     path('sections/import/', SectionImportView.as_view(), name='section-import'),
-
+    path('circuits/import/', CircuitImportView.as_view(), name='circuit-import'),
     # Router URLs
     path('', include(router.urls)),
 ]

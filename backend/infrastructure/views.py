@@ -14,7 +14,8 @@ from .models import (
 )
 from .serializers import (
     DepotSerializer, StationSerializer, SectionSerializer, SubSectionSerializer,
-    CircuitSerializer, SupervisorSerializer, EquipmentSerializer, StationEquipmentSerializer
+    CircuitSerializer, SupervisorSerializer, EquipmentSerializer, StationEquipmentSerializer,
+    AssetSerializer
 )
 
 class DepotViewSet(viewsets.ModelViewSet):
@@ -30,6 +31,11 @@ class EquipmentViewSet(viewsets.ModelViewSet):
 class StationEquipmentViewSet(viewsets.ModelViewSet):
     queryset = StationEquipment.objects.select_related('station').all()
     serializer_class = StationEquipmentSerializer
+    permission_classes = [permissions.AllowAny]
+
+class AssetViewSet(viewsets.ModelViewSet):
+    queryset = Asset.objects.select_related('subsection').all()
+    serializer_class = AssetSerializer
     permission_classes = [permissions.AllowAny]
 
 class DepotImportView(APIView):
@@ -127,62 +133,81 @@ class StationImportView(APIView):
         
         file_obj = request.data['file']
         try:
-            workbook = openpyxl.load_workbook(file_obj)
+            workbook = openpyxl.load_workbook(file_obj, data_only=True)
             sheet = workbook.active
             
             station_data = {}
-            
+            validation_errors = []
+
+            # Phase 1: Pre-validation and Data Aggregation
             for row_idx in range(2, sheet.max_row + 1):
-                depot_name = sheet.cell(row=row_idx, column=1).value
-                station_name = sheet.cell(row=row_idx, column=2).value
-                
-                if not depot_name or not station_name:
-                    continue
+                try:
+                    depot_name = sheet.cell(row=row_idx, column=1).value
+                    station_name = sheet.cell(row=row_idx, column=2).value
+                    
+                    if not depot_name or not station_name:
+                        continue
 
-                depot_name = depot_name.strip()
-                station_name = station_name.strip()
-                station_key = f"{depot_name}::{station_name}"
+                    depot_name = str(depot_name).strip()
+                    station_name = str(station_name).strip()
+                    station_key = f"{depot_name}::{station_name}"
 
-                if station_key not in station_data:
-                    station_data[station_key] = {
-                        'depot_name': depot_name,
-                        'station_name': station_name,
-                        'code': sheet.cell(row=row_idx, column=3).value,
-                        'category': sheet.cell(row=row_idx, column=4).value,
-                        'equipments': []
-                    }
+                    if station_key not in station_data:
+                        station_data[station_key] = {
+                            'depot_name': depot_name,
+                            'station_name': station_name,
+                            'code': sheet.cell(row=row_idx, column=3).value,
+                            'category': sheet.cell(row=row_idx, column=4).value,
+                            'equipments': []
+                        }
+                    
+                    equipment_name = sheet.cell(row=row_idx, column=5).value
+                    if equipment_name:
+                        quantity_raw = sheet.cell(row=row_idx, column=10).value
+                        quantity_val = 1
+                        if quantity_raw is not None:
+                            try:
+                                quantity_val = int(quantity_raw)
+                            except (ValueError, TypeError):
+                                validation_errors.append(f"Row {row_idx}: 'Quantity' must be a valid number, but found '{quantity_raw}'.")
+                        
+                        make = str(sheet.cell(row=row_idx, column=6).value or '').strip()
+                        model = str(sheet.cell(row=row_idx, column=7).value or '').strip()
 
-                equipment = {
-                    'name': sheet.cell(row=row_idx, column=5).value,
-                    'make_modal': sheet.cell(row=row_idx, column=6).value,
-                    'address': sheet.cell(row=row_idx, column=7).value,
-                    'location_in_station': sheet.cell(row=row_idx, column=8).value,
-                    'quantity': sheet.cell(row=row_idx, column=9).value,
-                    'category': station_data[station_key]['category'] # Inherit category for equipment
-                }
-                if equipment['name']:
-                    station_data[station_key]['equipments'].append(equipment)
+                        equipment = {
+                            'name': equipment_name,
+                            'make_modal': f"{make} / {model}".strip(' / '),
+                            'address': sheet.cell(row=row_idx, column=8).value,
+                            'location_in_station': sheet.cell(row=row_idx, column=9).value,
+                            'quantity': quantity_val,
+                            'category': sheet.cell(row=row_idx, column=4).value
+                        }
+                        station_data[station_key]['equipments'].append(equipment)
+                except Exception as e:
+                    validation_errors.append(f"Error reading row {row_idx}: {str(e)}")
             
+            if validation_errors:
+                return Response({
+                    "error": "Validation failed on one or more rows.",
+                    "details": validation_errors
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Phase 2: Database Transaction
             created_stations = 0
             created_equipment = 0
-            errors = []
+            db_errors = []
 
             with transaction.atomic():
-                all_depots = {d.name: d for d in Depot.objects.all()}
-                
                 for key, data in station_data.items():
                     try:
-                        depot = all_depots.get(data['depot_name'])
-                        if not depot:
-                            errors.append(f"Depot '{data['depot_name']}' not found for station '{data['station_name']}'. Please create it first.")
-                            continue
+                        depot, depot_created = Depot.objects.get_or_create(name=data['depot_name'])
 
-                        station, created = Station.objects.get_or_create(
+                        station, created = Station.objects.update_or_create(
                             name=data['station_name'],
                             depot=depot,
                             defaults={
-                                'code': str(data['code']).strip() if data['code'] else '',
-                                'category': str(data['category']).strip() if data['category'] else ''
+                                'code': str(data['code'] or '').strip(),
+                                'category': str(data['category'] or '').strip()
                             }
                         )
                         if created:
@@ -190,31 +215,30 @@ class StationImportView(APIView):
                         
                         StationEquipment.objects.filter(station=station).delete()
 
-                        equip_to_create = []
-                        for equip_data in data['equipments']:
-                             equip_to_create.append(StationEquipment(
+                        equip_to_create = [
+                            StationEquipment(
                                 station=station,
                                 name=str(equip_data['name']).strip(),
-                                category=str(equip_data['category']).strip() if equip_data['category'] else '',
-                                make_modal=str(equip_data['make_modal']).strip() if equip_data['make_modal'] else '',
-                                address=str(equip_data['address']).strip() if equip_data['address'] else '',
-                                location_in_station=str(equip_data['location_in_station']).strip() if equip_data['location_in_station'] else '',
-                                quantity=int(equip_data['quantity']) if equip_data['quantity'] else 1
-                            ))
+                                category=str(equip_data['category'] or '').strip(),
+                                make_modal=str(equip_data['make_modal'] or '').strip(),
+                                address=str(equip_data['address'] or '').strip(),
+                                location_in_station=str(equip_data['location_in_station'] or '').strip(),
+                                quantity=equip_data['quantity']
+                            ) for equip_data in data['equipments']
+                        ]
                         StationEquipment.objects.bulk_create(equip_to_create)
                         created_equipment += len(equip_to_create)
 
                     except Exception as e:
-                        errors.append(f"Station '{data['station_name']}': {str(e)}")
-
-            if errors:
+                        db_errors.append(f"Error saving station '{data['station_name']}': {str(e)}")
+            
+            if db_errors:
                  return Response({
-                    "message": "Import finished with errors.",
+                    "message": "Import finished with database errors.",
                     "stations_created": created_stations,
                     "equipment_created": created_equipment,
-                    "errors": errors
+                    "errors": db_errors
                 }, status=status.HTTP_400_BAD_REQUEST)
-
 
             return Response({
                 "message": "Station and equipment import complete.",
@@ -223,7 +247,8 @@ class StationImportView(APIView):
             }, status=status.HTTP_200_OK)
 
         except Exception as e:
-            return Response({"error": f"Error processing file: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": f"An unexpected error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 class SectionViewSet(viewsets.ModelViewSet):
     queryset = Section.objects.select_related('depot').prefetch_related('subsections__assets').all().order_by('name')
@@ -241,10 +266,9 @@ class SectionImportView(APIView):
 
         file_obj = request.data['file']
         try:
-            workbook = openpyxl.load_workbook(file_obj)
+            workbook = openpyxl.load_workbook(file_obj, data_only=True)
             sheet = workbook.active
             
-            # --- 1. Pre-validation and Data Grouping ---
             required_depots = set()
             hierarchy = {}
             for row_idx in range(2, sheet.max_row + 1):
@@ -276,7 +300,6 @@ class SectionImportView(APIView):
                 }
                 hierarchy[depot_name][section_name][subsection_name].append(asset_data)
             
-            # --- 2. Depot Validation ---
             existing_depots = set(Depot.objects.filter(name__in=required_depots).values_list('name', flat=True))
             missing_depots = required_depots - existing_depots
             if missing_depots:
@@ -285,19 +308,17 @@ class SectionImportView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # --- 3. Process the Hierarchy ---
             depot_map = {d.name: d for d in Depot.objects.filter(name__in=required_depots)}
             created_sections = 0
             created_subsections = 0
             created_assets = 0
-
-            # Clear old assets for the subsections being imported
-            subsections_to_clear = SubSection.objects.filter(
+            
+            subsections_to_clear_qs = SubSection.objects.filter(
                 section__depot__name__in=hierarchy.keys(),
                 section__name__in=[s for d in hierarchy.values() for s in d.keys()],
                 name__in=[ss for d in hierarchy.values() for s in d.values() for ss in s.keys()]
             )
-            Asset.objects.filter(subsection__in=subsections_to_clear).delete()
+            Asset.objects.filter(subsection__in=subsections_to_clear_qs).delete()
 
             for depot_name, sections in hierarchy.items():
                 depot_obj = depot_map[depot_name]
@@ -398,6 +419,60 @@ class SupervisorImportView(APIView):
 
             return Response({
                 "message": "Supervisor import complete.",
+                "created": created_count,
+                "updated": updated_count,
+                "errors": errors
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": f"Error processing file: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+
+class CircuitImportView(APIView):
+    permission_classes = [permissions.AllowAny]
+    parser_classes = (MultiPartParser,)
+
+    def post(self, request, *args, **kwargs):
+        if 'file' not in request.data:
+            return Response({"error": "No file uploaded."}, status=status.HTTP_400_BAD_REQUEST)
+
+        file_obj = request.data['file']
+        try:
+            workbook = openpyxl.load_workbook(file_obj)
+            sheet = workbook.active
+            created_count = 0
+            updated_count = 0
+            errors = []
+
+            for row_idx in range(2, sheet.max_row + 1):
+                try:
+                    circuit_id = sheet.cell(row=row_idx, column=1).value
+                    if not circuit_id:
+                        continue
+
+                    circuit_id = str(circuit_id).strip()
+                    
+                    # Collect data from other columns
+                    defaults = {
+                        'name': str(sheet.cell(row=row_idx, column=2).value or '').strip(),
+                        'related_equipment': str(sheet.cell(row=row_idx, column=3).value or '').strip(),
+                        'severity': str(sheet.cell(row=row_idx, column=4).value or 'Minor').strip(),
+                        'details': str(sheet.cell(row=row_idx, column=5).value or '').strip(),
+                    }
+
+                    circuit, created = Circuit.objects.update_or_create(
+                        circuit_id=circuit_id,
+                        defaults=defaults
+                    )
+                    
+                    if created:
+                        created_count += 1
+                    else:
+                        updated_count += 1
+
+                except Exception as e:
+                    errors.append(f"Row {row_idx}: {str(e)}")
+
+            return Response({
+                "message": "Circuit import complete.",
                 "created": created_count,
                 "updated": updated_count,
                 "errors": errors
