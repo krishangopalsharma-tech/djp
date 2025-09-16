@@ -1,8 +1,8 @@
-# Path: backend/notifications/urls.py
-
 from django.urls import path
-from . import views
+from .views import EmailSettingsView, TestEmailView
 
 urlpatterns = [
-    # We will add notification endpoints here later.
+    path('settings/email/', EmailSettingsView.as_view(), name='email-settings'),
+    path('settings/email/test/', TestEmailView.as_view(), name='test-email'),
 ]
+

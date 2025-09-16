@@ -94,16 +94,15 @@ REST_FRAMEWORK = {
 }
 
 # CORS / CSRF for Vite (adjust for prod later)
+# We are temporarily allowing all origins for easier development debugging.
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://192.168.3.240:5173", # <-- ADD THIS LINE
-]
+
+# We keep the specific origins for CSRF protection
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "http://192.168.3.240:5173", # <-- ADD THIS LINE
+    "http://192.168.3.240:5173",
 ]
 
 # In rfms/settings.py (add at the bottom)

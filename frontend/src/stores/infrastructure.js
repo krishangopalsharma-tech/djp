@@ -116,7 +116,115 @@ export const useInfrastructureStore = defineStore('infrastructure', {
         this.loading.depots = false;
       }
     },
-    async updateSection(sectionId, payload) {
+    async updateDepot(depotId, payload) {
+      this.loading.depots = true;
+      this.error = null;
+      const uiStore = useUIStore();
+      try {
+        await http.patch(`/infrastructure/depots/${depotId}/`, payload);
+        uiStore.pushToast({ type: 'success', title: 'Success', message: 'Depot updated.' });
+        await this.fetchDepots();
+      } catch (err) {
+        this.error = 'Failed to update depot.';
+        uiStore.pushToast({ type: 'error', title: 'Error', message: this.error });
+        console.error(err);
+      } finally {
+        this.loading.depots = false;
+      }
+    },
+    async removeDepot(depotId) {
+      this.loading.depots = true;
+      this.error = null;
+      const uiStore = useUIStore();
+      try {
+        await http.delete(`/infrastructure/depots/${depotId}/`);
+        uiStore.pushToast({ type: 'success', title: 'Success', message: 'Depot removed.' });
+        await this.fetchDepots();
+      } catch (err) {
+        this.error = 'Failed to remove depot.';
+        uiStore.pushToast({ type: 'error', title: 'Error', message: this.error });
+        console.error(err);
+      } finally {
+        this.loading.depots = false;
+      }
+    },
+    async uploadDepotsFile(file) {
+      this.loading.depots = true;
+      this.error = null;
+      const uiStore = useUIStore();
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const response = await http.post('/infrastructure/depots/import/', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        const { depots_processed, equipment_created, errors } = response.data;
+        let message = `Import successful! Depots: ${depots_processed}, Equipment: ${equipment_created}.`;
+        if (errors && errors.length) {
+            message += ` Errors: ${errors.length}.`;
+        }
+        uiStore.pushToast({ type: 'success', title: 'Import Complete', message });
+
+        await this.fetchDepots();
+      } catch (err) {
+        const message = err.response?.data?.error || 'File upload failed.';
+        this.error = message;
+        uiStore.pushToast({ type: 'error', title: 'Import Failed', message });
+        console.error(err);
+      } finally {
+        this.loading.depots = false;
+      }
+    },
+     async addEquipment(payload) {
+      const uiStore = useUIStore();
+      try {
+        await http.post('/infrastructure/equipments/', payload);
+        uiStore.pushToast({ type: 'success', title: 'Success', message: 'Equipment added.' });
+      } catch (err) {
+        console.error("Failed to add equipment:", err);
+        uiStore.pushToast({ type: 'error', title: 'Error', message: 'Could not add equipment.' });
+      }
+    },
+    async updateEquipment(equipmentId, payload) {
+       const uiStore = useUIStore();
+      try {
+        await http.patch(`/infrastructure/equipments/${equipmentId}/`, payload);
+        uiStore.pushToast({ type: 'success', title: 'Success', message: 'Equipment updated.' });
+      } catch (err) {
+        console.error("Failed to update equipment:", err);
+        uiStore.pushToast({ type: 'error', title: 'Error', message: 'Could not update equipment.' });
+      }
+    },
+    async removeEquipment(equipmentId) {
+       const uiStore = useUIStore();
+      try {
+        await http.delete(`/infrastructure/equipments/${equipmentId}/`);
+        uiStore.pushToast({ type: 'success', title: 'Success', message: 'Equipment removed.' });
+      } catch (err) {
+        console.error("Failed to remove equipment:", err);
+        uiStore.pushToast({ type: 'error', title: 'Error', message: 'Could not remove equipment.' });
+      }
+    },
+    async addSection(payload) {
+      this.loading.sections = true;
+      this.error = null;
+      const uiStore = useUIStore();
+      try {
+        await http.post('/infrastructure/sections/', payload);
+        uiStore.pushToast({ type: 'success', title: 'Success', message: 'Section added.' });
+        await this.fetchSections(); // Refresh the list
+      } catch (err) {
+        this.error = 'Failed to add section.';
+        uiStore.pushToast({ type: 'error', title: 'Error', message: this.error });
+        console.error(err);
+      } finally {
+        this.loading.sections = false;
+      }
+    },
+     async updateSection(sectionId, payload) {
       this.loading.sections = true;
       this.error = null;
       const uiStore = useUIStore();
@@ -295,7 +403,6 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       } catch (err) {
         console.error("Failed to add sub-section:", err);
         uiStore.pushToast({ type: 'error', title: 'Error', message: 'Could not add sub-section.' });
-        return null;
       }
     },
     async updateSubSection(subSectionId, payload) {
@@ -424,6 +531,33 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       } catch (err) {
         this.error = 'Failed to update circuit.';
         uiStore.pushToast({ type: 'error', title: 'Error', message: 'Failed to update circuit.' });
+        console.error(err);
+      } finally {
+        this.loading.circuits = false;
+      }
+    },
+    async uploadCircuitsFile(file) {
+      this.loading.circuits = true;
+      this.error = null;
+      const uiStore = useUIStore();
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const response = await http.post('/infrastructure/circuits/import/', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        const { created, updated, errors } = response.data;
+        let message = `Import successful! Created: ${created}, Updated: ${updated}.`;
+        if (errors.length) {
+            message += ` Errors: ${errors.length}.`;
+        }
+        uiStore.pushToast({ type: 'success', title: 'Import Complete', message });
+        await this.fetchCircuits();
+      } catch (err) {
+        const message = err.response?.data?.error || 'File upload failed.';
+        this.error = message;
+        uiStore.pushToast({ type: 'error', title: 'Import Failed', message });
         console.error(err);
       } finally {
         this.loading.circuits = false;

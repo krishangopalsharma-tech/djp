@@ -135,6 +135,7 @@ async function confirmDelete() {
       </div>
       <div class="justify-self-end"><button class="btn" @click="openAddModal">+ Add Row</button></div>
     </div>
+
     <!-- Table -->
     <div class="rounded-2xl border-app bg-card text-app overflow-hidden">
         <div class="overflow-x-auto">
@@ -149,7 +150,7 @@ async function confirmDelete() {
                 </colgroup>
                 <thead>
                     <tr class="text-left border-b border-app/40">
-                        <th @click="toggleSort('name')" class="py-2.5 px-3 whitespace-nowrap cursor-pointer select-none text-center">Supervisor <span v-if="sortKey === 'name'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
+                        <th @click="toggleSort('name')" class="py-2.5 px-3 whitespace-nowrap cursor-pointer select-none text-left">Supervisor <span v-if="sortKey === 'name'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
                         <th @click="toggleSort('designation')" class="py-2.5 px-3 whitespace-nowrap cursor-pointer select-none text-center">Designation <span v-if="sortKey === 'designation'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
                         <th @click="toggleSort('depot_name')" class="py-2.5 px-3 whitespace-nowrap cursor-pointer select-none text-center">Depot <span v-if="sortKey === 'depot_name'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
                         <th @click="toggleSort('mobile')" class="py-2.5 px-3 whitespace-nowrap cursor-pointer select-none text-center">Mobile <span v-if="sortKey === 'mobile'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
@@ -165,7 +166,7 @@ async function confirmDelete() {
                         <td colspan="6" class="py-6 px-3 text-center text-red-500">{{ infrastructureStore.error }}</td>
                     </tr>
                     <tr v-for="r in sortedRows" :key="r.id">
-                        <td class="py-2 px-3 align-middle text-center">{{ r.name }}</td>
+                        <td class="py-2 px-3 align-middle text-left">{{ r.name }}</td>
                         <td class="py-2 px-3 align-middle text-center">{{ r.designation }}</td>
                         <td class="py-2 px-3 align-middle text-center">{{ r.depot_name || 'N/A' }}</td>
                         <td class="py-2 px-3 align-middle text-center">{{ r.mobile || 'N/A' }}</td>
