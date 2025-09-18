@@ -1,8 +1,10 @@
-# Path: backend/reports/urls.py
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import ScheduledReportViewSet
 
-from django.urls import path
-from . import views
+router = DefaultRouter()
+router.register(r'schedules', ScheduledReportViewSet, basename='scheduledreport')
 
 urlpatterns = [
-    # We will add report-specific API endpoints here later.
+        path('', include(router.urls)),
 ]

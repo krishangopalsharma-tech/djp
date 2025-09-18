@@ -6,7 +6,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-insecure-change-me")
 DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost", "192.168.3.240"]
+ALLOWED_HOSTS = ["127.0.0.1", "localhost", "192.168.3.240", "192.168.29.240"]
 
 INSTALLED_APPS = [
     # Django
@@ -103,8 +103,11 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://192.168.3.240:5173",
+    "http://192.168.29.240:5173",
 ]
 
-# In rfms/settings.py (add at the bottom)
-
 AUTH_USER_MODEL = 'users.User'
+
+# Telegram Bot Token (IMPORTANT: Use environment variables in production!)
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
+

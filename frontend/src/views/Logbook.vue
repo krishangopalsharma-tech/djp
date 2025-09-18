@@ -2,9 +2,6 @@
 import { ref, computed, onMounted } from 'vue'
 import DataTable from '@/components/DataTable.vue'
 import FailureDetailsDrawer from '@/components/FailureDetailsDrawer.vue'
-import FailureCard from '@/components/FailureCard.vue'
-import KanbanColumn from '@/components/KanbanColumn.vue'
-import TimelineItem from '@/components/TimelineItem.vue'
 import Spinner from '@/components/ui/Spinner.vue'
 import SearchSelect from '@/components/form/SearchSelect.vue'
 import { Bell, Pencil, Trash2, FileDown, FileText, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-vue-next'
@@ -16,7 +13,6 @@ const failureStore = useFailureStore()
 const infrastructureStore = useInfrastructureStore()
 
 // --- UI State ---
-const view = ref('table') // table | cards | board | timeline
 const drawerOpen = ref(false)
 const activeItem = ref(null)
 
@@ -35,10 +31,11 @@ const rowsPerPage = ref(20)
 // --- Data Fetching ---
 onMounted(() => {
   failureStore.fetchFailures()
-  infrastructureStore.fetchCircuits()
-  infrastructureStore.fetchSections()
-  infrastructureStore.fetchStations()
-  infrastructureStore.fetchSupervisors()
+  // Fetch data for filter dropdowns if not already loaded
+  if (infrastructureStore.circuits.length === 0) infrastructureStore.fetchCircuits()
+  if (infrastructureStore.sections.length === 0) infrastructureStore.fetchSections()
+  if (infrastructureStore.stations.length === 0) infrastructureStore.fetchStations()
+  if (infrastructureStore.supervisors.length === 0) infrastructureStore.fetchSupervisors()
 })
 
 // --- Computed Data for UI ---
@@ -60,12 +57,15 @@ const filteredRows = computed(() => {
   const q = query.value.trim().toLowerCase()
   return failureStore.failures.filter(row => {
     if (!row) return false;
+    // Check against text query
     const inQuery = q ? JSON.stringify(row).toLowerCase().includes(q) : true
-    const inCircuits = selectedCircuits.value.length ? selectedCircuits.value.includes(row.circuit?.id) : true
-    const inSections = selectedSections.value.length ? selectedSections.value.includes(row.section?.id) : true
-    const inStations = selectedStations.value.length ? selectedStations.value.includes(row.station?.id) : true
-    const inSupervisors = selectedSupervisors.value.length ? selectedSupervisors.value.includes(row.assigned_to?.id) : true
+    // Check against dropdown filters (IDs)
+    const inCircuits = selectedCircuits.value.length ? selectedCircuits.value.includes(row.circuit_details?.id) : true
+    const inSections = selectedSections.value.length ? selectedSections.value.includes(row.section_details?.id) : true
+    const inStations = selectedStations.value.length ? selectedStations.value.includes(row.station_details?.id) : true
+    const inSupervisors = selectedSupervisors.value.length ? selectedSupervisors.value.includes(row.assigned_to_details?.id) : true
     const inStatuses = selectedStatuses.value.length ? selectedStatuses.value.includes(row.current_status) : true
+    
     return inQuery && inCircuits && inSections && inStations && inSupervisors && inStatuses
   })
 })
@@ -78,15 +78,17 @@ const sortedRows = computed(() => {
         let valA = a[sortKey.value];
         let valB = b[sortKey.value];
 
-        // Handle nested properties for sorting
+        // Handle nested properties for sorting, which are now strings
         if (sortKey.value === 'circuit') { valA = a.circuit; valB = b.circuit; }
         if (sortKey.value === 'station') { valA = a.station; valB = b.station; }
         if (sortKey.value === 'section') { valA = a.section; valB = b.section; }
         if (sortKey.value === 'assigned_to') { valA = a.assigned_to; valB = b.assigned_to; }
-        
+          
         const dir = sortDir.value === 'asc' ? 1 : -1;
-        if (valA > valB) return 1 * dir;
+        
+        // Simple string/date comparison
         if (valA < valB) return -1 * dir;
+        if (valA > valB) return 1 * dir;
         return 0;
     });
 });
@@ -105,7 +107,7 @@ function toggleSort(key) {
     sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
   } else {
     sortKey.value = key
-    sortDir.value = 'desc'
+    sortDir.value = 'desc' // Default to descending for new sort keys
   }
 }
 
@@ -155,34 +157,27 @@ function goToPreviousPage() { if (currentPage.value > 1) currentPage.value-- }
 
 <template>
   <div class="space-y-4">
-    <div class="grid grid-cols-1 gap-3 md:grid-cols-3 md:items-center">
-      <div></div>
-      <h2 class="text-2xl font-semibold text-center">Logbook</h2>
-      <div class="md:justify-self-end">
-        <div class="chip-group">
-          <button v-for="m in ['table','cards','board','timeline']" :key="m" class="chip capitalize" :class="view === m ? 'selected-primary' : 'text-app hover-primary'" @click="view = m">
-            {{ m }}
-          </button>
-        </div>
-      </div>
+    <div class="text-center">
+      <h2 class="text-2xl font-semibold">Logbook</h2>
     </div>
 
-    <div class="sticky top-0 z-10 bg-app py-4">
-       <div class="flex flex-wrap items-center gap-4">
-        <input v-model="query" type="search" placeholder="Search anything..." class="h-11 w-full rounded-lg border-app bg-card text-app px-3 text-sm shadow-card md:w-auto" />
-        <SearchSelect v-model="selectedCircuits" :options="circuitOptions" placeholder="Filter by Circuit" multiple class="shadow-card" />
-        <SearchSelect v-model="selectedSections" :options="sectionOptions" placeholder="Filter by Section" multiple class="shadow-card" />
-        <SearchSelect v-model="selectedStations" :options="stationOptions" placeholder="Filter by Station" multiple class="shadow-card" />
-        <SearchSelect v-model="selectedSupervisors" :options="supervisorOptions" placeholder="Filter by Supervisor" multiple class="shadow-card" />
-        <SearchSelect v-model="selectedStatuses" :options="statusOptions" placeholder="Filter by Status" multiple class="shadow-card" />
+    <!-- Filter Bar -->
+    <div class="sticky top-0 z-10 bg-app py-4 card">
+       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        <input v-model="query" type="search" placeholder="Search anything..." class="h-11 w-full rounded-lg border-app bg-card text-app px-3 text-sm" />
+        <SearchSelect v-model="selectedCircuits" :options="circuitOptions" placeholder="Filter by Circuit" multiple />
+        <SearchSelect v-model="selectedSections" :options="sectionOptions" placeholder="Filter by Section" multiple />
+        <SearchSelect v-model="selectedStations" :options="stationOptions" placeholder="Filter by Station" multiple />
+        <SearchSelect v-model="selectedSupervisors" :options="supervisorOptions" placeholder="Filter by Supervisor" multiple />
+        <SearchSelect v-model="selectedStatuses" :options="statusOptions" placeholder="Filter by Status" multiple />
       </div>
     </div>
 
     <div v-if="loading" class="text-center p-6"><Spinner /></div>
-    <div v-else-if="error" class="rounded-2xl border-app bg-card p-6 text-center text-red-500">{{ error }}</div>
+    <div v-else-if="error" class="card p-6 text-center text-red-500">{{ error }}</div>
 
     <div v-else>
-      <div v-if="view === 'table'" class="rounded-2xl border-app bg-card p-4 shadow-card">
+      <div class="card p-4">
         <DataTable
           :columns="columns"
           :rows="paginatedRows"
@@ -204,17 +199,14 @@ function goToPreviousPage() { if (currentPage.value > 1) currentPage.value-- }
           </template>
         </DataTable>
       </div>
-
-      <div v-if="view === 'cards'" class="text-center p-6 text-muted">Cards View Coming Soon</div>
-      <div v-if="view === 'board'" class="text-center p-6 text-muted">Board View Coming Soon</div>
-      <div v-if="view === 'timeline'" class="text-center p-6 text-muted">Timeline View Coming Soon</div>
-      
-      <div v-if="view === 'table'" class="sticky bottom-0 bg-app py-4 flex items-center justify-between">
+        
+      <!-- Pagination Controls -->
+      <div class="mt-4 flex items-center justify-between">
         <div class="flex items-center justify-center gap-2 p-2 rounded-lg">
-          <button class="chip capitalize text-app hover-primary gap-2"><FileDown class="w-4 h-4" /><span>Export CSV</span></button>
-          <button class="chip capitalize text-app hover-primary gap-2"><FileText class="w-4 h-4" /><span>Export PDF</span></button>
+          <button class="btn btn-outline btn-sm gap-2"><FileDown class="w-4 h-4" /><span>Export CSV</span></button>
+          <button class="btn btn-outline btn-sm gap-2"><FileText class="w-4 h-4" /><span>Export PDF</span></button>
         </div>
-        <div class="flex items-center justify-end gap-2 p-2 rounded-lg shadow-card">
+        <div class="flex items-center justify-end gap-2 p-2 rounded-lg">
           <button @click="goToFirstPage" :disabled="currentPage === 1" class="btn-ghost p-2" title="First"><ChevronsLeft class="w-4 h-4" /></button>
           <button @click="goToPreviousPage" :disabled="currentPage === 1" class="btn-ghost p-2" title="Previous"><ChevronLeft class="w-4 h-4" /></button>
           <span class="text-sm text-muted">Page {{ currentPage }} of {{ totalPages }}</span>

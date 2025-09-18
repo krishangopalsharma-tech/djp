@@ -1,162 +1,238 @@
-<script setup>
-import { computed } from 'vue'
-import WidgetShell from '@/components/WidgetShell.vue'
-import { useReportsStore } from '@/stores/reports.js'
-import { useTelegramStore } from '@/stores/telegram.js'
+    <script setup>
+    import { computed, onMounted, onBeforeUnmount, ref } from 'vue';
+    import { useReportsStore } from '@/stores/reports.js';
+    import { useTelegramStore } from '@/stores/telegram.js';
+    import { Save, Trash2 } from 'lucide-vue-next';
 
-// mock-only store
-const store = useReportsStore()
-const rows = computed(() => store.items)
-const tg = useTelegramStore()
-const tgOptions = computed(() => tg.list)
+    const reportsStore = useReportsStore();
+    const telegramStore = useTelegramStore();
 
-function onTemplatePicked(id, e) {
-  const file = e.target.files?.[0]
-  if (file) store.update(id, { templateName: file.name })
-}
+    const schedules = computed(() => reportsStore.schedules);
+    const tgOptions = computed(() => telegramStore.list);
+    const fileInputs = ref({});
 
-const freqOptions = [
-  { label: 'Daily', value: 'daily' },
-  { label: 'Weekly', value: 'weekly' },
-  { label: 'Monthly', value: 'monthly' },
-]
-const dowOptions = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
-const domOptions = Array.from({ length: 31 }, (_, i) => String(i + 1))
+    // For multi-select dropdown state
+    const activeDropdownId = ref(null);
 
-function onFreqChange(id, v) { store.updateSchedule(id, { freq: v }) }
-function onDowChange(id, v)  { store.updateSchedule(id, { dow: v }) }
-function onDomChange(id, v)  { store.updateSchedule(id, { dom: v }) }
-function onTimeChange(id, v) { store.updateSchedule(id, { time: v }) }
-</script>
+    onMounted(() => {
+      reportsStore.fetchSchedules();
+      if (telegramStore.list.length === 0) {
+        telegramStore.fetchTelegramGroups();
+      }
+      // Close dropdown if user clicks outside
+      document.addEventListener('click', closeDropdowns);
+    });
 
-<template>
-  <div class="p-4 md:p-6 space-y-4">
+    onBeforeUnmount(() => {
+        document.removeEventListener('click', closeDropdowns);
+    });
 
-    <WidgetShell title="Schedule & Delivery" :hideHeader="true">
-      <div class="flex items-center justify-between mb-3">
-        <p class="text-sm opacity-80">
-          Configure scheduled report emails / Telegram deliveries. (Frontend-only mock.)
-        </p>
-        <button class="chip selected-primary" @click="store.addEmpty()">+ Add Report</button>
-      </div>
+    function closeDropdowns(event) {
+        if (event.target.closest('[data-dropdown-host]')) return;
+        activeDropdownId.value = null;
+    }
 
-      <div class="overflow-x-auto">
-        <table class="min-w-[960px] w-full text-sm">
-          <thead>
-            <tr class="text-left border-b border-app">
-              <th class="py-2 pr-3 w-[220px]">Report Name</th>
-              <th class="py-2 pr-3 w-[260px]">Report Template (Excel)</th>
-              <th class="py-2 pr-3 w-[280px]">Schedule</th>
-              <th class="py-2 pr-3 w-[120px]">Emails</th>
-              <th class="py-2 pr-3 w-[220px]">Telegram Group</th>
-              <th class="py-2 pr-0  w-[90px]">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="r in rows" :key="r.id" class="border-b border-app/60">
-              <!-- Report Name -->
-              <td class="py-2 pr-3">
-                <input
-                  class="w-full px-3 py-2 rounded-lg bg-card border border-app focus:outline-none"
-                  v-model="r.name"
-                  placeholder="e.g., Daily Failure Summary"
-                />
-              </td>
+    const freqOptions = [
+      { label: 'Daily', value: 'daily' },
+      { label: 'Weekly', value: 'weekly' },
+      { label: 'Monthly', value: 'monthly' },
+    ];
+    const dowOptions = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const domOptions = Array.from({ length: 31 }, (_, i) => String(i + 1));
 
-              <!-- Template -->
-              <td class="py-2 pr-3">
-                <div class="flex items-center gap-2">
-                  <label class="chip cursor-pointer">
-                    <input type="file" accept=".xlsx,.xls" class="hidden" @change="e => onTemplatePicked(r.id, e)" />
-                    Choose…
-                  </label>
-                  <span class="opacity-80 truncate max-w-[180px]" :title="r.templateName || 'No file chosen'">
-                    {{ r.templateName || 'No file chosen' }}
-                  </span>
-                </div>
-                <p class="text-xs opacity-70 mt-1">
-                  Placeholders supported (e.g., <code>{{ '{date}' }}</code>, <code>{{ '{section}' }}</code>) — backend wiring later.
-                </p>
-              </td>
+    function addReport() {
+      const newReport = {
+        name: 'New Report',
+        frequency: 'daily',
+        day_of_week: 'Mon',
+        day_of_month: 1,
+        time: '09:00',
+        send_email: false,
+        send_telegram: false,
+        telegram_group_keys: [], // Use the correct key and initialize as an array
+      };
+      reportsStore.addSchedule(newReport);
+    }
 
-              <!-- Schedule -->
-              <td class="py-2 pr-3">
-                <div class="flex flex-wrap items-center gap-2">
-                  <select class="chip" :value="r.schedule.freq" @change="onFreqChange(r.id, $event.target.value)">
-                    <option v-for="o in freqOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
-                  </select>
+    function updateSchedule(schedule) {
+      reportsStore.updateSchedule(schedule.id, schedule);
+    }
 
-                  <!-- Weekly: show Day-of-Week -->
-                  <select
-                    v-if="r.schedule.freq==='weekly'"
-                    class="chip"
-                    :value="r.schedule.dow"
-                    @change="onDowChange(r.id, $event.target.value)"
-                  >
-                    <option v-for="d in dowOptions" :key="d" :value="d">{{ d }}</option>
-                  </select>
+    function removeSchedule(id) {
+      if (confirm('Are you sure you want to delete this report schedule?')) {
+        reportsStore.removeSchedule(id);
+      }
+    }
 
-                  <!-- Monthly: show Day-of-Month -->
-                  <select
-                    v-if="r.schedule.freq==='monthly'"
-                    class="chip"
-                    :value="r.schedule.dom"
-                    @change="onDomChange(r.id, $event.target.value)"
-                  >
-                    <option v-for="d in domOptions" :key="d" :value="d">{{ d }}</option>
-                  </select>
+    function triggerFileInput(id) {
+        fileInputs.value[id]?.click();
+    }
 
-                  <!-- Time -->
+    async function onTemplatePicked(id, event) {
+      const file = event.target.files?.[0];
+      if (file) {
+        await reportsStore.uploadTemplate(id, file);
+        if(event.target) event.target.value = '';
+      }
+    }
+
+    function toggleTelegramGroup(schedule, groupKey) {
+        const selectedKeys = new Set(schedule.telegram_group_keys || []);
+        if (selectedKeys.has(groupKey)) {
+            selectedKeys.delete(groupKey);
+        } else {
+            selectedKeys.add(groupKey);
+        }
+        schedule.telegram_group_keys = Array.from(selectedKeys);
+    }
+
+    function getSelectedGroupsText(keys) {
+        if (!keys || keys.length === 0) return '-- Select --';
+        if (keys.length === 1) {
+            const group = tgOptions.value.find(g => g.key === keys[0]);
+            return group ? group.name : keys[0];
+        }
+        return `${keys.length} groups selected`;
+    }
+    </script>
+
+    <template>
+      <div class="space-y-4">
+        <div class="flex justify-between items-center">
+            <p class="text-app/80 text-sm">
+              Configure scheduled report emails and Telegram deliveries.
+            </p>
+            <button class="btn btn-primary" @click="addReport">+ Add Report</button>
+        </div>
+        
+        <div v-if="reportsStore.loading && schedules.length === 0" class="text-center py-10 text-muted">
+            Loading schedules...
+        </div>
+        <div v-else-if="reportsStore.error" class="text-center py-10 text-red-500">
+            {{ reportsStore.error }}
+        </div>
+         <div v-else-if="schedules.length === 0" class="text-center py-10 text-muted">
+            No report schedules found. Click "Add Report" to create one.
+        </div>
+
+        <div v-else class="overflow-x-auto">
+          <table class="min-w-full w-full text-sm">
+            <thead>
+              <tr class="text-left border-b border-app/40">
+                <th class="py-2.5 px-3 w-[220px]">Report Name</th>
+                <th class="py-2.5 px-3 w-[260px]">Report Template (Excel)</th>
+                <th class="py-2.5 px-3 w-[300px]">Schedule</th>
+                <th class="py-2.5 px-3 w-[120px]">Emails</th>
+                <th class="py-2.5 px-3 w-[220px]">Telegram Group</th>
+                <th class="py-2.5 px-3 w-[140px] text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in schedules" :key="r.id" class="border-b border-app/30">
+                <!-- Report Name -->
+                <td class="py-2 px-3 align-top">
                   <input
-                    type="time"
-                    class="chip"
-                    :value="r.schedule.time"
-                    @change="onTimeChange(r.id, $event.target.value)"
+                    class="field h-9"
+                    v-model="r.name"
+                    placeholder="e.g., Daily Failure Summary"
                   />
-                </div>
-              </td>
+                </td>
 
-              <!-- Emails -->
-              <td class="py-2 pr-3">
-                <label class="inline-flex items-center gap-2">
-                  <input type="checkbox" v-model="r.sendEmail" />
-                  <span>Enable</span>
-                </label>
-              </td>
+                <!-- Template -->
+                <td class="py-2 px-3 align-top">
+                  <div class="flex items-center gap-2">
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls"
+                      class="hidden"
+                      :ref="el => fileInputs[r.id] = el"
+                      @change="e => onTemplatePicked(r.id, e)"
+                    />
+                    <button class="btn btn-sm" @click="triggerFileInput(r.id)">Choose…</button>
+                    <span class="opacity-80 truncate max-w-[180px]" :title="r.template_name || 'No file chosen'">
+                      {{ r.template_name || 'No file chosen' }}
+                    </span>
+                  </div>
+                </td>
 
-              <!-- Telegram: enable + group select -->
-              <td class="py-2 pr-3">
-                <div class="flex flex-wrap items-center gap-2">
+                <!-- Schedule -->
+                <td class="py-2 px-3 align-top">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <select class="field h-9" v-model="r.frequency">
+                      <option v-for="o in freqOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
+                    </select>
+
+                    <select v-if="r.frequency === 'weekly'" class="field h-9" v-model="r.day_of_week">
+                      <option v-for="d in dowOptions" :key="d" :value="d">{{ d }}</option>
+                    </select>
+
+                    <select v-if="r.frequency === 'monthly'" class="field h-9 w-20" v-model.number="r.day_of_month">
+                      <option v-for="d in domOptions" :key="d" :value="d">{{ d }}</option>
+                    </select>
+
+                    <input type="time" class="field h-9" v-model="r.time" />
+                  </div>
+                </td>
+
+                <!-- Emails -->
+                <td class="py-2 px-3 align-top">
                   <label class="inline-flex items-center gap-2">
-                    <input type="checkbox" v-model="r.sendTelegram" />
+                    <input type="checkbox" v-model="r.send_email" class="h-4 w-4" />
                     <span>Enable</span>
                   </label>
-                  <select
-                    class="chip"
-                    :disabled="!r.sendTelegram"
-                    :value="r.telegramGroupKey ?? 'reports'"
-                    @change="store.update(r.id, { telegramGroupKey: $event.target.value })"
-                  >
-                    <option v-for="g in tgOptions" :key="g.key" :value="g.key">{{ g.name }}</option>
-                  </select>
-                </div>
-                <p class="text-xs opacity-70 mt-1">
-                  Groups managed in <span class="underline">Settings → Telegram</span>.
-                </p>
-              </td>
+                </td>
 
-              <!-- Actions -->
-              <td class="py-2 pr-0">
-                <button class="chip" @click="store.remove(r.id)">Delete</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                <!-- Telegram Multi-Select -->
+                <td class="py-2 px-3 align-top">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <label class="inline-flex items-center gap-2">
+                            <input type="checkbox" v-model="r.send_telegram" class="h-4 w-4" />
+                            <span>Enable</span>
+                        </label>
+                        <div class="relative w-full" data-dropdown-host>
+                            <button
+                                class="field h-9 w-full text-left flex items-center justify-between pr-2"
+                                :disabled="!r.send_telegram"
+                                @click.stop="activeDropdownId = activeDropdownId === r.id ? null : r.id"
+                            >
+                                <span class="truncate">{{ getSelectedGroupsText(r.telegram_group_keys) }}</span>
+                                <span class="text-muted">▾</span>
+                            </button>
+                            <div v-if="activeDropdownId === r.id" class="absolute z-10 mt-1 w-full rounded-lg border bg-card text-app border-app shadow-lg max-h-48 overflow-auto">
+                                <label v-for="g in tgOptions" :key="g.key" class="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-gray-100">
+                                    <input type="checkbox" :checked="(r.telegram_group_keys || []).includes(g.key)" @change="toggleTelegramGroup(r, g.key)" class="h-4 w-4" />
+                                    <span>{{ g.name }}</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </td>
+
+                <!-- Actions -->
+                <td class="py-2 px-3 align-top text-center">
+                    <div class="flex items-center justify-center gap-2">
+                        <button
+                          class="h-9 w-9 flex items-center justify-center rounded-lg bg-[var(--button-primary)] text-[var(--seasalt)] hover:bg-[var(--button-hover)] transition"
+                          @click="updateSchedule(r)"
+                          :disabled="reportsStore.loading"
+                          title="Save Changes"
+                        >
+                            <Save class="w-5 h-5" />
+                        </button>
+                        <button
+                          class="inline-flex items-center justify-center h-9 w-9 rounded-md text-app border border-app hover:bg-gray-100 transition"
+                          @click="removeSchedule(r.id)"
+                          title="Delete Schedule"
+                        >
+                            <Trash2 class="w-5 h-5" />
+                        </button>
+                    </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-    </WidgetShell>
-  </div>
-</template>
+    </template>
+    
 
-<style scoped>
-/* keep page compact and consistent */
-</style>

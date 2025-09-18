@@ -1,58 +1,83 @@
-// frontend/src/stores/reports.js
-import { defineStore } from 'pinia'
+    import { defineStore } from 'pinia';
+    import { http } from '@/lib/http';
+    import { useUIStore } from './ui';
 
-// Safe ID generator (works even if crypto.randomUUID is unavailable)
-const uid = () =>
-  (typeof crypto !== 'undefined' && crypto.randomUUID)
-    ? crypto.randomUUID()
-    : `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`
+    export const useReportsStore = defineStore('reports', {
+      state: () => ({
+        schedules: [],
+        loading: false,
+        error: null,
+      }),
+      actions: {
+        async fetchSchedules() {
+          this.loading = true;
+          this.error = null;
+          try {
+            const response = await http.get('/reports/schedules/');
+            this.schedules = response.data.results || response.data;
+          } catch (err) {
+            this.error = 'Failed to fetch report schedules.';
+            console.error(err);
+          } finally {
+            this.loading = false;
+          }
+        },
+        async addSchedule(payload) {
+          const uiStore = useUIStore();
+          try {
+            await http.post('/reports/schedules/', payload);
+            uiStore.pushToast({ type: 'success', title: 'Success', message: 'Report schedule added.' });
+            await this.fetchSchedules();
+          } catch (err) {
+            console.error('Failed to add schedule:', err);
+            uiStore.pushToast({ type: 'error', title: 'Error', message: 'Could not add report schedule.' });
+          }
+        },
+        async updateSchedule(scheduleId, payload) {
+          const uiStore = useUIStore();
+          // The backend now expects 'telegram_group_keys'
+          const apiPayload = { ...payload };
+          delete apiPayload.id; // Don't send the ID in the body of a PATCH request
 
-export const useReportsStore = defineStore('reports', {
-  state: () => ({
-    items: [
-      {
-        id: uid(),
-        name: 'Daily Failure Summary',
-        templateName: 'failure_summary.xlsx',     // UI only; not uploaded
-        schedule: { freq: 'daily', dow: 'Mon', dom: '1', time: '09:00' },
-        sendEmail: true,
-        sendTelegram: false,
-        telegramGroupKey: 'reports',
+          try {
+            await http.patch(`/reports/schedules/${scheduleId}/`, apiPayload);
+            uiStore.pushToast({ type: 'success', title: 'Saved', message: 'Report schedule updated.' });
+            await this.fetchSchedules(); // Refresh list to get latest state
+          } catch (err) {
+            console.error('Failed to update schedule:', err);
+            uiStore.pushToast({ type: 'error', title: 'Error', message: 'Could not update schedule.' });
+          }
+        },
+        async removeSchedule(scheduleId) {
+          const uiStore = useUIStore();
+          try {
+            await http.delete(`/reports/schedules/${scheduleId}/`);
+            uiStore.pushToast({ type: 'success', title: 'Deleted', message: 'Report schedule removed.' });
+            await this.fetchSchedules();
+          } catch (err) {
+            console.error('Failed to remove schedule:', err);
+            uiStore.pushToast({ type: 'error', title: 'Error', message: 'Could not remove schedule.' });
+          }
+        },
+        async uploadTemplate(scheduleId, file) {
+          const uiStore = useUIStore();
+          const formData = new FormData();
+          formData.append('template', file);
+          this.loading = true;
+          try {
+            await http.post(`/reports/schedules/${scheduleId}/upload_template/`, formData, {
+              headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            uiStore.pushToast({ type: 'success', title: 'Success', message: 'Template uploaded.' });
+            await this.fetchSchedules();
+          } catch (err) {
+            console.error('Failed to upload template:', err);
+            uiStore.pushToast({ type: 'error', title: 'Upload Failed', message: 'Could not upload template.' });
+          } finally {
+            this.loading = false;
+          }
+        },
       },
-      {
-        id: uid(),
-        name: 'Weekly Section KPIs',
-        templateName: 'section_kpis.xlsx',
-        schedule: { freq: 'weekly', dow: 'Mon', dom: '1', time: '08:30' },
-        sendEmail: true,
-        sendTelegram: true,
-        telegramGroupKey: 'reports',
-      },
-    ],
-  }),
-  actions: {
-    addEmpty() {
-      this.items.push({
-        id: uid(),
-        name: '',
-        templateName: '',
-        schedule: { freq: 'daily', dow: 'Mon', dom: '1', time: '09:00' },
-        sendEmail: false,
-        sendTelegram: false,
-        telegramGroupKey: 'reports',
-      })
-    },
-    remove(id) {
-      this.items = this.items.filter(r => r.id !== id)
-    },
-    update(id, patch) {
-      const i = this.items.findIndex(r => r.id === id)
-      if (i !== -1) this.items[i] = { ...this.items[i], ...patch }
-    },
-    updateSchedule(id, schedPatch) {
-      const i = this.items.findIndex(r => r.id === id)
-      if (i !== -1) this.items[i].schedule = { ...this.items[i].schedule, ...schedPatch }
-    },
-  },
-})
+    });
+    
 

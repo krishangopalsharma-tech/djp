@@ -1,14 +1,13 @@
-# Path: backend/notifications/admin.py
-
 from django.contrib import admin
-from .models import EmailSettings
+from .models import EmailSettings, TelegramGroup
 
 @admin.register(EmailSettings)
 class EmailSettingsAdmin(admin.ModelAdmin):
-    # Since it's a singleton, we prevent adding new instances from the admin
-    def has_add_permission(self, request):
-        return False
-    # And we prevent deleting the only instance
-    def has_delete_permission(self, request, obj=None):
-        return False
+    list_display = ('host', 'port', 'username', 'from_address')
+
+@admin.register(TelegramGroup)
+class TelegramGroupAdmin(admin.ModelAdmin):
+    list_display = ('key', 'name', 'chat_id')
+    # Make the 'key' field read-only in the admin after creation
+    readonly_fields = ('key',)
 

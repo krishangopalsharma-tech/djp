@@ -1,61 +1,70 @@
-# Path: backend/notifications/models.py
-
 from django.db import models
-from django.core.mail import get_connection
 from core.models import TimestampedModel
+from django.core.mail.backends.smtp import EmailBackend
 
+# Create your models here.
 class EmailSettings(TimestampedModel):
-    # Singleton model to store email settings
-    host = models.CharField(max_length=255)
+    # SMTP Server Settings
+    host = models.CharField(max_length=255, blank=True)
     port = models.PositiveIntegerField(default=587)
     username = models.CharField(max_length=255, blank=True)
     password = models.CharField(max_length=255, blank=True)
-    from_name = models.CharField(max_length=100, default='RFMS Notifications')
-    from_address = models.EmailField(default='no-reply@rfms.com')
     
     ENCRYPTION_CHOICES = [
-        ('None', 'None'),
         ('STARTTLS', 'STARTTLS'),
         ('SSL/TLS', 'SSL/TLS'),
+        ('None', 'None'),
     ]
     encryption = models.CharField(max_length=10, choices=ENCRYPTION_CHOICES, default='STARTTLS')
     
-    # Recipient lists (stored as comma-separated strings)
-    default_to = models.TextField(blank=True, help_text="Comma-separated list of default 'To' recipients.")
-    default_cc = models.TextField(blank=True, help_text="Comma-separated list of default 'CC' recipients.")
-    default_bcc = models.TextField(blank=True, help_text="Comma-separated list of default 'BCC' recipients.")
+    # Sender Information
+    from_name = models.CharField(max_length=255, default='RFMS Notifications')
+    from_address = models.EmailField(blank=True)
 
-    def save(self, *args, **kwargs):
-        # Enforce a single instance of settings
-        self.pk = 1
-        super(EmailSettings, self).save(*args, **kwargs)
+    # Default Recipients (stored as comma-separated strings)
+    to_recipients = models.TextField(blank=True, help_text="Comma-separated list of TO email addresses.")
+    cc_recipients = models.TextField(blank=True, help_text="Comma-separated list of CC email addresses.")
+    bcc_recipients = models.TextField(blank=True, help_text="Comma-separated list of BCC email addresses.")
 
-    @classmethod
-    def load(cls):
-        # Convenience method to get the singleton instance
-        obj, created = cls.objects.get_or_create(pk=1)
-        return obj
-
+    def __str__(self):
+        return f"Email Settings for {self.host or 'Not Configured'}"
+    
     def get_connection(self):
-        """Creates and returns an email backend connection."""
-        # Correctly set use_tls and use_ssl based on the encryption choice
-        use_tls = self.encryption == 'STARTTLS'
-        use_ssl = self.encryption == 'SSL/TLS'
+        """
+        Creates and returns an SMTP EmailBackend instance based on stored settings.
+        """
+        print(f"--- CREATING CONNECTION: Host={self.host}, Port={self.port}, Encryption={self.encryption} ---")
+        use_tls = False
+        use_ssl = False
         
-        return get_connection(
-            backend='django.core.mail.backends.smtp.EmailBackend',
+        if self.encryption == 'STARTTLS':
+            use_tls = True
+        elif self.encryption == 'SSL/TLS':
+            use_ssl = True
+
+        return EmailBackend(
             host=self.host,
             port=self.port,
             username=self.username,
             password=self.password,
             use_tls=use_tls,
             use_ssl=use_ssl,
-            fail_silently=False,
+            fail_silently=False
         )
-
-    def __str__(self):
-        return f"Email Settings for {self.host}"
-
+        
     class Meta:
         verbose_name_plural = "Email Settings"
+
+
+class TelegramGroup(TimestampedModel):
+    """
+    Stores configuration for a single Telegram group.
+    """
+    key = models.CharField(max_length=50, unique=True, help_text="A unique key for the group, e.g., 'alerts', 'reports'.")
+    name = models.CharField(max_length=100, help_text="A user-friendly name for the group, e.g., 'Alert Group'.")
+    chat_id = models.CharField(max_length=100, blank=True, help_text="The unique Chat ID for the Telegram group.")
+    link = models.URLField(blank=True, help_text="An optional invitation link or note for the group.")
+
+    def __str__(self):
+        return self.name
 

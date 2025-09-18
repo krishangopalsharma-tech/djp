@@ -7,7 +7,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
 
     # API Routes
-    path("api/v1/", include("core.urls")),
+    path("api/v1/core/", include("core.urls")), # <-- CORRECTED THIS LINE
     path("api/v1/users/", include("users.urls")),
     path("api/v1/failures/", include("failures.urls")),
     path("api/v1/infrastructure/", include("infrastructure.urls")),

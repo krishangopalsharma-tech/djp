@@ -69,7 +69,7 @@ export const useUserStore = defineStore('users', {
         if (!payload.password) {
           delete payload.password;
         }
-        
+          
         await http.patch(`/users/${userId}/`, payload);
         uiStore.pushToast({
           type: 'success',
@@ -114,4 +114,3 @@ export const useUserStore = defineStore('users', {
     },
   },
 });
-

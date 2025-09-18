@@ -3,7 +3,8 @@ import SettingsLayout from '@/views/settings/SettingsLayout.vue'
 import EmailSettings from '@/views/settings/EmailSettings.vue'
 import SectionManagement from '@/views/settings/SectionManagement.vue'
 import ReportsManagement from '@/views/settings/ReportsManagement.vue'
-import TelegramSettings2 from '@/views/settings/TelegramSettings2.vue'
+// Correct the import to point to the renamed file
+import TelegramSettings from '@/views/settings/TelegramSettings.vue'
 import ReportsNow from '@/views/ReportsNow.vue'
 import SupervisorMovements from '@/views/SupervisorMovements.vue'
 const FailureIdSettings = () => import('@/views/settings/FailureIdSettings.vue')
@@ -35,7 +36,8 @@ const routes = [
       // 2) Failure ID Configuration
       { path: 'failure-id', name: 'SettingsFailureId', component: FailureIdSettings, meta: { title: 'Failure ID Configuration' } },
       // 3) Telegram Integration Settings
-      { path: 'telegram', name: 'SettingsTelegram', component: TelegramSettings2, meta: { title: 'Telegram Integration Settings' } },
+      // Update the component reference here
+      { path: 'telegram', name: 'SettingsTelegram', component: TelegramSettings, meta: { title: 'Telegram Integration Settings' } },
       // 4) User and Role Management
       { path: 'users-roles', name: 'SettingsUsersRoles', component: UsersRolesSettings, meta: { title: 'User and Role Management' } },
       // 5) Circuit Management
