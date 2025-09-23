@@ -10,4 +10,3 @@ class TelegramGroupAdmin(admin.ModelAdmin):
     list_display = ('key', 'name', 'chat_id')
     # Make the 'key' field read-only in the admin after creation
     readonly_fields = ('key',)
-

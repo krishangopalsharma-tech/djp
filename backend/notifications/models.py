@@ -1,3 +1,4 @@
+import requests
 from django.db import models
 from core.models import TimestampedModel
 from django.core.mail.backends.smtp import EmailBackend
@@ -68,3 +69,63 @@ class TelegramGroup(TimestampedModel):
     def __str__(self):
         return self.name
 
+    def send_message(self, message):
+        """
+        Sends a message to this specific Telegram group.
+        """
+        bot_token = TelegramSettings.get_active_settings().bot_token
+        if not self.chat_id or not bot_token:
+            print(f"Warning: Telegram not configured for group '{self.name}' or bot token is missing.")
+            return
+
+        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+        payload = {
+            'chat_id': self.chat_id,
+            'text': message,
+            'parse_mode': 'Markdown'
+        }
+
+        try:
+            response = requests.post(url, data=payload, timeout=10)
+            response.raise_for_status()
+        except requests.exceptions.RequestException as e:
+            print(f"Error sending Telegram message to {self.name}: {e}")
+
+    def send_document(self, file_object, filename, caption):
+        """
+        Sends a document/file to this specific Telegram group.
+        """
+        bot_token = TelegramSettings.get_active_settings().bot_token
+        if not self.chat_id or not bot_token:
+            print(f"Warning: Telegram not configured for group '{self.name}' or bot token is missing.")
+            return
+
+        url = f"https://api.telegram.org/bot{bot_token}/sendDocument"
+        files = {'document': (filename, file_object)}
+        data = {
+            'chat_id': self.chat_id,
+            'caption': caption,
+            'parse_mode': 'Markdown'
+        }
+
+        try:
+            response = requests.post(url, data=data, files=files, timeout=20)
+            response.raise_for_status()
+        except requests.exceptions.RequestException as e:
+            print(f"Error sending Telegram document to {self.name}: {e}")
+
+
+class TelegramSettings(TimestampedModel):
+    """A singleton model to store the Telegram Bot Token."""
+    bot_token = models.CharField(max_length=255, blank=True, help_text="The HTTP API token for your Telegram Bot.")
+
+    def __str__(self):
+        return "Telegram Bot Settings"
+
+    @classmethod
+    def get_active_settings(cls):
+        obj, created = cls.objects.get_or_create(pk=1)
+        return obj
+
+    class Meta:
+        verbose_name_plural = "Telegram Settings"

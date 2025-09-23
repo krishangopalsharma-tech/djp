@@ -6,5 +6,4 @@ from .models import FailureIDSettings
 class FailureIDSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = FailureIDSettings
-        fields = ['id', 'prefix', 'padding', 'reset_cycle']
-
+        fields = ['id', 'prefix', 'padding_digits', 'reset_cycle']

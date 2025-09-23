@@ -19,6 +19,7 @@ INSTALLED_APPS = [
     # Third-party
     "rest_framework",
     "corsheaders",
+    "django_extensions",
     # Local apps (Corrected)
     "core.apps.CoreConfig",
     "users.apps.UsersConfig",
@@ -27,6 +28,7 @@ INSTALLED_APPS = [
     "infrastructure.apps.InfrastructureConfig", # Add this
     "notifications.apps.NotificationsConfig", # Add this
     "analytics.apps.AnalyticsConfig",         # Add this
+    "operations.apps.OperationsConfig",
 ]
 
 MIDDLEWARE = [
@@ -110,4 +112,3 @@ AUTH_USER_MODEL = 'users.User'
 
 # Telegram Bot Token (IMPORTANT: Use environment variables in production!)
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
-

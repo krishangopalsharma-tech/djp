@@ -13,4 +13,3 @@ class FailureIDSettingsAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         # Prevent deleting the instance
         return False
-

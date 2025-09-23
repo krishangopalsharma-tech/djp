@@ -22,3 +22,23 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+*.pyc
+.venv/*
+__pycache__/*
+migrations/*
+node_modules/*
+# Ignore Python cache directories
+**/__pycache__/
+
+# Ignore Django migration directories
+**/migrations/
+
+# Ignore frontend dependencies
+frontend/node_modules/
+
+# Additional common ignores
+*.pyc
+*.pyo
+*.db
+*.log
+.DS_Store

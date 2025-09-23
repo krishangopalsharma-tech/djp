@@ -1,10 +1,11 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import EmailSettingsView, TelegramGroupViewSet, TestEmailView, TestTelegramView
+from .views import EmailSettingsView, TelegramGroupViewSet, TestEmailView, TestTelegramView, TelegramSettingsViewSet
 
 # Create a router and register our new Telegram viewset with it.
 router = DefaultRouter()
 router.register(r'telegram-groups', TelegramGroupViewSet, basename='telegramgroup')
+router.register(r'settings/telegram', TelegramSettingsViewSet, basename='telegram-settings')
 
 urlpatterns = [
     # Path for the singleton EmailSettings
@@ -16,4 +17,3 @@ urlpatterns = [
     # Include the router URLs for Telegram groups
     path('', include(router.urls)),
 ]
-

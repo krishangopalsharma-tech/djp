@@ -39,4 +39,3 @@ class ScheduledReport(TimestampedModel):
 
     class Meta:
         ordering = ['name']
-

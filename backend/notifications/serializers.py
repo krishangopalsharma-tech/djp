@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import EmailSettings, TelegramGroup
+from .models import EmailSettings, TelegramGroup, TelegramSettings
 
 class EmailSettingsSerializer(serializers.ModelSerializer):
     class Meta:
@@ -11,3 +11,7 @@ class TelegramGroupSerializer(serializers.ModelSerializer):
         model = TelegramGroup
         fields = ['id', 'key', 'name', 'chat_id', 'link']
 
+class TelegramSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TelegramSettings
+        fields = ['id', 'bot_token']

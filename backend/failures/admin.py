@@ -1,7 +1,7 @@
 # Path: backend/failures/admin.py
 
 from django.contrib import admin
-from .models import Failure
+from .models import Failure, FailureAttachment
 
 @admin.register(Failure)
 class FailureAdmin(admin.ModelAdmin):
@@ -13,3 +13,5 @@ class FailureAdmin(admin.ModelAdmin):
     search_fields = ('fail_id', 'circuit__circuit_id', 'station__name', 'remark_fail')
     # Date hierarchy navigation
     date_hierarchy = 'reported_at'
+
+admin.site.register(FailureAttachment)

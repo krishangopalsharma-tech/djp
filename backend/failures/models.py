@@ -2,6 +2,7 @@ from django.db import models, transaction
 from django.utils import timezone
 from core.models import TimestampedModel, FailureIDSettings
 from infrastructure.models import Circuit, Station, Section, SubSection, Supervisor
+from users.models import User
 import datetime
 
 class Failure(TimestampedModel):
@@ -10,7 +11,7 @@ class Failure(TimestampedModel):
         ('major', 'Major'), ('critical', 'Critical'),
     ]
     STATUS_CHOICES = [
-        ('Active', 'Active'), ('In Progress', 'In Progress'),
+        ('Draft', 'Draft'), ('Active', 'Active'), ('In Progress', 'In Progress'),
         ('Resolved', 'Resolved'), ('On Hold', 'On Hold'),
     ]
     SEVERITY_CHOICES = [('Minor', 'Minor'), ('Major', 'Major'), ('Critical', 'Critical')]
@@ -28,6 +29,10 @@ class Failure(TimestampedModel):
     resolved_at = models.DateTimeField(null=True, blank=True)
     remark_fail = models.TextField(blank=True, help_text="Initial notes about the failure.")
     remark_right = models.TextField(blank=True, help_text="Notes on how the failure was resolved.")
+
+    is_archived = models.BooleanField(default=False)
+    archived_at = models.DateTimeField(null=True, blank=True)
+    archived_reason = models.TextField(blank=True)
 
     def __str__(self):
         return self.fail_id
@@ -78,10 +83,21 @@ class Failure(TimestampedModel):
                     self.fail_id = f"{settings.prefix}-{padded_number}"
                 
                 print(f"5. Generated new Fail ID: {self.fail_id}")
-                print("--- End of Failure ID Generation ---\n")
+                print("---\nEnd of Failure ID Generation ---\n")
 
+        if self.circuit: self.severity = self.circuit.severity
         super().save(*args, **kwargs)
 
     class Meta:
         ordering = ['-reported_at']
+
+
+def attachment_upload_path(instance, filename):
+    return f'attachments/{instance.failure.fail_id}/{filename}'
+
+class FailureAttachment(TimestampedModel):
+    failure = models.ForeignKey(Failure, on_delete=models.CASCADE, related_name='attachments')
+    file = models.FileField(upload_to=attachment_upload_path)
+    description = models.CharField(max_length=255, blank=True)
+    uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
 
