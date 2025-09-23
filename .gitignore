@@ -41,4 +41,16 @@ frontend/node_modules/
 *.pyo
 *.db
 *.log
+# Python/Django
+**/migrations/
+**/__pycache__/
+*.pyc
+*.pyo
+
+# Frontend
+frontend/node_modules/
+
+# Common ignores
+*.db
+*.log
 .DS_Store
