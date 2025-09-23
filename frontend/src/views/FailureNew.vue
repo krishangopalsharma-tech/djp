@@ -7,25 +7,18 @@ import SearchSelect from '@/components/form/SearchSelect.vue'
 import TagsInput from '@/components/form/TagsInput.vue'
 import { useUIStore } from '@/stores/ui'
 import RecentFailures from '@/components/RecentFailures.vue'
-import NotificationModal from '@/components/NotificationModal.vue' // New import
 import { useInfrastructureStore } from '@/stores/infrastructure'
 import { useFailureStore } from '@/stores/failures'
-import { useTelegramStore } from '@/stores/telegram' // New import
 import FailureAttachment from '@/components/FailureAttachment.vue'
 
 const ui = useUIStore()
 const infrastructureStore = useInfrastructureStore()
 const failureStore = useFailureStore()
-const telegramStore = useTelegramStore() // Initialize telegram store
 
 const editingFailureId = ref(null)
 const isArchiveModalOpen = ref(false)
 const failureToArchive = ref(null)
 const archiveReason = ref('')
-
-// New refs for notification modal
-const isNotifyModalOpen = ref(false)
-const failureToNotify = ref(null)
 
 onMounted(() => {
   Promise.all([
@@ -36,189 +29,46 @@ onMounted(() => {
     infrastructureStore.fetchSubSections(),
     infrastructureStore.fetchSupervisors(),
     failureStore.fetchFailures(),
-    telegramStore.fetchTelegramGroups(), // Fetch Telegram groups on mount
   ])
 })
 
-// New function to open notification modal
-function openNotifyModal(row) {
-  failureToNotify.value = row
-  isNotifyModalOpen.value = true
-}
+// ... (keep the existing computed properties like depotOptions, circuitOptions, etc.)
+const depotOptions = computed(() => infrastructureStore.depots.map(d => ({ label: d.name, value: d.id })));
+const circuitOptions = computed(() => infrastructureStore.circuits.map(c => ({ label: c.name, value: c.id })));
+const stationOptions = computed(() => form.depot ? infrastructureStore.stations.filter(s => s.depot === form.depot).map(s => ({ label: s.name, value: s.id })) : []);
+const sectionOptions = computed(() => form.depot ? infrastructureStore.sections.filter(s => s.depot === form.depot).map(s => ({ label: s.name, value: s.id })) : []);
+const subSectionOptions = computed(() => form.section ? infrastructureStore.subSections.filter(s => s.section === form.section).map(s => ({ label: s.name, value: s.id })) : []);
+const supervisorOptions = computed(() => infrastructureStore.supervisors.map(s => ({ label: s.name, value: s.id })));
+const selectedCircuitSeverity = computed(() => { if (!form.circuit) return ''; const circuit = infrastructureStore.circuits.find(c => c.id === form.circuit); return circuit ? circuit.severity : ''; });
+const statusOptions = [ { label: 'Draft', value: 'Draft' }, { label: 'Active', value: 'Active' }, { label: 'In Progress', value: 'In Progress' }, { label: 'Resolved', value: 'Resolved' }, { label: 'On Hold', value: 'On Hold' }, ];
+const initialFormState = { fail_id: '', depot: null, circuit: null, entry_type: 'item', station: null, section: null, sub_section: null, reported_at: new Date().toISOString().slice(0, 16), assigned_to: null, current_status: 'Active', remark_fail: '', resolved_at: '', duration_minutes: '', remark_right: '', };
+const form = reactive({ ...initialFormState });
+const errors = reactive({});
+const autoTags = computed(() => { const t = []; if (form.depot) { const depot = infrastructureStore.depots.find(d => d.id === form.depot); if (depot) t.push(`#${depot.name}`) } if (form.circuit) { const circuit = infrastructureStore.circuits.find(c => c.id === form.circuit); if (circuit) t.push(`#${circuit.name}`) } if (form.station) { const station = infrastructureStore.stations.find(s => s.id === form.station); if (station) t.push(`#${station.name}`) } if (form.section) { const section = infrastructureStore.sections.find(s => s.id === form.section); if (section) t.push(`#${section.name}`) } if (form.sub_section) { const subSection = infrastructureStore.subSections.find(s => s.id === form.sub_section); if (subSection) t.push(`#${subSection.name}`) } return t });
+const userTags = ref([]);
+const allTags = computed(() => [...autoTags.value, ...userTags.value]);
+function validate() { errors.circuit = form.circuit ? '' : 'Required'; return Object.values(errors).every(v => !v) }
+function nowLocalISO() { return new Date(Date.now() - new Date().getSeconds() * 1000 - new Date().getMilliseconds()).toISOString().slice(0, 16) }
+function calcDurationMinutes(startISO, endISO) { if (!startISO || !endISO) return ''; const ms = new Date(endISO) - new Date(startISO); if (isNaN(ms) || ms < 0) return ''; return Math.round(ms / 60000) }
+watch(() => form.current_status, v => { if (v === 'Resolved' && !form.resolved_at) form.resolved_at = nowLocalISO() });
+watch(() => [form.reported_at, form.resolved_at], ([rep, res]) => { form.duration_minutes = calcDurationMinutes(rep, res) });
+watch(() => form.depot, () => { form.section = null; form.station = null; form.sub_section = null });
+watch(() => form.section, () => { form.sub_section = null });
+watch(() => failureStore.currentFailure, (failure) => { if (failure) { Object.assign(form, { ...failure, depot: failure.depot?.id, circuit: failure.circuit?.id, station: failure.station?.id, section: failure.section?.id, sub_section: failure.sub_section?.id, assigned_to: failure.assigned_to?.id, reported_at: failure.reported_at ? new Date(failure.reported_at).toISOString().slice(0, 16) : '', resolved_at: failure.resolved_at ? new Date(failure.resolved_at).toISOString().slice(0, 16) : '' }); } });
+const split = ref(50);
+const dragging = ref(false);
+const splitWrap = ref(null);
+function onDragStart(e) { dragging.value = true; window.addEventListener('mousemove', onDrag); window.addEventListener('mouseup', onDragEnd); }
+function onDrag(e) { if (!splitWrap.value) return; const rect = splitWrap.value.getBoundingClientRect(); let pct = ((e.clientX - rect.left) / rect.width) * 100; pct = Math.max(25, Math.min(75, pct)); split.value = Math.round(pct); }
+function onDragEnd() { dragging.value = false; window.removeEventListener('mousemove', onDrag); window.removeEventListener('mouseup', onDragEnd); }
 
-const split = ref(50)
-const dragging = ref(false)
-const splitWrap = ref(null)
-
-function onDragStart(e) {
-  dragging.value = true
-  window.addEventListener('mousemove', onDrag)
-  window.addEventListener('mouseup', onDragEnd)
-}
-function onDrag(e) {
-  if (!splitWrap.value) return
-  const rect = splitWrap.value.getBoundingClientRect()
-  let pct = ((e.clientX - rect.left) / rect.width) * 100
-  pct = Math.max(25, Math.min(75, pct))
-  split.value = Math.round(pct)
-}
-function onDragEnd() {
-  dragging.value = false
-  window.removeEventListener('mousemove', onDrag)
-  window.removeEventListener('mouseup', onDragEnd)
-}
-
-const depotOptions = computed(() =>
-  infrastructureStore.depots.map(d => ({ label: d.name, value: d.id }))
-)
-const circuitOptions = computed(() =>
-  infrastructureStore.circuits.map(c => ({ label: c.name, value: c.id }))
-)
-const stationOptions = computed(() =>
-  form.depot
-    ? infrastructureStore.stations
-        .filter(s => s.depot === form.depot)
-        .map(s => ({ label: s.name, value: s.id }))
-    : []
-)
-const sectionOptions = computed(() =>
-  form.depot
-    ? infrastructureStore.sections
-        .filter(s => s.depot === form.depot)
-        .map(s => ({ label: s.name, value: s.id }))
-    : []
-)
-const subSectionOptions = computed(() =>
-  form.section
-    ? infrastructureStore.subSections
-        .filter(s => s.section === form.section)
-        .map(s => ({ label: s.name, value: s.id }))
-    : []
-)
-const supervisorOptions = computed(() =>
-  infrastructureStore.supervisors.map(s => ({ label: s.name, value: s.id }))
-)
-
-const selectedCircuitSeverity = computed(() => {
-  if (!form.circuit) return ''
-  const circuit = infrastructureStore.circuits.find(c => c.id === form.circuit)
-  return circuit ? circuit.severity : ''
-})
-
-const statusOptions = [
-  { label: 'Draft', value: 'Draft' },
-  { label: 'Active', value: 'Active' },
-  { label: 'In Progress', value: 'In Progress' },
-  { label: 'Resolved', value: 'Resolved' },
-  { label: 'On Hold', value: 'On Hold' },
-]
-
-const initialFormState = {
-  fail_id: '',
-  depot: null,
-  circuit: null,
-  entry_type: 'item',
-  station: null,
-  section: null,
-  sub_section: null,
-  reported_at: new Date().toISOString().slice(0, 16),
-  assigned_to: null,
-  current_status: 'Active',
-  remark_fail: '',
-  resolved_at: '',
-  duration_minutes: '',
-  remark_right: '',
-}
-
-const form = reactive({ ...initialFormState })
-
-const errors = reactive({})
-
-const autoTags = computed(() => {
-  const t = []
-  if (form.depot) {
-    const depot = infrastructureStore.depots.find(d => d.id === form.depot)
-    if (depot) t.push(`#${depot.name}`)
-  }
-  if (form.circuit) {
-    const circuit = infrastructureStore.circuits.find(c => c.id === form.circuit)
-    if (circuit) t.push(`#${circuit.name}`)
-  }
-  if (form.station) {
-    const station = infrastructureStore.stations.find(s => s.id === form.station)
-    if (station) t.push(`#${station.name}`)
-  }
-  if (form.section) {
-    const section = infrastructureStore.sections.find(s => s.id === form.section)
-    if (section) t.push(`#${section.name}`)
-  }
-  if (form.sub_section) {
-    const subSection = infrastructureStore.subSections.find(s => s.id === form.sub_section)
-    if (subSection) t.push(`#${subSection.name}`)
-  }
-  return t
-})
-
-const userTags = ref([])
-const allTags = computed(() => [...autoTags.value, ...userTags.value])
-
-function validate() {
-  errors.circuit = form.circuit ? '' : 'Required'
-  return Object.values(errors).every(v => !v)
-}
-
-function nowLocalISO() {
-  return new Date(Date.now() - new Date().getSeconds() * 1000 - new Date().getMilliseconds())
-    .toISOString()
-    .slice(0, 16)
-}
-function calcDurationMinutes(startISO, endISO) {
-  if (!startISO || !endISO) return ''
-  const ms = new Date(endISO) - new Date(startISO)
-  if (isNaN(ms) || ms < 0) return ''
-  return Math.round(ms / 60000)
-}
-
-watch(() => form.current_status, v => {
-  if (v === 'Resolved' && !form.resolved_at) form.resolved_at = nowLocalISO()
-})
-watch(() => [form.reported_at, form.resolved_at], ([rep, res]) => {
-  form.duration_minutes = calcDurationMinutes(rep, res)
-})
-watch(() => form.depot, () => {
-  form.section = null
-  form.station = null
-  form.sub_section = null
-})
-watch(() => form.section, () => {
-  form.sub_section = null
-})
-
-watch(() => failureStore.currentFailure, (failure) => {
-  if (failure) {
-    form.fail_id = failure.fail_id
-    form.depot = failure.depot?.id
-    form.circuit = failure.circuit?.id
-    form.entry_type = failure.entry_type
-    form.station = failure.station?.id
-    form.section = failure.section?.id
-    form.sub_section = failure.sub_section?.id
-    form.reported_at = failure.reported_at ? new Date(failure.reported_at).toISOString().slice(0, 16) : ''
-    form.assigned_to = failure.assigned_to?.id
-    form.current_status = failure.current_status
-    form.remark_fail = failure.remark_fail
-    form.resolved_at = failure.resolved_at ? new Date(failure.resolved_at).toISOString().slice(0, 16) : ''
-    form.duration_minutes = failure.duration_minutes
-    form.remark_right = failure.remark_right
-  }
-})
-
+// --- Updated Logic ---
 async function saveAsDraft() {
   form.current_status = 'Draft'
-  await submit()
+  await submit(false); // Submit without notification
 }
 
-async function submit() {
+async function submit(notify = true) {
   if (!validate()) {
     ui.pushToast({ type: 'error', title: 'Missing fields', message: 'Circuit is required.' })
     return
@@ -237,54 +87,56 @@ async function submit() {
     remark_right: form.remark_right,
   }
 
+  let savedFailure;
   if (editingFailureId.value) {
-    await failureStore.updateFailure(editingFailureId.value, payload)
-    if (!failureStore.error) {
-      ui.pushToast({ type: 'success', title: 'Success', message: 'Logbook entry updated.' })
-      resetForm()
-    }
+    savedFailure = await failureStore.updateFailure(editingFailureId.value, payload);
   } else {
-    await failureStore.addFailure(payload)
-    if (!failureStore.error) {
-      ui.pushToast({ type: 'success', title: 'Success', message: 'Logbook entry saved.' })
-      resetForm()
+    savedFailure = await failureStore.addFailure(payload);
+  }
+
+  if (savedFailure) {
+    let toastMessage = 'Logbook entry saved.';
+    if (notify && savedFailure.current_status !== 'Draft') {
+      await failureStore.sendFailureNotification(savedFailure.id, ['alert']);
+      toastMessage = 'Entry saved and notification sent.';
     }
+    ui.pushToast({ type: 'success', title: 'Success', message: toastMessage });
+    resetForm();
   }
 }
 
 function resetForm() {
-  Object.assign(form, initialFormState)
-  form.reported_at = new Date().toISOString().slice(0, 16)
-  userTags.value = []
-  editingFailureId.value = null
+  Object.assign(form, initialFormState);
+  form.reported_at = new Date().toISOString().slice(0, 16);
+  userTags.value = [];
+  editingFailureId.value = null;
 }
 
 function handleEditRequest(id) {
-  editingFailureId.value = id
-  failureStore.fetchFailure(id)
+  editingFailureId.value = id;
+  failureStore.fetchFailure(id);
 }
 
 function openArchiveModal(failure) {
-  failureToArchive.value = failure
-  isArchiveModalOpen.value = true
-  archiveReason.value = ''
+  failureToArchive.value = failure;
+  isArchiveModalOpen.value = true;
+  archiveReason.value = '';
 }
 
 async function confirmArchive() {
   if (failureToArchive.value) {
-    await failureStore.archiveFailure(failureToArchive.value.id, archiveReason.value)
-    failureToArchive.value = null
-    isArchiveModalOpen.value = false
+    await failureStore.archiveFailure(failureToArchive.value.id, archiveReason.value);
+    failureToArchive.value = null;
+    isArchiveModalOpen.value = false;
   }
 }
 
 function handleArchiveRequest(failure) {
-  openArchiveModal(failure)
+  openArchiveModal(failure);
 }
 
-const recentFailures = computed(() => failureStore.failures)
+const recentFailures = computed(() => failureStore.failures);
 </script>
-
 <template>
   <div class="flex-1 flex flex-col gap-4 p-4 overflow-y-auto">
     <div class="flex items-center justify-between">
@@ -386,7 +238,7 @@ const recentFailures = computed(() => failureStore.failures)
               </button>
               <div class="flex gap-3">
                 <button type="button" class="btn btn-outline" @click="resetForm">{{ editingFailureId ? 'Cancel Edit' : 'Reset' }}</button>
-                <button type="button" class="btn btn-primary" @click="submit">{{ editingFailureId ? 'Save Changes' : 'Submit' }}</button>
+                <button type="button" class="btn btn-primary" @click="submit()">{{ editingFailureId ? 'Save Changes & Notify' : 'Submit & Notify' }}</button>
               </div>
             </div>
           </div>
@@ -405,15 +257,11 @@ const recentFailures = computed(() => failureStore.failures)
           storage-key="rf-newfailure"
           :editing-id="editingFailureId"
           @view="row => console.log('open details', row)"
-          @notify="openNotifyModal"
           @edit="handleEditRequest"
           @delete="handleArchiveRequest"
         />
       </div>
     </div>
-
-    <!-- Notification Modal -->
-    <NotificationModal v-model="isNotifyModalOpen" :failure="failureToNotify" />
 
     <!-- Archive Confirmation Modal -->
     <div v-if="isArchiveModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">

@@ -1,6 +1,7 @@
 <script setup>
-import { ref, watch, computed, onMounted } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { useAttachmentStore } from '@/stores/attachments';
+import { useFailureStore } from '@/stores/failures'; // <-- New import
 import { Trash2 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -11,6 +12,7 @@ const props = defineProps({
 });
 
 const attachmentStore = useAttachmentStore();
+const failureStore = useFailureStore(); // <-- Initialize failure store
 const attachments = computed(() => attachmentStore.attachments);
 
 const fileInput = ref(null);
@@ -31,12 +33,19 @@ async function handleUpload() {
   if (!selectedFile.value || !props.failureId) {
     return;
   }
-  await attachmentStore.uploadAttachment(props.failureId, selectedFile.value, description.value);
-  // Reset form
-  selectedFile.value = null;
-  description.value = '';
-  if (fileInput.value) {
-    fileInput.value.value = '';
+  // This now returns true or false
+  const success = await attachmentStore.uploadAttachment(props.failureId, selectedFile.value, description.value);
+
+  if (success) {
+    // On success, send notification to both groups
+    await failureStore.sendFailureNotification(props.failureId, ['alert', 'files']);
+
+    // Reset form
+    selectedFile.value = null;
+    description.value = '';
+    if (fileInput.value) {
+      fileInput.value.value = '';
+    }
   }
 }
 
@@ -47,15 +56,12 @@ async function handleDelete(attachmentId) {
 }
 
 function getFileUrl(fileUrl) {
-    // In development, the backend serves media files from a different port
-    // This prepends the backend URL if the file path is relative.
-    if (fileUrl && !fileUrl.startsWith('http')) {
-        const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
-        // Remove '/api' from the base URL if it exists, to get to the root
-        const rootUrl = baseUrl.replace('/api', '');
-        return `${rootUrl}${fileUrl}`;
-    }
-    return fileUrl;
+  if (fileUrl && !fileUrl.startsWith('http')) {
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+    const rootUrl = baseUrl.replace('/api', '');
+    return `${rootUrl}${fileUrl}`;
+  }
+  return fileUrl;
 }
 </script>
 

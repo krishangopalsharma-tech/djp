@@ -51,10 +51,13 @@ class FailureCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Failure
         fields = [
+            'id', 'fail_id', # <-- Add these two
             'entry_type', 'current_status', 'circuit', 'station',
             'section', 'sub_section', 'assigned_to', 'reported_at',
             'resolved_at', 'remark_fail', 'remark_right'
         ]
+        # It's even better to make them read-only like this:
+        read_only_fields = ['id', 'fail_id']
 
 
 class FailureAttachmentSerializer(serializers.ModelSerializer):

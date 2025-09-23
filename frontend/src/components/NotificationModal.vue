@@ -1,20 +1,21 @@
 <script setup>
 import { ref, watch, computed } from 'vue';
+import { useFailureStore } from '@/stores/failures'; // Corrected import
 import { useTelegramStore } from '@/stores/telegram';
 
 const props = defineProps({
-  modelValue: { type: Boolean, default: false }, // v-model for visibility
+  modelValue: { type: Boolean, default: false },
   failure: { type: Object, default: null },
 });
 const emit = defineEmits(['update:modelValue']);
 
+const failureStore = useFailureStore(); // Initialize the correct store
 const telegramStore = useTelegramStore();
 const availableGroups = computed(() => telegramStore.groups);
 const selectedGroupKeys = ref([]);
 
 watch(() => props.failure, (newFailure) => {
   if (newFailure) {
-    // Reset selection when a new failure is passed in
     selectedGroupKeys.value = [];
   }
 });
@@ -27,7 +28,8 @@ async function sendNotification() {
   if (!props.failure || selectedGroupKeys.value.length === 0) {
     return;
   }
-  await telegramStore.sendFailureNotification(props.failure.id, selectedGroupKeys.value);
+  // Call the action on the correct store
+  await failureStore.sendFailureNotification(props.failure.id, selectedGroupKeys.value);
   close();
 }
 </script>

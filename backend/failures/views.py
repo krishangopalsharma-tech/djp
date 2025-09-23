@@ -62,50 +62,32 @@ class FailureViewSet(viewsets.ModelViewSet):
             )
 
         message = (
-            f"Failure ID: {failure.fail_id}\n"
-            f"Circuit: {failure.circuit.name if failure.circuit else 'N/A'}\n"
-            f"Status: {failure.current_status}\n"
-            f"Remarks: {failure.remark_fail}"
+            f"*New Failure Logged*\n\n"
+            f"*ID:* {failure.fail_id}\n"
+            f"*Circuit:* {failure.circuit.name if failure.circuit else 'N/A'}\n"
+            f"*Status:* {failure.current_status}\n"
+            f"*Remarks:* {failure.remark_fail}"
         )
 
-        groups = TelegramGroup.objects.filter(key__in=group_keys)
-        chat_ids = [group.chat_id for group in groups if group.chat_id]
+        try:
+            groups_to_notify = TelegramGroup.objects.filter(key__in=group_keys)
+            if not groups_to_notify.exists():
+                return Response(
+                    {"error": "No valid Telegram groups found for the provided keys."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
-        if not chat_ids:
-            return Response(
-                {"error": "No valid chat_ids found for the provided groups."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            for group in groups_to_notify:
+                group.send_message(message)
 
-        bot_token = getattr(settings, 'TELEGRAM_BOT_TOKEN', None)
-        if not bot_token:
+            return Response({"message": "Notifications sent successfully."})
+
+        except Exception as e:
+            # This will catch any other unexpected errors during the process
             return Response(
-                {"error": "Telegram bot token is not configured."}, 
+                {"error": f"Failed to send notification: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
-        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-        errors = []
-
-        for chat_id in chat_ids:
-            payload = {
-                'chat_id': chat_id,
-                'text': message,
-                'parse_mode': 'Markdown'
-            }
-            try:
-                response = requests.post(url, json=payload)
-                response.raise_for_status()
-            except requests.exceptions.RequestException as e:
-                errors.append(f"Failed to send to {chat_id}: {str(e)}")
-
-        if errors:
-            return Response(
-                {"error": "Some notifications failed to send.", "details": errors},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-        return Response({"message": "Notifications sent successfully."})
 
 
 class FailureAttachmentViewSet(viewsets.ModelViewSet):

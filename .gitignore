@@ -28,11 +28,11 @@ __pycache__/*
 migrations/*
 node_modules/*
 # Ignore Python cache directories
+**/__pycache__/*
 **/__pycache__/
-
 # Ignore Django migration directories
+**/migrations/*
 **/migrations/
-
 # Ignore frontend dependencies
 frontend/node_modules/
 
