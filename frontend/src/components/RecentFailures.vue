@@ -83,10 +83,11 @@ const fallbackRows = [
 // Filter out UI-only 'message' entries from the dashboard list
 const sourceRows = computed(() => {
   const base = (props.items?.length ? props.items : fallbackRows)
+  // --- ADD THIS FILTER ---
   return base.filter(i => {
-    const t = i?.entry_type ?? i?.entryType ?? i?.type ?? i?.kind ?? i?.severity ?? ''
-    return String(t).toLowerCase() !== 'message'
-  })
+    const type = i?.entry_type || 'item'; // Default to 'item' if not present
+    return type !== 'message';
+  });
 })
 
 /* -------- Time helpers (robust: numbers or ISO strings) -------- */

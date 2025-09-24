@@ -68,7 +68,7 @@ async updateFailure(id, payload) {
     const response = await http.patch(`/failures/logs/${id}/`, payload);
     // The toast is now handled in the component
     // uiStore.pushToast({ type: 'success', title: 'Success', message: 'Failure log updated.' });
-    this.fetchFailures();
+    await this.fetchFailures();
     return response.data; // Return the updated object
   } catch (err) {
     const message = err.response?.data ? JSON.stringify(err.response.data) : 'Failed to update failure log.';

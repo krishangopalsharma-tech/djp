@@ -1,5 +1,3 @@
-# Path: backend/infrastructure/serializers.py
-
 from rest_framework import serializers
 from .models import (
     Depot, Station, Section, SubSection, Circuit, Supervisor, 
@@ -22,33 +20,35 @@ class AssetSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'quantity', 'unit']
 
 class DepotSerializer(serializers.ModelSerializer):
-    equipments = EquipmentSerializer(many=True, read_only=True)
+    # This pre-fetches the count, which is much faster than fetching all objects
+    equipment_count = serializers.IntegerField(source='equipments.count', read_only=True)
     class Meta:
         model = Depot
-        fields = ['id', 'name', 'code', 'location', 'equipments']
+        fields = ['id', 'name', 'code', 'location', 'equipment_count']
 
 class StationSerializer(serializers.ModelSerializer):
     depot_name = serializers.CharField(source='depot.name', read_only=True)
-    equipments = StationEquipmentSerializer(many=True, read_only=True)
+    # This pre-fetches the count, which is much faster
+    equipment_count = serializers.IntegerField(source='equipments.count', read_only=True)
     class Meta:
         model = Station
-        fields = ['id', 'depot', 'depot_name', 'name', 'code', 'category', 'equipments']
+        fields = ['id', 'depot', 'depot_name', 'name', 'code', 'category', 'equipment_count']
 
 class SubSectionSerializer(serializers.ModelSerializer):
     section_name = serializers.CharField(source='section.name', read_only=True)
-    assets = AssetSerializer(many=True, read_only=True)
-
+    # This pre-fetches the count, which is much faster
+    asset_count = serializers.IntegerField(source='assets.count', read_only=True)
     class Meta:
         model = SubSection
-        fields = ['id', 'section', 'section_name', 'name', 'assets']
+        fields = ['id', 'section', 'section_name', 'name', 'asset_count']
 
 class SectionSerializer(serializers.ModelSerializer):
     depot_name = serializers.CharField(source='depot.name', read_only=True)
-    subsections = SubSectionSerializer(many=True, read_only=True)
-
+    # This pre-fetches the count, which is much faster
+    subsection_count = serializers.IntegerField(source='subsections.count', read_only=True)
     class Meta:
         model = Section
-        fields = ['id', 'depot', 'depot_name', 'name', 'subsections']
+        fields = ['id', 'depot', 'depot_name', 'name', 'subsection_count']
 
 class CircuitSerializer(serializers.ModelSerializer):
     class Meta:
@@ -57,8 +57,7 @@ class CircuitSerializer(serializers.ModelSerializer):
 
 class SupervisorSerializer(serializers.ModelSerializer):
     depot_name = serializers.CharField(source='depot.name', read_only=True, allow_null=True)
-
+    # We remove stations and sections from here to prevent massive queries
     class Meta:
         model = Supervisor
-        fields = ['id', 'user', 'name', 'designation', 'mobile', 'email', 'depot', 'depot_name', 'stations', 'sections']
-
+        fields = ['id', 'user', 'name', 'designation', 'mobile', 'email', 'depot', 'depot_name']

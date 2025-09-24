@@ -11,8 +11,12 @@ class Failure(TimestampedModel):
         ('major', 'Major'), ('critical', 'Critical'),
     ]
     STATUS_CHOICES = [
-        ('Draft', 'Draft'), ('Active', 'Active'), ('In Progress', 'In Progress'),
-        ('Resolved', 'Resolved'), ('On Hold', 'On Hold'),
+        ('Draft', 'Draft'), 
+        ('Active', 'Active'), 
+        ('In Progress', 'In Progress'),
+        ('Resolved', 'Resolved'), 
+        ('On Hold', 'On Hold'),
+        ('Information', 'Information'),
     ]
     SEVERITY_CHOICES = [('Minor', 'Minor'), ('Major', 'Major'), ('Critical', 'Critical')]
 

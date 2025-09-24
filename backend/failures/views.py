@@ -1,5 +1,3 @@
-# Path: backend/failures/views.py
-
 import requests
 from django.conf import settings
 from django.utils import timezone
@@ -16,18 +14,16 @@ class FailureViewSet(viewsets.ModelViewSet):
     """
     API endpoint that allows failures to be viewed or edited.
     """
-    # select_related is a performance optimization. It fetches the related
-    # objects in a single database query, preventing many extra queries.
+    # Optimized queryset to prevent N+1 query issues
     queryset = Failure.objects.filter(is_archived=False).select_related(
         'circuit', 'station', 'section', 'sub_section', 'assigned_to'
     ).all()
+    
     permission_classes = [permissions.AllowAny]
 
     def get_serializer_class(self):
         """
         Choose which serializer to use based on the action.
-        - Use FailureCreateUpdateSerializer for creating and updating.
-        - Use FailureListSerializer for listing and retrieving.
         """
         if self.action in ['create', 'update', 'partial_update']:
             return FailureCreateUpdateSerializer
@@ -45,8 +41,6 @@ class FailureViewSet(viewsets.ModelViewSet):
         failure.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    # In a future step, we will add logic here to auto-generate the `fail_id`.
-
     @action(detail=True, methods=['post'])
     def notify(self, request, pk=None):
         """
@@ -61,14 +55,48 @@ class FailureViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        message = (
-            f"*New Failure Logged*\n\n"
-            f"*ID:* {failure.fail_id}\n"
-            f"*Circuit:* {failure.circuit.name if failure.circuit else 'N/A'}\n"
-            f"*Status:* {failure.current_status}\n"
-            f"*Remarks:* {failure.remark_fail}"
-        )
+        # Status Formatting Logic
+        status_text = failure.current_status
+        if status_text == 'Active':
+            status_formatted = f"{status_text} 🔴"
+        elif status_text == 'Resolved':
+            status_formatted = f"{status_text} ✅"
+        elif status_text == 'In Progress':
+            status_formatted = f"{status_text} 🟡"
+        elif status_text == 'On Hold':
+            status_formatted = f"{status_text} 🟠"
+        else:
+            status_formatted = status_text
 
+        # Message format with bold labels
+        message_parts = [f"*ID*: {failure.fail_id}\n"]
+        message_parts.append(f"*Circuit*: {failure.circuit.name if failure.circuit else 'N/A'}")
+        message_parts.append(f"*Status*: {status_formatted}\n")
+
+        if failure.station:
+            message_parts.append(f"*Station*: {failure.station.name}")
+        if failure.section:
+            message_parts.append(f"*Section*: {failure.section.name}")
+        if failure.sub_section:
+            message_parts.append(f"*Sub Section*: {failure.sub_section.name}")
+        if failure.assigned_to:
+            message_parts.append(f"*Assigned To*: {failure.assigned_to.name}")
+        
+        if any([failure.station, failure.section, failure.sub_section, failure.assigned_to]):
+            message_parts.append("")
+
+        if failure.remark_fail:
+            message_parts.append(f"*Remarks*: {failure.remark_fail}\n")
+
+        tag_parts = []
+        if failure.circuit: tag_parts.append(f"#{failure.circuit.name.replace(' ', '_')}")
+        if failure.station: tag_parts.append(f"#{failure.station.name.replace(' ', '_')}")
+        if failure.section: tag_parts.append(f"#{failure.section.name.replace(' ', '_')}")
+        if tag_parts:
+            message_parts.append("*Tags*: " + " ".join(tag_parts))
+
+        message = "\n".join(message_parts)
+        
         try:
             groups_to_notify = TelegramGroup.objects.filter(key__in=group_keys)
             if not groups_to_notify.exists():
@@ -81,14 +109,12 @@ class FailureViewSet(viewsets.ModelViewSet):
                 group.send_message(message)
 
             return Response({"message": "Notifications sent successfully."})
-
+        
         except Exception as e:
-            # This will catch any other unexpected errors during the process
             return Response(
                 {"error": f"Failed to send notification: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
 
 class FailureAttachmentViewSet(viewsets.ModelViewSet):
     queryset = FailureAttachment.objects.all()

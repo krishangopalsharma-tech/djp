@@ -20,6 +20,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "corsheaders",
     "django_extensions",
+    "debug_toolbar",
     # Local apps (Corrected)
     "core.apps.CoreConfig",
     "users.apps.UsersConfig",
@@ -32,7 +33,8 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",  # must be before CommonMiddleware
+    "corsheaders.middleware.CorsMiddleware",
+    "debug_toolbar.middleware.DebugToolbarMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -112,3 +114,8 @@ AUTH_USER_MODEL = 'users.User'
 
 # Telegram Bot Token (IMPORTANT: Use environment variables in production!)
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
+
+INTERNAL_IPS = [
+    "127.0.0.1",
+    "192.168.3.111", # <-- Add your computer's IP here
+]

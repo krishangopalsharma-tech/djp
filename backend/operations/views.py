@@ -1,5 +1,3 @@
-
-
 from rest_framework import viewsets, permissions, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -87,7 +85,7 @@ def generate_movement_report_pdf(target_date, movements):
         if m.on_leave:
             style_commands.append(('BACKGROUND', (0, row_index), (-1, row_index), colors.lightpink))
 
-    table = Table(data, colWidths=[35, 60, 130, 130, 70, 120, 180])
+    table = Table(data, colWidths=[35, 60, 130, 130, 70, 70, 230])
     table.setStyle(TableStyle(style_commands))
     
     
@@ -113,7 +111,7 @@ class SupervisorMovementByDateView(APIView):
         except ValueError:
             return Response({"error": "Invalid date format. Use YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
 
-        supervisors = Supervisor.objects.all().order_by('name')
+        supervisors = Supervisor.objects.select_related('depot').all().order_by('name')
         movements = SupervisorMovement.objects.filter(date=target_date).select_related('supervisor')
         movement_map = {m.supervisor.id: m for m in movements}
 

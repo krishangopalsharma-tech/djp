@@ -30,6 +30,8 @@ class SupervisorAdmin(admin.ModelAdmin):
     list_display = ('name', 'designation', 'depot', 'mobile', 'email')
     list_filter = ('depot', 'designation')
     search_fields = ('name', 'mobile', 'email', 'depot__name')
+    # --- ADD THIS LINE TO OPTIMIZE ---
+    list_select_related = ('depot', 'user')
 
 admin.site.register(Section)
 admin.site.register(SubSection) # Add this line

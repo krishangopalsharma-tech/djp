@@ -1,15 +1,21 @@
 <script setup>
 import { reactive, ref, computed, watch, onMounted } from 'vue'
+import { useUIStore } from '@/stores/ui'
+import { useInfrastructureStore } from '@/stores/infrastructure'
+import { useFailureStore } from '@/stores/failures'
 import InputText from '@/components/form/InputText.vue'
 import SelectBox from '@/components/form/SelectBox.vue'
 import DateTime from '@/components/form/DateTime.vue'
 import SearchSelect from '@/components/form/SearchSelect.vue'
 import TagsInput from '@/components/form/TagsInput.vue'
-import { useUIStore } from '@/stores/ui'
 import RecentFailures from '@/components/RecentFailures.vue'
-import { useInfrastructureStore } from '@/stores/infrastructure'
-import { useFailureStore } from '@/stores/failures'
 import FailureAttachment from '@/components/FailureAttachment.vue'
+
+function toLocalISOString(date) {
+  const offset = date.getTimezoneOffset()
+  const localDate = new Date(date.getTime() - (offset * 60 * 1000))
+  return localDate.toISOString().slice(0, 16)
+}
 
 const ui = useUIStore()
 const infrastructureStore = useInfrastructureStore()
@@ -20,19 +26,34 @@ const isArchiveModalOpen = ref(false)
 const failureToArchive = ref(null)
 const archiveReason = ref('')
 
-onMounted(() => {
-  Promise.all([
-    infrastructureStore.fetchDepots(),
-    infrastructureStore.fetchCircuits(),
-    infrastructureStore.fetchStations(),
-    infrastructureStore.fetchSections(),
-    infrastructureStore.fetchSubSections(),
-    infrastructureStore.fetchSupervisors(),
-    failureStore.fetchFailures(),
-  ])
+// --- THIS IS THE MAIN FIX ---
+onMounted(async () => {
+  // Load data sequentially to avoid overwhelming the server
+  // and only load what's necessary for the form dropdowns.
+  try {
+    if (infrastructureStore.depots.length === 0) await infrastructureStore.fetchDepots();
+    if (infrastructureStore.circuits.length === 0) await infrastructureStore.fetchCircuits();
+    if (infrastructureStore.stations.length === 0) await infrastructureStore.fetchStations();
+    if (infrastructureStore.sections.length === 0) await infrastructureStore.fetchSections();
+    if (infrastructureStore.subSections.length === 0) await infrastructureStore.fetchSubSections();
+    if (infrastructureStore.supervisors.length === 0) await infrastructureStore.fetchSupervisors();
+    if (failureStore.failures.length === 0) await failureStore.fetchFailures();
+  } catch (error) {
+    console.error("Failed to load initial form data:", error);
+    ui.pushToast({ type: 'error', title: 'Load Failed', message: 'Could not load all data for the form.' });
+  }
 })
 
-// ... (keep the existing computed properties like depotOptions, circuitOptions, etc.)
+const statusOptions = [ 
+    { label: 'Draft', value: 'Draft' }, 
+    { label: 'Active', value: 'Active' }, 
+    { label: 'In Progress', value: 'In Progress' }, 
+    { label: 'Resolved', value: 'Resolved' }, 
+    { label: 'On Hold', value: 'On Hold' },
+    { label: 'Information', value: 'Information' },
+];
+
+// ... (The rest of the script is unchanged) ...
 const depotOptions = computed(() => infrastructureStore.depots.map(d => ({ label: d.name, value: d.id })));
 const circuitOptions = computed(() => infrastructureStore.circuits.map(c => ({ label: c.name, value: c.id })));
 const stationOptions = computed(() => form.depot ? infrastructureStore.stations.filter(s => s.depot === form.depot).map(s => ({ label: s.name, value: s.id })) : []);
@@ -40,101 +61,32 @@ const sectionOptions = computed(() => form.depot ? infrastructureStore.sections.
 const subSectionOptions = computed(() => form.section ? infrastructureStore.subSections.filter(s => s.section === form.section).map(s => ({ label: s.name, value: s.id })) : []);
 const supervisorOptions = computed(() => infrastructureStore.supervisors.map(s => ({ label: s.name, value: s.id })));
 const selectedCircuitSeverity = computed(() => { if (!form.circuit) return ''; const circuit = infrastructureStore.circuits.find(c => c.id === form.circuit); return circuit ? circuit.severity : ''; });
-const statusOptions = [ { label: 'Draft', value: 'Draft' }, { label: 'Active', value: 'Active' }, { label: 'In Progress', value: 'In Progress' }, { label: 'Resolved', value: 'Resolved' }, { label: 'On Hold', value: 'On Hold' }, ];
-const initialFormState = { fail_id: '', depot: null, circuit: null, entry_type: 'item', station: null, section: null, sub_section: null, reported_at: new Date().toISOString().slice(0, 16), assigned_to: null, current_status: 'Active', remark_fail: '', resolved_at: '', duration_minutes: '', remark_right: '', };
+const initialFormState = { fail_id: '', depot: null, circuit: null, entry_type: 'item', station: null, section: null, sub_section: null, reported_at: toLocalISOString(new Date()), assigned_to: null, current_status: 'Active', remark_fail: '', resolved_at: '', duration_minutes: '', remark_right: '', };
 const form = reactive({ ...initialFormState });
 const errors = reactive({});
+watch(() => form.entry_type, (newType) => { if (newType === 'message') { form.current_status = 'Information'; } else if (form.current_status === 'Information') { form.current_status = 'Active'; } });
 const autoTags = computed(() => { const t = []; if (form.depot) { const depot = infrastructureStore.depots.find(d => d.id === form.depot); if (depot) t.push(`#${depot.name}`) } if (form.circuit) { const circuit = infrastructureStore.circuits.find(c => c.id === form.circuit); if (circuit) t.push(`#${circuit.name}`) } if (form.station) { const station = infrastructureStore.stations.find(s => s.id === form.station); if (station) t.push(`#${station.name}`) } if (form.section) { const section = infrastructureStore.sections.find(s => s.id === form.section); if (section) t.push(`#${section.name}`) } if (form.sub_section) { const subSection = infrastructureStore.subSections.find(s => s.id === form.sub_section); if (subSection) t.push(`#${subSection.name}`) } return t });
 const userTags = ref([]);
 const allTags = computed(() => [...autoTags.value, ...userTags.value]);
 function validate() { errors.circuit = form.circuit ? '' : 'Required'; return Object.values(errors).every(v => !v) }
-function nowLocalISO() { return new Date(Date.now() - new Date().getSeconds() * 1000 - new Date().getMilliseconds()).toISOString().slice(0, 16) }
-function calcDurationMinutes(startISO, endISO) { if (!startISO || !endISO) return ''; const ms = new Date(endISO) - new Date(startISO); if (isNaN(ms) || ms < 0) return ''; return Math.round(ms / 60000) }
-watch(() => form.current_status, v => { if (v === 'Resolved' && !form.resolved_at) form.resolved_at = nowLocalISO() });
-watch(() => [form.reported_at, form.resolved_at], ([rep, res]) => { form.duration_minutes = calcDurationMinutes(rep, res) });
+watch(() => form.current_status, v => { if (v === 'Resolved' && !form.resolved_at) form.resolved_at = toLocalISOString(new Date()) });
+watch(() => [form.reported_at, form.resolved_at], ([rep, res]) => { if (!rep || !res) { form.duration_minutes = '' } else { const ms = new Date(res) - new Date(rep); form.duration_minutes = isNaN(ms) || ms < 0 ? '' : Math.round(ms / 60000) } });
 watch(() => form.depot, () => { form.section = null; form.station = null; form.sub_section = null });
 watch(() => form.section, () => { form.sub_section = null });
-watch(() => failureStore.currentFailure, (failure) => { if (failure) { Object.assign(form, { ...failure, depot: failure.depot?.id, circuit: failure.circuit?.id, station: failure.station?.id, section: failure.section?.id, sub_section: failure.sub_section?.id, assigned_to: failure.assigned_to?.id, reported_at: failure.reported_at ? new Date(failure.reported_at).toISOString().slice(0, 16) : '', resolved_at: failure.resolved_at ? new Date(failure.resolved_at).toISOString().slice(0, 16) : '' }); } });
+watch(() => failureStore.currentFailure, (failure) => { if (failure) { Object.assign(form, { ...failure, depot: failure.depot?.id, circuit: failure.circuit?.id, station: failure.station?.id, section: failure.section?.id, sub_section: failure.sub_section?.id, assigned_to: failure.assigned_to?.id, reported_at: failure.reported_at ? toLocalISOString(new Date(failure.reported_at)) : '', resolved_at: failure.resolved_at ? toLocalISOString(new Date(failure.resolved_at)) : '' }); } });
 const split = ref(50);
 const dragging = ref(false);
 const splitWrap = ref(null);
 function onDragStart(e) { dragging.value = true; window.addEventListener('mousemove', onDrag); window.addEventListener('mouseup', onDragEnd); }
 function onDrag(e) { if (!splitWrap.value) return; const rect = splitWrap.value.getBoundingClientRect(); let pct = ((e.clientX - rect.left) / rect.width) * 100; pct = Math.max(25, Math.min(75, pct)); split.value = Math.round(pct); }
 function onDragEnd() { dragging.value = false; window.removeEventListener('mousemove', onDrag); window.removeEventListener('mouseup', onDragEnd); }
-
-// --- Updated Logic ---
-async function saveAsDraft() {
-  form.current_status = 'Draft'
-  await submit(false); // Submit without notification
-}
-
-async function submit(notify = true) {
-  if (!validate()) {
-    ui.pushToast({ type: 'error', title: 'Missing fields', message: 'Circuit is required.' })
-    return
-  }
-  const payload = {
-    entry_type: form.entry_type,
-    current_status: form.current_status,
-    circuit: form.circuit,
-    station: form.station,
-    section: form.section,
-    sub_section: form.sub_section,
-    assigned_to: form.assigned_to,
-    reported_at: form.reported_at,
-    resolved_at: form.resolved_at || null,
-    remark_fail: form.remark_fail,
-    remark_right: form.remark_right,
-  }
-
-  let savedFailure;
-  if (editingFailureId.value) {
-    savedFailure = await failureStore.updateFailure(editingFailureId.value, payload);
-  } else {
-    savedFailure = await failureStore.addFailure(payload);
-  }
-
-  if (savedFailure) {
-    let toastMessage = 'Logbook entry saved.';
-    if (notify && savedFailure.current_status !== 'Draft') {
-      await failureStore.sendFailureNotification(savedFailure.id, ['alert']);
-      toastMessage = 'Entry saved and notification sent.';
-    }
-    ui.pushToast({ type: 'success', title: 'Success', message: toastMessage });
-    resetForm();
-  }
-}
-
-function resetForm() {
-  Object.assign(form, initialFormState);
-  form.reported_at = new Date().toISOString().slice(0, 16);
-  userTags.value = [];
-  editingFailureId.value = null;
-}
-
-function handleEditRequest(id) {
-  editingFailureId.value = id;
-  failureStore.fetchFailure(id);
-}
-
-function openArchiveModal(failure) {
-  failureToArchive.value = failure;
-  isArchiveModalOpen.value = true;
-  archiveReason.value = '';
-}
-
-async function confirmArchive() {
-  if (failureToArchive.value) {
-    await failureStore.archiveFailure(failureToArchive.value.id, archiveReason.value);
-    failureToArchive.value = null;
-    isArchiveModalOpen.value = false;
-  }
-}
-
-function handleArchiveRequest(failure) {
-  openArchiveModal(failure);
-}
-
+async function saveAsDraft() { form.current_status = 'Draft'; await submit(false); }
+async function submit(notify = true) { if (!validate()) { ui.pushToast({ type: 'error', title: 'Missing fields', message: 'Circuit is required.' }); return } const payload = { entry_type: form.entry_type, current_status: form.current_status, circuit: form.circuit, station: form.station, section: form.section, sub_section: form.sub_section, assigned_to: form.assigned_to, reported_at: form.reported_at, resolved_at: form.resolved_at || null, remark_fail: form.remark_fail, remark_right: form.remark_right, }; let savedFailure; if (editingFailureId.value) { savedFailure = await failureStore.updateFailure(editingFailureId.value, payload); } else { savedFailure = await failureStore.addFailure(payload); } if (savedFailure) { let toastMessage = 'Logbook entry saved.'; if (notify && savedFailure.current_status !== 'Draft') { await failureStore.sendFailureNotification(savedFailure.id, ['alert']); toastMessage = 'Entry saved and notification sent.'; } ui.pushToast({ type: 'success', title: 'Success', message: toastMessage }); resetForm(); } }
+function resetForm() { Object.assign(form, initialFormState); form.reported_at = toLocalISOString(new Date()); userTags.value = []; editingFailureId.value = null; }
+function handleEditRequest(id) { editingFailureId.value = id; failureStore.fetchFailure(id); }
+function openArchiveModal(failure) { failureToArchive.value = failure; isArchiveModalOpen.value = true; archiveReason.value = ''; }
+async function confirmArchive() { if (failureToArchive.value) { await failureStore.archiveFailure(failureToArchive.value.id, archiveReason.value); failureToArchive.value = null; isArchiveModalOpen.value = false; } }
+function handleArchiveRequest(failure) { openArchiveModal(failure); }
 const recentFailures = computed(() => failureStore.failures);
 </script>
 <template>
@@ -219,7 +171,11 @@ const recentFailures = computed(() => failureStore.failures);
               <div>
                 <label class="block space-y-1">
                   <span class="text-sm text-app">Current Status</span>
-                  <SearchSelect v-model="form.current_status" :options="statusOptions" placeholder="Select status..." />
+                  <SearchSelect 
+                    v-model="form.current_status" 
+                    :options="statusOptions" 
+                    placeholder="Select status..."
+                    :disabled="form.entry_type === 'message'" />
                 </label>
               </div>
             </div>

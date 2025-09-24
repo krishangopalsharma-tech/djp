@@ -186,6 +186,7 @@ function badgeClasses(status) {
     if (status === 'Active') return 'badge-danger'
     if (status === 'In Progress') return 'badge-warning'
     if (status === 'On Hold') return 'badge-hold'
+    if (status === 'Information') return 'badge-neutral' // <-- Add this line
     return 'badge-neutral'
 }
 
