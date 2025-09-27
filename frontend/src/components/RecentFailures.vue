@@ -1,8 +1,11 @@
 <script setup>
+import { useRouter } from 'vue-router' // 1. Import useRouter
 import { ref, computed, watch, onMounted } from 'vue'
 import { Bell, Pencil, Trash2, ChevronLeft, ChevronRight, History, FileSpreadsheet, FileText } from 'lucide-vue-next'
 import NotificationModal from '@/components/NotificationModal.vue'
 import { useTelegramStore } from '@/stores/telegram'
+
+const router = useRouter() // 2. Initialize router
 
 const telegramStore = useTelegramStore()
 
@@ -226,8 +229,8 @@ function rowBg(s, hovered = false) {
 
 <template>
   <div class="space-y-4">
-    <div class="text-center" v-if="showHeader">
-      <h2 class="text-2xl font-semibold leading-tight">Recent Failure Logs</h2>
+    <div v-if="showHeader">
+      <h2 class="text-xl font-semibold leading-tight">Recent Failure Logs</h2>
     </div>
 
     <div class="rounded-2xl border-app bg-card text-app p-4">
@@ -342,7 +345,8 @@ function rowBg(s, hovered = false) {
                 </button>
                 <button
                   class="btn-ghost border-app rounded-md hover-primary p-2"
-                  aria-label="Edit" title="Edit" @click.stop="$emit('edit', r.id)">
+                  aria-label="Edit" title="Edit"
+                  @click.stop="$emit('edit', r.id)" >
                   <Pencil class="w-4 h-4" />
                 </button>
                 <button
@@ -428,4 +432,3 @@ function rowBg(s, hovered = false) {
     <NotificationModal v-model="isNotifyModalOpen" :failure="failureToNotify" />
   </div>
 </template>
-  

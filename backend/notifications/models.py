@@ -1,4 +1,5 @@
 import requests
+import json
 from django.db import models
 from core.models import TimestampedModel
 from django.core.mail.backends.smtp import EmailBackend
@@ -69,9 +70,9 @@ class TelegramGroup(TimestampedModel):
     def __str__(self):
         return self.name
 
-    def send_message(self, message):
+    def send_message(self, message, inline_keyboard=None):
         """
-        Sends a message to this specific Telegram group.
+        Sends a message to this specific Telegram group using Markdown format.
         """
         bot_token = TelegramSettings.get_active_settings().bot_token
         if not self.chat_id or not bot_token:
@@ -79,17 +80,26 @@ class TelegramGroup(TimestampedModel):
             return
 
         url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+        
         payload = {
             'chat_id': self.chat_id,
             'text': message,
-            'parse_mode': 'Markdown'
+            'parse_mode': 'Markdown' # CORRECTED: Use simple Markdown
         }
+        
+        if inline_keyboard:
+            payload['reply_markup'] = json.dumps({
+                "inline_keyboard": inline_keyboard
+            })
 
         try:
             response = requests.post(url, data=payload, timeout=10)
             response.raise_for_status()
         except requests.exceptions.RequestException as e:
-            print(f"Error sending Telegram message to {self.name}: {e}")
+            # Provide more detailed error logging from Telegram's response
+            error_details = e.response.text if e.response else str(e)
+            print(f"Error sending Telegram message to {self.name}: {error_details}")
+            raise e
 
     def send_document(self, file_object, filename, caption):
         """
@@ -105,14 +115,19 @@ class TelegramGroup(TimestampedModel):
         data = {
             'chat_id': self.chat_id,
             'caption': caption,
-            'parse_mode': 'Markdown'
+            'parse_mode': 'HTML' # CORRECTED: Use HTML to match the caption format
         }
 
         try:
-            response = requests.post(url, data=data, files=files, timeout=20)
-            response.raise_for_status()
+            # Increased timeout for file uploads
+            response = requests.post(url, data=data, files=files, timeout=30)
+            response.raise_for_status() # This will raise an error for 4xx/5xx responses
         except requests.exceptions.RequestException as e:
+            # Log the full error for better debugging
             print(f"Error sending Telegram document to {self.name}: {e}")
+            if e.response is not None:
+                print(f"Telegram API Response: {e.response.text}")
+            raise e
 
 
 class TelegramSettings(TimestampedModel):

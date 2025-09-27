@@ -22,7 +22,12 @@ export const useTelegramStore = defineStore('telegram', {
       this.loading = true;
       try {
         const response = await http.get('/notifications/settings/telegram/');
-        this.settings = response.data;
+        // ADD THIS CHECK to ensure we don't overwrite with a null/undefined value
+        if (response.data && typeof response.data === 'object') {
+          this.settings = response.data;
+        } else {
+          console.warn('Received invalid data for Telegram settings, preserving initial state.');
+        }
       } catch (err) {
         console.error('Failed to fetch Telegram settings', err);
         useUIStore().pushToast({ type: 'error', title: 'Error', message: 'Could not load Telegram settings.' });
@@ -31,6 +36,7 @@ export const useTelegramStore = defineStore('telegram', {
       }
     },
 
+    // ... (rest of the actions remain unchanged)
     async saveTelegramSettings() {
       this.loading = true;
       const uiStore = useUIStore();

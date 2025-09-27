@@ -54,3 +54,5 @@ frontend/node_modules/
 *.db
 *.log
 .DS_Store
+paste.md
+.llm-context-history/

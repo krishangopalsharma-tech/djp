@@ -1,225 +1,216 @@
 <script setup>
-import { reactive, ref, computed, watch, onMounted } from 'vue'
+import { reactive, ref, computed, watch, onMounted, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import { useUIStore } from '@/stores/ui'
 import { useInfrastructureStore } from '@/stores/infrastructure'
 import { useFailureStore } from '@/stores/failures'
-import InputText from '@/components/form/InputText.vue'
-import SelectBox from '@/components/form/SelectBox.vue'
-import DateTime from '@/components/form/DateTime.vue'
-import SearchSelect from '@/components/form/SearchSelect.vue'
-import TagsInput from '@/components/form/TagsInput.vue'
+import { useTelegramStore } from '@/stores/telegram'
+import { useAttachmentStore } from '@/stores/attachments'
+import FailureForm from '@/components/FailureForm.vue'
 import RecentFailures from '@/components/RecentFailures.vue'
-import FailureAttachment from '@/components/FailureAttachment.vue'
+import NotificationModal from '@/components/NotificationModal.vue'
 
+// Helper to format dates
 function toLocalISOString(date) {
-  const offset = date.getTimezoneOffset()
-  const localDate = new Date(date.getTime() - (offset * 60 * 1000))
-  return localDate.toISOString().slice(0, 16)
+  if (!date) return '';
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return '';
+  const offset = d.getTimezoneOffset();
+  const localDate = new Date(d.getTime() - (offset * 60 * 1000));
+  return localDate.toISOString().slice(0, 16);
 }
 
-const ui = useUIStore()
-const infrastructureStore = useInfrastructureStore()
-const failureStore = useFailureStore()
+// Initialize Stores
+const ui = useUIStore();
+const infrastructureStore = useInfrastructureStore();
+const failureStore = useFailureStore();
+const telegramStore = useTelegramStore();
+const attachmentStore = useAttachmentStore();
+const router = useRouter();
 
-const editingFailureId = ref(null)
-const isArchiveModalOpen = ref(false)
-const failureToArchive = ref(null)
-const archiveReason = ref('')
+// Component State
+const editingFailureId = ref(null);
+const isEditMode = computed(() => !!editingFailureId.value);
+const isArchiveModalOpen = ref(false);
+const failureToArchive = ref(null);
+const archiveReason = ref('');
+const isNotifyModalOpen = ref(false);
+const failureToNotify = ref(null);
 
-// --- THIS IS THE MAIN FIX ---
-onMounted(async () => {
-  // Load data sequentially to avoid overwhelming the server
-  // and only load what's necessary for the form dropdowns.
-  try {
-    if (infrastructureStore.depots.length === 0) await infrastructureStore.fetchDepots();
-    if (infrastructureStore.circuits.length === 0) await infrastructureStore.fetchCircuits();
-    if (infrastructureStore.stations.length === 0) await infrastructureStore.fetchStations();
-    if (infrastructureStore.sections.length === 0) await infrastructureStore.fetchSections();
-    if (infrastructureStore.subSections.length === 0) await infrastructureStore.fetchSubSections();
-    if (infrastructureStore.supervisors.length === 0) await infrastructureStore.fetchSupervisors();
-    if (failureStore.failures.length === 0) await failureStore.fetchFailures();
-  } catch (error) {
-    console.error("Failed to load initial form data:", error);
-    ui.pushToast({ type: 'error', title: 'Load Failed', message: 'Could not load all data for the form.' });
-  }
-})
-
-const statusOptions = [ 
-    { label: 'Draft', value: 'Draft' }, 
-    { label: 'Active', value: 'Active' }, 
-    { label: 'In Progress', value: 'In Progress' }, 
-    { label: 'Resolved', value: 'Resolved' }, 
-    { label: 'On Hold', value: 'On Hold' },
-    { label: 'Information', value: 'Information' },
-];
-
-// ... (The rest of the script is unchanged) ...
-const depotOptions = computed(() => infrastructureStore.depots.map(d => ({ label: d.name, value: d.id })));
-const circuitOptions = computed(() => infrastructureStore.circuits.map(c => ({ label: c.name, value: c.id })));
-const stationOptions = computed(() => form.depot ? infrastructureStore.stations.filter(s => s.depot === form.depot).map(s => ({ label: s.name, value: s.id })) : []);
-const sectionOptions = computed(() => form.depot ? infrastructureStore.sections.filter(s => s.depot === form.depot).map(s => ({ label: s.name, value: s.id })) : []);
-const subSectionOptions = computed(() => form.section ? infrastructureStore.subSections.filter(s => s.section === form.section).map(s => ({ label: s.name, value: s.id })) : []);
-const supervisorOptions = computed(() => infrastructureStore.supervisors.map(s => ({ label: s.name, value: s.id })));
-const selectedCircuitSeverity = computed(() => { if (!form.circuit) return ''; const circuit = infrastructureStore.circuits.find(c => c.id === form.circuit); return circuit ? circuit.severity : ''; });
-const initialFormState = { fail_id: '', depot: null, circuit: null, entry_type: 'item', station: null, section: null, sub_section: null, reported_at: toLocalISOString(new Date()), assigned_to: null, current_status: 'Active', remark_fail: '', resolved_at: '', duration_minutes: '', remark_right: '', };
+// Form State
+const initialFormState = { id: null, fail_id: '', depot: null, circuit: null, entry_type: 'item', station: null, section: null, sub_section: null, reported_at: toLocalISOString(new Date()), assigned_to: null, current_status: 'Active', remark_fail: '', resolved_at: '', duration_minutes: '', remark_right: '', userTags: [] };
 const form = reactive({ ...initialFormState });
 const errors = reactive({});
-watch(() => form.entry_type, (newType) => { if (newType === 'message') { form.current_status = 'Information'; } else if (form.current_status === 'Information') { form.current_status = 'Active'; } });
-const autoTags = computed(() => { const t = []; if (form.depot) { const depot = infrastructureStore.depots.find(d => d.id === form.depot); if (depot) t.push(`#${depot.name}`) } if (form.circuit) { const circuit = infrastructureStore.circuits.find(c => c.id === form.circuit); if (circuit) t.push(`#${circuit.name}`) } if (form.station) { const station = infrastructureStore.stations.find(s => s.id === form.station); if (station) t.push(`#${station.name}`) } if (form.section) { const section = infrastructureStore.sections.find(s => s.id === form.section); if (section) t.push(`#${section.name}`) } if (form.sub_section) { const subSection = infrastructureStore.subSections.find(s => s.id === form.sub_section); if (subSection) t.push(`#${subSection.name}`) } return t });
-const userTags = ref([]);
-const allTags = computed(() => [...autoTags.value, ...userTags.value]);
-function validate() { errors.circuit = form.circuit ? '' : 'Required'; return Object.values(errors).every(v => !v) }
+
+// Data Loading
+let initialDataLoadPromise = null;
+onMounted(() => {
+  initialDataLoadPromise = Promise.all([
+    infrastructureStore.fetchDepots(),
+    infrastructureStore.fetchCircuits(),
+    infrastructureStore.fetchStations(),
+    infrastructureStore.fetchSections(),
+    infrastructureStore.fetchSubSections(),
+    infrastructureStore.fetchSupervisors(),
+    failureStore.fetchFailures(),
+    telegramStore.fetchTelegramGroups(),
+  ]).catch(error => {
+    console.error("Failed to load initial form data:", error);
+    ui.pushToast({ type: 'error', title: 'Load Failed', message: 'Could not load necessary form data.' });
+  });
+});
+
+// Computed properties for dropdowns
+const options = computed(() => ({
+  depots: infrastructureStore.depots.map(d => ({ label: d.code || d.name, value: d.id })),
+  circuits: infrastructureStore.circuits,
+  stations: infrastructureStore.stations,
+  sections: infrastructureStore.sections,
+  subSections: infrastructureStore.subSections,
+  supervisors: infrastructureStore.supervisors.map(s => ({ label: s.name, value: s.id })),
+  statuses: [ { label: 'Draft', value: 'Draft' }, { label: 'Active', value: 'Active' }, { label: 'In Progress', value: 'In Progress' }, { label: 'Resolved', value: 'Resolved' }, { label: 'On Hold', value: 'On Hold' }, { label: 'Information', value: 'Information' }],
+}));
+
+// --- CORE FIX: REFACTORED handleEditRequest ---
+async function handleEditRequest(id) {
+  await initialDataLoadPromise;
+  await failureStore.fetchFailure(id);
+  const failureData = failureStore.currentFailure;
+  
+  if (failureData) {
+    // 1. Reset form to clear any previous state
+    resetForm();
+    editingFailureId.value = id;
+
+    // 2. Set all non-dependent fields first
+    Object.assign(form, {
+      ...failureData,
+      circuit: failureData.circuit?.id || null,
+      assigned_to: failureData.assigned_to?.id || null,
+      reported_at: toLocalISOString(failureData.reported_at),
+      resolved_at: toLocalISOString(failureData.resolved_at),
+      userTags: [],
+    });
+
+    // 3. Set the top-level parent dropdown (Depot)
+    form.depot = failureData.station?.depot || failureData.section?.depot || null;
+    
+    // 4. Wait for Vue to process updates and populate the Station/Section options
+    await nextTick();
+    
+    // 5. Now, set the dependent children (Station and Section)
+    form.station = failureData.station?.id || null;
+    form.section = failureData.section?.id || null;
+    
+    // 6. Wait again for the Sub Section options to populate
+    await nextTick();
+    
+    // 7. Finally, set the grandchild dropdown (Sub Section)
+    form.sub_section = failureData.sub_section?.id || null;
+  }
+}
+
+// Other form logic
+watch(() => form.entry_type, (newType, oldType) => {
+  if (newType === 'message') {
+    const infoCircuit = infrastructureStore.circuits.find(c => c.name === 'Info');
+    const allDepot = infrastructureStore.depots.find(d => d.name === 'ALL');
+    const allSupervisor = infrastructureStore.supervisors.find(s => s.name === 'ALL');
+    form.circuit = infoCircuit?.id || null;
+    form.current_status = 'Information';
+    form.depot = allDepot?.id || null;
+    form.assigned_to = allSupervisor?.id || null;
+  } else if (oldType === 'message') {
+    resetForm();
+  }
+});
 watch(() => form.current_status, v => { if (v === 'Resolved' && !form.resolved_at) form.resolved_at = toLocalISOString(new Date()) });
 watch(() => [form.reported_at, form.resolved_at], ([rep, res]) => { if (!rep || !res) { form.duration_minutes = '' } else { const ms = new Date(res) - new Date(rep); form.duration_minutes = isNaN(ms) || ms < 0 ? '' : Math.round(ms / 60000) } });
-watch(() => form.depot, () => { form.section = null; form.station = null; form.sub_section = null });
-watch(() => form.section, () => { form.sub_section = null });
-watch(() => failureStore.currentFailure, (failure) => { if (failure) { Object.assign(form, { ...failure, depot: failure.depot?.id, circuit: failure.circuit?.id, station: failure.station?.id, section: failure.section?.id, sub_section: failure.sub_section?.id, assigned_to: failure.assigned_to?.id, reported_at: failure.reported_at ? toLocalISOString(new Date(failure.reported_at)) : '', resolved_at: failure.resolved_at ? toLocalISOString(new Date(failure.resolved_at)) : '' }); } });
+
+function validate() { errors.circuit = form.circuit ? '' : 'Required'; return !errors.circuit; }
+
+function resetForm() {
+  Object.assign(form, initialFormState);
+  form.reported_at = toLocalISOString(new Date());
+  editingFailureId.value = null;
+  attachmentStore.attachments = [];
+}
+
+async function submit(notify = true) {
+  if (!validate()) {
+    ui.pushToast({ type: 'error', title: 'Missing fields', message: 'Circuit is required.' });
+    return;
+  }
+  const payload = { ...form };
+  delete payload.userTags;
+  payload.resolved_at = payload.resolved_at || null;
+
+  let savedFailure;
+  if (isEditMode.value) {
+    savedFailure = await failureStore.updateFailure(editingFailureId.value, payload);
+  } else {
+    savedFailure = await failureStore.addFailure(payload);
+  }
+
+  if (savedFailure) {
+    let toastMessage = `Logbook entry ${isEditMode.value ? 'updated' : 'saved'}.`;
+    if (notify && savedFailure.current_status !== 'Draft' && savedFailure.current_status !== 'Information') {
+      await failureStore.sendFailureNotification(savedFailure.id, ['alert']);
+      toastMessage = isEditMode.value ? 'Update notification sent.' : 'Entry saved and notification sent.';
+    }
+    ui.pushToast({ type: 'success', title: 'Success', message: toastMessage });
+    resetForm();
+  }
+}
+
+async function saveAsDraft() { form.current_status = 'Draft'; await submit(false); }
+function openNotifyModal(row) { failureToNotify.value = row; isNotifyModalOpen.value = true; }
+function handleArchiveRequest(failure) { failureToArchive.value = failure; isArchiveModalOpen.value = true; archiveReason.value = ''; }
+async function confirmArchive() { if (failureToArchive.value) { await failureStore.archiveFailure(failureToArchive.value.id, archiveReason.value); failureToArchive.value = null; isArchiveModalOpen.value = false; } }
 const split = ref(50);
 const dragging = ref(false);
 const splitWrap = ref(null);
 function onDragStart(e) { dragging.value = true; window.addEventListener('mousemove', onDrag); window.addEventListener('mouseup', onDragEnd); }
 function onDrag(e) { if (!splitWrap.value) return; const rect = splitWrap.value.getBoundingClientRect(); let pct = ((e.clientX - rect.left) / rect.width) * 100; pct = Math.max(25, Math.min(75, pct)); split.value = Math.round(pct); }
 function onDragEnd() { dragging.value = false; window.removeEventListener('mousemove', onDrag); window.removeEventListener('mouseup', onDragEnd); }
-async function saveAsDraft() { form.current_status = 'Draft'; await submit(false); }
-async function submit(notify = true) { if (!validate()) { ui.pushToast({ type: 'error', title: 'Missing fields', message: 'Circuit is required.' }); return } const payload = { entry_type: form.entry_type, current_status: form.current_status, circuit: form.circuit, station: form.station, section: form.section, sub_section: form.sub_section, assigned_to: form.assigned_to, reported_at: form.reported_at, resolved_at: form.resolved_at || null, remark_fail: form.remark_fail, remark_right: form.remark_right, }; let savedFailure; if (editingFailureId.value) { savedFailure = await failureStore.updateFailure(editingFailureId.value, payload); } else { savedFailure = await failureStore.addFailure(payload); } if (savedFailure) { let toastMessage = 'Logbook entry saved.'; if (notify && savedFailure.current_status !== 'Draft') { await failureStore.sendFailureNotification(savedFailure.id, ['alert']); toastMessage = 'Entry saved and notification sent.'; } ui.pushToast({ type: 'success', title: 'Success', message: toastMessage }); resetForm(); } }
-function resetForm() { Object.assign(form, initialFormState); form.reported_at = toLocalISOString(new Date()); userTags.value = []; editingFailureId.value = null; }
-function handleEditRequest(id) { editingFailureId.value = id; failureStore.fetchFailure(id); }
-function openArchiveModal(failure) { failureToArchive.value = failure; isArchiveModalOpen.value = true; archiveReason.value = ''; }
-async function confirmArchive() { if (failureToArchive.value) { await failureStore.archiveFailure(failureToArchive.value.id, archiveReason.value); failureToArchive.value = null; isArchiveModalOpen.value = false; } }
-function handleArchiveRequest(failure) { openArchiveModal(failure); }
-const recentFailures = computed(() => failureStore.failures);
 </script>
+
 <template>
   <div class="flex-1 flex flex-col gap-4 p-4 overflow-y-auto">
-    <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">New Logbook Entry</h1>
-    </div>
-
-    <div ref="splitWrap" class="flex-1 flex gap-2" :class="dragging ? 'cursor-col-resize select-none' : ''">
-      <div class="space-y-4" :style="{ width: split + '%' }">
+    <div ref="splitWrap" class="flex-1 flex items-start gap-4" :class="dragging ? 'cursor-col-resize select-none' : ''">
+      <div class="flex flex-col" :style="{ width: split + '%' }">
+        <h2 class="text-xl font-semibold leading-tight mb-4">{{ isEditMode ? `Editing Entry #${form.fail_id}` : 'New Logbook Entry' }}</h2>
         <div class="card">
-          <div class="grid gap-4 sm:grid-cols-2">
-            <div class="sm:col-span-2 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              <div>
-                <span class="text-sm text-app">Entry Type</span>
-                <div class="flex items-center gap-4 pt-2">
-                  <label class="flex items-center gap-2">
-                    <input type="radio" v-model="form.entry_type" value="item" class="radio" />
-                    <span>Failure</span>
-                  </label>
-                  <label class="flex items-center gap-2">
-                    <input type="radio" v-model="form.entry_type" value="message" class="radio" />
-                    <span>General Message</span>
-                  </label>
-                </div>
-              </div>
-              <div>
-                <label class="block space-y-1">
-                  <span class="text-sm text-app">Circuit</span>
-                  <SearchSelect v-model="form.circuit" :options="circuitOptions" placeholder="Select circuit..." />
-                  <p v-if="errors.circuit" class="text-xs text-red-600">{{ errors.circuit }}</p>
-                </label>
-              </div>
-              <div>
-                <label class="block space-y-1">
-                  <span class="text-sm text-app">Circuit Severity</span>
-                  <input readonly :value="selectedCircuitSeverity" class="field bg-app-hover" />
-                </label>
-              </div>
-            </div>
-            <div class="sm:col-span-2">
-              <label class="block space-y-1">
-                <span class="text-sm text-app">Circuit Tags</span>
-                <TagsInput v-model="userTags" :preset="autoTags" placeholder="Add tag and press Enter" />
-                <p class="text-xs text-muted">Auto from selections; you can add/remove your own.</p>
-              </label>
-            </div>
-            <div class="sm:col-span-2 grid gap-4 sm:grid-cols-2 md:grid-cols-4">
-              <div>
-                <label class="block space-y-1">
-                  <span class="text-sm text-app">Depot</span>
-                  <SearchSelect v-model="form.depot" :options="depotOptions" placeholder="Select depot..." />
-                </label>
-              </div>
-              <div>
-                <label class="block space-y-1">
-                  <span class="text-sm text-app">Station</span>
-                  <SearchSelect v-model="form.station" :options="stationOptions" placeholder="Select station..." />
-                </label>
-              </div>
-              <div>
-                <label class="block space-y-1">
-                  <span class="text-sm text-app">Section</span>
-                  <SearchSelect v-model="form.section" :options="sectionOptions" placeholder="Select section..." />
-                </label>
-              </div>
-              <div>
-                <label class="block space-y-1">
-                  <span class="text-sm text-app">Sub Section</span>
-                  <SearchSelect v-model="form.sub_section" :options="subSectionOptions" placeholder="Select sub section..." />
-                </label>
-              </div>
-            </div>
-            <div class="sm:col-span-2 grid gap-4 grid-cols-1 md:grid-cols-3">
-              <DateTime label="Reported At" v-model="form.reported_at" />
-              <div>
-                <label class="block space-y-1">
-                  <span class="text-sm text-app">Assigned To</span>
-                  <SearchSelect v-model="form.assigned_to" :options="supervisorOptions" placeholder="Select assignee..." />
-                </label>
-              </div>
-              <div>
-                <label class="block space-y-1">
-                  <span class="text-sm text-app">Current Status</span>
-                  <SearchSelect 
-                    v-model="form.current_status" 
-                    :options="statusOptions" 
-                    placeholder="Select status..."
-                    :disabled="form.entry_type === 'message'" />
-                </label>
-              </div>
-            </div>
-            <div class="sm:col-span-2">
-              <textarea v-model="form.remark_fail" rows="2" class="field-textarea" placeholder="Notes..."></textarea>
-            </div>
-            <template v-if="form.current_status === 'Resolved'">
-              <DateTime label="Resolve At" v-model="form.resolved_at" />
-              <InputText label="Duration (minutes)" v-model="form.duration_minutes" />
-              <textarea v-model="form.remark_right" rows="2" class="sm:col-span-2 field-textarea" placeholder="Notes on resolution..."></textarea>
-            </template>
-            <FailureAttachment v-if="editingFailureId" :failure-id="editingFailureId" />
-            <div class="sm:col-span-2 flex items-center justify-between pt-2">
-              <button type="button" class="btn btn-solid" @click="saveAsDraft">
-                Save as Draft
-              </button>
-              <div class="flex gap-3">
-                <button type="button" class="btn btn-outline" @click="resetForm">{{ editingFailureId ? 'Cancel Edit' : 'Reset' }}</button>
-                <button type="button" class="btn btn-primary" @click="submit()">{{ editingFailureId ? 'Save Changes & Notify' : 'Submit & Notify' }}</button>
-              </div>
+          <FailureForm v-model="form" :options="options" :errors="errors" :is-edit-mode="isEditMode" />
+          <div class="sm:col-span-2 flex items-center justify-between pt-4 mt-4 border-t border-app">
+            <button v-if="!isEditMode" type="button" class="btn" @click="saveAsDraft">
+              Save as Draft
+            </button>
+            <div class="flex gap-3" :class="{'w-full justify-end': isEditMode}">
+              <button type="button" class="btn btn-outline" @click="resetForm">{{ isEditMode ? 'Cancel Edit' : 'Reset' }}</button>
+              <button type="button" class="btn btn-primary" @click="submit(true)">{{ isEditMode ? 'Save Changes & Notify' : 'Submit & Notify' }}</button>
             </div>
           </div>
         </div>
       </div>
 
-      <div
-        class="w-1 self-stretch bg-[var(--border)] hover:bg-[var(--text)]/30 cursor-col-resize rounded"
-        :class="dragging ? 'bg-[var(--text)]/40' : ''"
-        @mousedown="onDragStart"
-      />
+      <div class="w-1 self-stretch bg-[var(--border)] hover:bg-[var(--text)]/30 cursor-col-resize rounded" @mousedown="onDragStart" />
 
-      <div class="space-y-4" :style="{ width: 100 - split + '%' }">
+      <div class="flex flex-col" :style="{ width: 100 - split + '%' }">
+        <h2 class="text-xl font-semibold leading-tight mb-4">Recent Failure Logs</h2>
         <RecentFailures
-          :items="recentFailures"
+          :items="failureStore.failures"
           storage-key="rf-newfailure"
           :editing-id="editingFailureId"
-          @view="row => console.log('open details', row)"
+          :show-header="false"
+          @notify="openNotifyModal"
           @edit="handleEditRequest"
           @delete="handleArchiveRequest"
         />
       </div>
     </div>
 
-    <!-- Archive Confirmation Modal -->
+    <NotificationModal v-model="isNotifyModalOpen" :failure="failureToNotify" />
     <div v-if="isArchiveModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div class="bg-card rounded-lg p-6 shadow-xl w-full max-w-md">
         <h3 class="text-lg font-bold">Confirm Archival</h3>

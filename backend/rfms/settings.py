@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     "notifications.apps.NotificationsConfig", # Add this
     "analytics.apps.AnalyticsConfig",         # Add this
     "operations.apps.OperationsConfig",
+    "telegram.apps.TelegramConfig",
 ]
 
 MIDDLEWARE = [
@@ -115,7 +116,13 @@ AUTH_USER_MODEL = 'users.User'
 # Telegram Bot Token (IMPORTANT: Use environment variables in production!)
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
 
+# Base URL for the frontend application, used for generating links in notifications
+FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://192.168.3.240:5173")
+
 INTERNAL_IPS = [
     "127.0.0.1",
     "192.168.3.111", # <-- Add your computer's IP here
+    "192.168.3.33",
+    "192.168.3.17",
+    "192.168.3.240", # <-- ADD THIS LINE
 ]
