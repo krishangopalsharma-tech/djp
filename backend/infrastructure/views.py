@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status
 import openpyxl
 from django.db import transaction
+from django.db.models import Count
 
 from .models import (
     Depot, Station, Section, SubSection, Circuit, Supervisor, 
@@ -17,20 +18,17 @@ from .serializers import (
 )
 
 class DepotViewSet(viewsets.ModelViewSet):
-    # Removed redundant prefetch_related
-    queryset = Depot.objects.all().order_by('name')
+    queryset = Depot.objects.annotate(equipment_count=Count('equipments')).order_by('name')
     serializer_class = DepotSerializer
     permission_classes = [permissions.AllowAny]
 
 class StationViewSet(viewsets.ModelViewSet):
-    # Removed redundant prefetch_related
-    queryset = Station.objects.select_related('depot').all().order_by('name')
+    queryset = Station.objects.select_related('depot').annotate(equipment_count=Count('equipments')).order_by('name')
     serializer_class = StationSerializer
     permission_classes = [permissions.AllowAny]
 
 class SectionViewSet(viewsets.ModelViewSet):
-    # Removed redundant prefetch_related
-    queryset = Section.objects.select_related('depot').all().order_by('name')
+    queryset = Section.objects.select_related('depot').annotate(subsection_count=Count('subsections')).order_by('name')
     serializer_class = SectionSerializer
     permission_classes = [permissions.AllowAny]
 

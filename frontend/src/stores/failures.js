@@ -9,6 +9,7 @@ export const useFailureStore = defineStore('failure', {
     currentFailure: null,
     loading: false,
     error: null,
+    archivedFailures: [],
   }),
   actions: {
     async fetchFailures() {
@@ -106,8 +107,59 @@ async updateFailure(id, payload) {
       try {
         const response = await http.post(`/failures/logs/${failureId}/notify/`, { groups: groupKeys });
         uiStore.pushToast({ type: 'success', title: 'Success', message: response.data.message });
+        this.fetchFailures();
       } catch (err) {
         const message = err.response?.data?.error || 'Failed to send notification.';
+        this.error = message;
+        uiStore.pushToast({ type: 'error', title: 'Error', message });
+        console.error(err);
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async fetchArchivedFailures() {
+      this.loading = true;
+      this.error = null;
+      try {
+        const response = await http.get('/failures/archived/');
+        this.archivedFailures = response.data.results || response.data;
+      } catch (err) {
+        this.error = 'Failed to fetch archived failures.';
+        console.error(err);
+        useUIStore().pushToast({ type: 'error', title: 'Error', message: this.error });
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async permanentlyDeleteFailure(id) {
+      const uiStore = useUIStore();
+      this.loading = true;
+      this.error = null;
+      try {
+        await http.delete(`/failures/archived/${id}/`);
+        uiStore.pushToast({ type: 'success', title: 'Deleted', message: `Failure log #${id} has been permanently deleted.` });
+        await this.fetchArchivedFailures();
+      } catch (err) {
+        const message = err.response?.data ? JSON.stringify(err.response.data) : 'Failed to permanently delete failure.';
+        this.error = message;
+        uiStore.pushToast({ type: 'error', title: 'Error', message });
+        console.error(err);
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async sendAttachmentToTelegram(attachmentId, groupKeys) {
+      const uiStore = useUIStore();
+      this.loading = true;
+      this.error = null;
+      try {
+        const response = await http.post(`/failures/attachments/${attachmentId}/send_to_telegram/`, { group_keys: groupKeys });
+        uiStore.pushToast({ type: 'success', title: 'Success', message: response.data.message });
+      } catch (err) {
+        const message = err.response?.data?.error || 'Failed to send attachment.';
         this.error = message;
         uiStore.pushToast({ type: 'error', title: 'Error', message });
         console.error(err);

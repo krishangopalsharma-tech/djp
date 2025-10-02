@@ -1,5 +1,6 @@
 import requests
 import json
+import html
 from django.db import models
 from core.models import TimestampedModel
 from django.core.mail.backends.smtp import EmailBackend
@@ -70,7 +71,7 @@ class TelegramGroup(TimestampedModel):
     def __str__(self):
         return self.name
 
-    def send_message(self, message, inline_keyboard=None):
+    def send_message(self, message):
         """
         Sends a message to this specific Telegram group using Markdown format.
         """
@@ -84,19 +85,13 @@ class TelegramGroup(TimestampedModel):
         payload = {
             'chat_id': self.chat_id,
             'text': message,
-            'parse_mode': 'Markdown' # CORRECTED: Use simple Markdown
+            'parse_mode': 'Markdown'
         }
         
-        if inline_keyboard:
-            payload['reply_markup'] = json.dumps({
-                "inline_keyboard": inline_keyboard
-            })
-
         try:
             response = requests.post(url, data=payload, timeout=10)
             response.raise_for_status()
         except requests.exceptions.RequestException as e:
-            # Provide more detailed error logging from Telegram's response
             error_details = e.response.text if e.response else str(e)
             print(f"Error sending Telegram message to {self.name}: {error_details}")
             raise e
@@ -114,9 +109,14 @@ class TelegramGroup(TimestampedModel):
         files = {'document': (filename, file_object)}
         data = {
             'chat_id': self.chat_id,
-            'caption': caption,
-            'parse_mode': 'HTML' # CORRECTED: Use HTML to match the caption format
+            'caption': html.unescape(caption), # <-- Add html.unescape() here
+            'parse_mode': 'HTML'
         }
+
+        # --- ADD THESE TWO LINES FOR DEBUGGING ---
+        print("--- Sending Telegram Document ---")
+        print(f"PAYLOAD: {data}")
+        # -----------------------------------------
 
         try:
             # Increased timeout for file uploads
@@ -128,6 +128,32 @@ class TelegramGroup(TimestampedModel):
             if e.response is not None:
                 print(f"Telegram API Response: {e.response.text}")
             raise e
+
+    @staticmethod
+    def edit_message_text(chat_id, message_id, new_text):
+        """
+        A static method to edit the text of an existing message and remove its keyboard.
+        """
+        bot_token = TelegramSettings.get_active_settings().bot_token
+        if not chat_id or not bot_token:
+            print("Cannot edit message, missing chat_id or bot_token.")
+            return
+
+        url = f"https://api.telegram.org/bot{bot_token}/editMessageText"
+        payload = {
+            'chat_id': chat_id,
+            'message_id': message_id,
+            'text': new_text,
+            'parse_mode': 'Markdown',
+            'reply_markup': json.dumps({'inline_keyboard': []}) # This removes the buttons
+        }
+        
+        try:
+            response = requests.post(url, data=payload, timeout=10)
+            response.raise_for_status()
+        except requests.exceptions.RequestException as e:
+            error_details = e.response.text if e.response else str(e)
+            print(f"Error editing Telegram message: {error_details}")
 
 
 class TelegramSettings(TimestampedModel):

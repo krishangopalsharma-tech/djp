@@ -68,21 +68,17 @@ const options = computed(() => ({
   sections: infrastructureStore.sections,
   subSections: infrastructureStore.subSections,
   supervisors: infrastructureStore.supervisors.map(s => ({ label: s.name, value: s.id })),
-  statuses: [ { label: 'Draft', value: 'Draft' }, { label: 'Active', value: 'Active' }, { label: 'In Progress', value: 'In Progress' }, { label: 'Resolved', value: 'Resolved' }, { label: 'On Hold', value: 'On Hold' }, { label: 'Information', value: 'Information' }],
+  statuses: [ { label: 'Active', value: 'Active' }, { label: 'In Progress', value: 'In Progress' }, { label: 'Resolved', value: 'Resolved' }, { label: 'On Hold', value: 'On Hold' }, { label: 'Information', value: 'Information' }],
 }));
 
-// --- CORE FIX: REFACTORED handleEditRequest ---
 async function handleEditRequest(id) {
   await initialDataLoadPromise;
-  await failureStore.fetchFailure(id);
-  const failureData = failureStore.currentFailure;
-  
+  await failureStore.fetchFailure(id); // 1. Call the action to update the store
+  const failureData = failureStore.currentFailure; // 2. Get the data from the store's state
+
   if (failureData) {
-    // 1. Reset form to clear any previous state
     resetForm();
     editingFailureId.value = id;
-
-    // 2. Set all non-dependent fields first
     Object.assign(form, {
       ...failureData,
       circuit: failureData.circuit?.id || null,
@@ -91,21 +87,11 @@ async function handleEditRequest(id) {
       resolved_at: toLocalISOString(failureData.resolved_at),
       userTags: [],
     });
-
-    // 3. Set the top-level parent dropdown (Depot)
     form.depot = failureData.station?.depot || failureData.section?.depot || null;
-    
-    // 4. Wait for Vue to process updates and populate the Station/Section options
     await nextTick();
-    
-    // 5. Now, set the dependent children (Station and Section)
     form.station = failureData.station?.id || null;
     form.section = failureData.section?.id || null;
-    
-    // 6. Wait again for the Sub Section options to populate
     await nextTick();
-    
-    // 7. Finally, set the grandchild dropdown (Sub Section)
     form.sub_section = failureData.sub_section?.id || null;
   }
 }
@@ -126,7 +112,6 @@ watch(() => form.entry_type, (newType, oldType) => {
 });
 watch(() => form.current_status, v => { if (v === 'Resolved' && !form.resolved_at) form.resolved_at = toLocalISOString(new Date()) });
 watch(() => [form.reported_at, form.resolved_at], ([rep, res]) => { if (!rep || !res) { form.duration_minutes = '' } else { const ms = new Date(res) - new Date(rep); form.duration_minutes = isNaN(ms) || ms < 0 ? '' : Math.round(ms / 60000) } });
-
 function validate() { errors.circuit = form.circuit ? '' : 'Required'; return !errors.circuit; }
 
 function resetForm() {
@@ -136,7 +121,7 @@ function resetForm() {
   attachmentStore.attachments = [];
 }
 
-async function submit(notify = true) {
+async function submit() {
   if (!validate()) {
     ui.pushToast({ type: 'error', title: 'Missing fields', message: 'Circuit is required.' });
     return;
@@ -148,22 +133,27 @@ async function submit(notify = true) {
   let savedFailure;
   if (isEditMode.value) {
     savedFailure = await failureStore.updateFailure(editingFailureId.value, payload);
-  } else {
-    savedFailure = await failureStore.addFailure(payload);
-  }
-
-  if (savedFailure) {
-    let toastMessage = `Logbook entry ${isEditMode.value ? 'updated' : 'saved'}.`;
-    if (notify && savedFailure.current_status !== 'Draft' && savedFailure.current_status !== 'Information') {
-      await failureStore.sendFailureNotification(savedFailure.id, ['alert']);
-      toastMessage = isEditMode.value ? 'Update notification sent.' : 'Entry saved and notification sent.';
+    if (savedFailure) {
+        ui.pushToast({ type: 'success', title: 'Success', message: 'Logbook entry updated.' });
+        // After updating, you might want to stay on the page or redirect
+        // For now, we stay.
     }
-    ui.pushToast({ type: 'success', title: 'Success', message: toastMessage });
-    resetForm();
+  } else {
+    // This is a new entry
+    savedFailure = await failureStore.addFailure(payload);
+     if (savedFailure) {
+        ui.pushToast({ type: 'success', title: 'Success', message: 'Entry saved. You can now add attachments.' });
+        // Reset the form for the next entry
+        resetForm();
+
+        if (savedFailure.current_status !== 'Information') {
+             await failureStore.sendFailureNotification(savedFailure.id, ['alert']);
+             ui.pushToast({ type: 'info', title: 'Notified', message: 'Alert notification sent.' });
+        }
+    }
   }
 }
 
-async function saveAsDraft() { form.current_status = 'Draft'; await submit(false); }
 function openNotifyModal(row) { failureToNotify.value = row; isNotifyModalOpen.value = true; }
 function handleArchiveRequest(failure) { failureToArchive.value = failure; isArchiveModalOpen.value = true; archiveReason.value = ''; }
 async function confirmArchive() { if (failureToArchive.value) { await failureStore.archiveFailure(failureToArchive.value.id, archiveReason.value); failureToArchive.value = null; isArchiveModalOpen.value = false; } }
@@ -183,12 +173,11 @@ function onDragEnd() { dragging.value = false; window.removeEventListener('mouse
         <div class="card">
           <FailureForm v-model="form" :options="options" :errors="errors" :is-edit-mode="isEditMode" />
           <div class="sm:col-span-2 flex items-center justify-between pt-4 mt-4 border-t border-app">
-            <button v-if="!isEditMode" type="button" class="btn" @click="saveAsDraft">
-              Save as Draft
-            </button>
-            <div class="flex gap-3" :class="{'w-full justify-end': isEditMode}">
+            <div :class="{'invisible': isEditMode}">
+                </div>
+            <div class="flex gap-3">
               <button type="button" class="btn btn-outline" @click="resetForm">{{ isEditMode ? 'Cancel Edit' : 'Reset' }}</button>
-              <button type="button" class="btn btn-primary" @click="submit(true)">{{ isEditMode ? 'Save Changes & Notify' : 'Submit & Notify' }}</button>
+              <button type="button" class="btn btn-primary" @click="submit">{{ isEditMode ? 'Save Changes' : 'Submit & Notify' }}</button>
             </div>
           </div>
         </div>

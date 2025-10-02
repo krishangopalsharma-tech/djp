@@ -1,11 +1,17 @@
 <script setup>
-import { useRouter } from 'vue-router' // 1. Import useRouter
 import { ref, computed, watch, onMounted } from 'vue'
-import { Bell, Pencil, Trash2, ChevronLeft, ChevronRight, History, FileSpreadsheet, FileText } from 'lucide-vue-next'
+import { Bell, Pencil, Trash2, ChevronLeft, ChevronRight, FileSpreadsheet, FileText } from 'lucide-vue-next'
 import NotificationModal from '@/components/NotificationModal.vue'
 import { useTelegramStore } from '@/stores/telegram'
+import FailureDetailsDrawer from '@/components/FailureDetailsDrawer.vue';
 
-const router = useRouter() // 2. Initialize router
+const drawerOpen = ref(false);
+const activeItem = ref(null);
+
+function openDetails(row) {
+  activeItem.value = row;
+  drawerOpen.value = true;
+}
 
 const telegramStore = useTelegramStore()
 
@@ -21,30 +27,21 @@ function openNotifyModal(row) {
   isNotifyModalOpen.value = true
 }
 
-
-/* -------- Props -------- */
 const props = defineProps({
   items: { type: Array, default: () => [] },
   showToolbar: { type: Boolean, default: true },
   showBottomActions: { type: Boolean, default: true },
   showRowActions: { type: Boolean, default: true },
-  // NEW:
   loading: { type: Boolean, default: false },
-  // add this prop
   storageKey: { type: String, default: 'recentFailures' },
-  // allow hiding the component's own title when embedded in dashboards
   showHeader: { type: Boolean, default: true },
   editingId: { type: [String, Number], default: null },
-
 })
 
-
-/* -------- Emits -------- */
 const emit = defineEmits(['view', 'edit', 'delete'])
 
-/* -------- Local UI state -------- */
 const q = ref('')
-const status = ref('all') // 'all' | 'Active' | 'In Progress' | 'Resolved' | 'On Hold'
+const status = ref('all')
 const statusTabs = ['all', 'Active', 'In Progress', 'Resolved', 'On Hold']
 
 function statusTabVariant(tab) {
@@ -56,9 +53,8 @@ function statusTabVariant(tab) {
   return ''
 }
 
-/* -------- Sorting -------- */
-const sortKey = ref('reported_at') // 'id' | 'circuit' | 'station' | 'section' | 'status' | 'reported_at' | 'resolved_at'
-const sortDir = ref('desc')       // 'asc' | 'desc'
+const sortKey = ref('reported_at')
+const sortDir = ref('desc')
 function setSort(key) {
   if (sortKey.value === key) {
     sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
@@ -76,24 +72,14 @@ function cmp(a, b) {
   return String(a).localeCompare(String(b), undefined, { sensitivity: 'base', numeric: true })
 }
 
-/* -------- Data source (props fallback safe) -------- */
-const fallbackRows = [
-  { fail_id: 'RF001', circuit: 'CKT-001', station: 'Bandra',  section: 'Western Line',  current_status: 'Active',      reported_at: Date.now() - 3600_000 },
-  { fail_id: 'RF002', circuit: 'CKT-002', station: 'Andheri', section: 'Western Line',  current_status: 'In Progress', reported_at: Date.now() - 7200_000 },
-  { fail_id: 'RF003', circuit: 'CKT-003', station: 'Dadar',   section: 'Central Line',  current_status: 'Resolved',    reported_at: Date.now() - 8600_000, resolved_at: Date.now() - 1800_000 },
-  { fail_id: 'RF004', circuit: 'CKT-004', station: 'Virar',   section: 'Western Line',  current_status: 'On Hold',     reported_at: Date.now() - 9300_000 },
-]
-// Filter out UI-only 'message' entries from the dashboard list
 const sourceRows = computed(() => {
-  const base = (props.items?.length ? props.items : fallbackRows)
-  // --- ADD THIS FILTER ---
+  const base = (props.items?.length ? props.items : [])
   return base.filter(i => {
-    const type = i?.entry_type || 'item'; // Default to 'item' if not present
+    const type = i?.entry_type || 'item';
     return type !== 'message';
   });
 })
 
-/* -------- Time helpers (robust: numbers or ISO strings) -------- */
 function toMs(ts) {
   if (ts == null) return null
   if (typeof ts === 'number') return ts
@@ -117,7 +103,6 @@ function fmt(ts) {
   return ms == null ? '—' : new Date(ms).toLocaleString()
 }
 
-/* -------- Filter + Sort -------- */
 const filteredSorted = computed(() => {
   const base = status.value !== 'all'
     ? sourceRows.value.filter(r => (r.current_status ?? r.status) === status.value)
@@ -150,7 +135,7 @@ const filteredSorted = computed(() => {
     return cmp(av, bv) * dir
   })
 })
-// ---- Load persisted table UI (safe parse) ----
+
 function loadState() {
   let st = null
   try { st = JSON.parse(localStorage.getItem(props.storageKey) || 'null') } catch (_) {}
@@ -163,7 +148,6 @@ function loadState() {
   if (typeof st.page === 'number' && st.page >= 0) page.value = st.page
 }
 
-/* -------- Pagination -------- */
 const page = ref(0)
 const perPage = ref(10)
 const total = computed(() => filteredSorted.value.length)
@@ -175,8 +159,6 @@ const pagedRows = computed(() => {
 
 loadState()
 
-
-// ---- Persist table UI whenever it changes ----
 watch([q, status, sortKey, sortDir, perPage, page], ([Q, S, K, D, P, Pg]) => {
   localStorage.setItem(props.storageKey, JSON.stringify({
     q: Q, status: S, sortKey: K, sortDir: D, perPage: Number(P), page: Number(Pg),
@@ -189,11 +171,9 @@ const showingTo = computed(() => Math.min(total.value, (page.value + 1) * perPag
 function prevPage() { if (page.value > 0) page.value-- }
 function nextPage() { if (page.value < pageCount.value - 1) page.value++ }
 
-/* -------- Row-action helpers -------- */
 function onEdit(row)   { emit('edit', row.id) }
 function onDelete(row) { emit('delete', row) }
 
-/* -------- UI helpers -------- */
 function badgeClasses(s) {
   if (s === 'Active')       return 'badge-danger'
   if (s === 'In Progress')  return 'badge-warning'
@@ -202,17 +182,6 @@ function badgeClasses(s) {
   return 'badge-neutral'
 }
 
-// For Dashboard: status pill sized to text, text hidden
-function statusPillClass(s) {
-  if (s === 'Active')       return 'bg-[var(--s-active)]'
-  if (s === 'In Progress')  return 'bg-[var(--s-inprogress)]'
-  if (s === 'Resolved')     return 'bg-[var(--s-resolved)]'
-  if (s === 'On Hold')      return 'bg-[var(--s-onhold)]'
-  return 'bg-[var(--platinum)]'
-}
-
-// Light row tint based on status color (new global palette)
-// Hover handling for rows to intensify background tint slightly
 const hoveredIndex = ref(-1)
 function rowBg(s, hovered = false) {
   const pct = hovered ? 65 : 50
@@ -225,6 +194,25 @@ function rowBg(s, hovered = false) {
   )
 }
 
+function exportToExcel() {
+  const ids = pagedRows.value.map(row => row.id);
+  if (ids.length === 0) {
+    alert("No visible failures to export.");
+    return;
+  }
+  const url = `/api/v1/failures/logs/export_excel/?ids=${ids.join(',')}`;
+  window.open(url, '_blank');
+}
+
+function exportToPdf() {
+  const ids = pagedRows.value.map(row => row.id);
+  if (ids.length === 0) {
+    alert("No visible failures to export.");
+    return;
+  }
+  const url = `/api/v1/failures/logs/export_pdf/?ids=${ids.join(',')}`;
+  window.open(url, '_blank');
+}
 </script>
 
 <template>
@@ -234,7 +222,6 @@ function rowBg(s, hovered = false) {
     </div>
 
     <div class="rounded-2xl border-app bg-card text-app p-4">
-      <!-- Toolbar -->
       <div v-if="showToolbar" class="p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between flex-wrap gap-2">
         <div class="chip-group">
           <button
@@ -248,127 +235,60 @@ function rowBg(s, hovered = false) {
             {{ tab }}
           </button>
         </div>
-
-        <input
-          v-model="q"
-          type="text"
-          placeholder="Search..."
-          class="h-10 w-full sm:w-64 max-w-full min-w-0 rounded-lg border-app bg-card text-app px-3 text-sm"
-        />
+        <input v-model="q" type="text" placeholder="Search..." class="h-10 w-full sm:w-64 max-w-full min-w-0 rounded-lg border-app bg-card text-app px-3 text-sm"/>
       </div>
 
-      <!-- Table -->
       <div class="overflow-x-auto">
         <table class="min-w-full text-sm">
           <thead class="bg-card">
             <tr>
-              <th class="text-center font-semibold text-app px-3 py-1.5 cursor-pointer select-none"
-                  :aria-sort="sortKey==='id' ? (sortDir==='asc'?'ascending':'descending') : 'none'"                  @click="setSort('id')">
+              <th class="text-center font-semibold text-app px-3 py-1.5 cursor-pointer select-none" :aria-sort="sortKey==='id' ? (sortDir==='asc'?'ascending':'descending') : 'none'" @click="setSort('id')">
                 <div class="inline-flex items-center gap-1">EV ID <span v-if="sortKey==='id'">{{ sortDir==='asc' ? '▲' : '▼' }}</span></div>
               </th>
-              <th class="text-center font-semibold text-app px-3 py-1.5 cursor-pointer select-none"
-                  :aria-sort="sortKey==='circuit' ? (sortDir==='asc'?'ascending':'descending') : 'none'"
-                  @click="setSort('circuit')">
+              <th class="text-center font-semibold text-app px-3 py-1.5 cursor-pointer select-none" :aria-sort="sortKey==='circuit' ? (sortDir==='asc'?'ascending':'descending') : 'none'" @click="setSort('circuit')">
                 <div class="inline-flex items-center gap-1">Circuit <span v-if="sortKey==='circuit'">{{ sortDir==='asc' ? '▲' : '▼' }}</span></div>
               </th>
-              <th class="text-center font-semibold text-app px-3 py-1.5 cursor-pointer select-none"
-                  :aria-sort="sortKey==='station' ? (sortDir==='asc'?'ascending':'descending') : 'none'"
-                  @click="setSort('station')">
+              <th class="text-center font-semibold text-app px-3 py-1.5 cursor-pointer select-none" :aria-sort="sortKey==='station' ? (sortDir==='asc'?'ascending':'descending') : 'none'" @click="setSort('station')">
                 <div class="inline-flex items-center gap-1">Station <span v-if="sortKey==='station'">{{ sortDir==='asc' ? '▲' : '▼' }}</span></div>
               </th>
-              <th class="text-center font-semibold text-app px-3 py-1.5 cursor-pointer select-none"
-                  :aria-sort="sortKey==='section' ? (sortDir==='asc'?'ascending':'descending') : 'none'"
-                  @click="setSort('section')">
+              <th class="text-center font-semibold text-app px-3 py-1.5 cursor-pointer select-none" :aria-sort="sortKey==='section' ? (sortDir==='asc'?'ascending':'descending') : 'none'" @click="setSort('section')">
                 <div class="inline-flex items-center gap-1">Section <span v-if="sortKey==='section'">{{ sortDir==='asc' ? '▲' : '▼' }}</span></div>
               </th>
-
-              <!-- NEW: Reported (sortable) -->
-              <th class="text-center font-semibold text-app px-3 py-1.5 cursor-pointer select-none"
-                  :aria-sort="sortKey==='reported_at' ? (sortDir==='asc'?'ascending':'descending') : 'none'"
-                  @click="setSort('reported_at')">
+              <th class="text-center font-semibold text-app px-3 py-1.5 cursor-pointer select-none" :aria-sort="sortKey==='reported_at' ? (sortDir==='asc'?'ascending':'descending') : 'none'" @click="setSort('reported_at')">
                 <div class="inline-flex items-center gap-1">Reported <span v-if="sortKey==='reported_at'">{{ sortDir==='asc' ? '▲' : '▼' }}</span></div>
               </th>
-
               <th v-if="showRowActions" class="text-center font-semibold text-app px-3 py-1.5">Actions</th>
             </tr>
           </thead>
-
           <tbody>
-            <!-- Rows -->
-             <!-- SKELETON ROWS (show while loading) -->
-          <tr v-if="!loading && filteredSorted.length === 0">
-            <td class="px-4 py-3"><div class="h-4 rounded bg-[var(--border)]/40 animate-pulse mx-auto w-20" /></td>
-            <td class="px-4 py-3"><div class="h-4 rounded bg-[var(--border)]/40 animate-pulse mx-auto w-24" /></td>
-            <td class="px-4 py-3"><div class="h-4 rounded bg-[var(--border)]/40 animate-pulse mx-auto w-24" /></td>
-            <td class="px-4 py-3"><div class="h-4 rounded bg-[var(--border)]/40 animate-pulse mx-auto w-28" /></td>
-            <td class="px-4 py-3"><div class="h-4 rounded bg-[var(--border)]/40 animate-pulse mx-auto w-20" /></td>
-            <td v-if="showRowActions" class="px-4 py-3"> 
-              <div class="h-4 rounded bg-[var(--border)]/40 animate-pulse mx-auto w-24" />
-            </td>
-            <td :colspan="showRowActions ? 6 : 5" class="px-4 py-6 text-center text-muted"></td>
-          </tr>
-
-            <tr
-              v-if="!loading" v-for="(r, i) in pagedRows"
-              :key="r.id ?? i"
-              class="cursor-pointer"
-              role="button"
-              tabindex="0"
-              @click="emit('view', r)"
-              @keydown.enter.space="emit('view', r)"
-              @mouseenter="hoveredIndex = i"
-              @mouseleave="hoveredIndex = -1"
-              :style="{ backgroundColor: rowBg(r.current_status ?? r.status, hoveredIndex === i) }"
-            >
+            <tr v-if="!loading && filteredSorted.length === 0">
+              <td :colspan="showRowActions ? 6 : 5" class="px-4 py-6 text-center text-muted">No recent failures</td>
+            </tr>
+            <tr v-if="!loading" v-for="(r, i) in pagedRows" :key="r.id ?? i" class="cursor-pointer" role="button" tabindex="0" @click="openDetails(r)" @keydown.enter.space="emit('view', r)" @mouseenter="hoveredIndex = i" @mouseleave="hoveredIndex = -1" :style="{ backgroundColor: rowBg(r.current_status ?? r.status, hoveredIndex === i) }">
               <td class="px-3 py-1.5 text-center rounded-l-xl"><div class="truncate">{{ (r.fail_id ?? r.id)?.split('-').pop() ?? '—' }}</div></td>
               <td class="px-3 py-1.5 text-center"><div class="truncate">{{ r.circuit?.circuit_id ?? r.circuit ?? '—' }}</div></td>
               <td class="px-3 py-1.5 text-center"><div class="truncate">{{ r.station?.code ?? r.station ?? '—' }}</div></td>
               <td class="px-3 py-1.5 text-center"><div class="truncate">{{ r.section?.name ?? r.section ?? '—' }}</div></td>
-
-              <!-- NEW: Reported cell (relative text + PrimeVue tooltip + native title) -->
               <td class="px-3 py-1.5 text-center">
-                <span
-                
-                  :title="fmt(r.reported_at ?? r.reportedAt)"
-                >
-                  {{ timeAgo(r.reported_at ?? r.reportedAt) }}
-                </span>
+                <span :title="fmt(r.reported_at ?? r.reportedAt)">{{ timeAgo(r.reported_at ?? r.reportedAt) }}</span>
               </td>
-
-              <!-- PrimeVue black action buttons -->
              <td v-if="showRowActions" class="px-3 py-1.5 text-center rounded-r-xl">
-              <div class="inline-flex items-center justify-center gap-2">
-                <button
-                  class="btn-ghost border-app rounded-md hover-primary p-2"
-                  aria-label="Notify" title="Notify" @click.stop="openNotifyModal(r)" disabled>
-                  <Bell class="w-4 h-4" />
-                </button>
-                <button
-                  class="btn-ghost border-app rounded-md hover-primary p-2"
-                  aria-label="Edit" title="Edit"
-                  @click.stop="$emit('edit', r.id)" >
-                  <Pencil class="w-4 h-4" />
-                </button>
-                <button
-                  class="btn-ghost border-app rounded-md hover-primary p-2"
-                  aria-label="Delete" title="Delete" @click.stop="onDelete(r)">
-                  <Trash2 class="w-4 h-4" />
-                </button>
-              </div>
-            </td>
-            <td v-else class="px-3 py-1.5 text-center rounded-r-xl"></td>
-            </tr>
-
-            <!-- Empty state -->
-            <tr v-if="!loading && filteredSorted.length === 0" class="rounded-xl overflow-hidden">
-              <td :colspan="showRowActions ? 6 : 5" class="px-4 py-6 text-center text-muted">
-                No recent failures
+                <div class="inline-flex items-center justify-center gap-2">
+                    <button class="btn-ghost border-app rounded-md hover-primary p-2" aria-label="Notify" title="Notify" @click.stop="$emit('notify', r)">
+                        <Bell class="w-4 h-4" />
+                    </button>
+                    <button class="btn-ghost border-app rounded-md hover-primary p-2" aria-label="Edit" title="Edit" @click.stop="$emit('edit', r.id)">
+                        <Pencil class="w-4 h-4" />
+                    </button>
+                    <button class="btn-ghost border-app rounded-md hover-primary p-2" aria-label="Delete" title="Delete" @click.stop="onDelete(r)">
+                        <Trash2 class="w-4 h-4" />
+                    </button>
+                </div>
               </td>
             </tr>
           </tbody>
         </table>
 
-        <!-- Pager -->
         <div class="mt-3 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
           <div class="text-xs text-muted">
             Showing {{ showingFrom }}–{{ showingTo }} of {{ total }}
@@ -383,40 +303,24 @@ function rowBg(s, hovered = false) {
             </select>
 
             <div class="ml-2 inline-flex items-center gap-2">
-              <button
-                class="btn-ghost border-app rounded-md hover-primary p-2 disabled:opacity-40"
-                :disabled="page === 0"
-                aria-label="Previous page" title="Previous" @click="prevPage">
+              <button class="btn-ghost border-app rounded-md hover-primary p-2 disabled:opacity-40" :disabled="page === 0" aria-label="Previous page" title="Previous" @click="prevPage">
                 <ChevronLeft class="w-4 h-4" />
               </button>
-
               <span class="text-sm tabular-nums">{{ page + 1 }} / {{ pageCount }}</span>
-
-              <button
-                class="btn-ghost border-app rounded-md hover-primary p-2 disabled:opacity-40"
-                :disabled="page >= pageCount - 1"
-                aria-label="Next page" title="Next" @click="nextPage">
+              <button class="btn-ghost border-app rounded-md hover-primary p-2 disabled:opacity-40" :disabled="page >= pageCount - 1" aria-label="Next page" title="Next" @click="nextPage">
                 <ChevronRight class="w-4 h-4" />
               </button>
-
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Bottom actions (Dashboard hides via prop) -->
       <div v-if="showBottomActions" class="flex justify-center gap-3 px-3 py-5">
         <button
           class="btn-ghost border-app rounded-md hover-primary p-2"
-          aria-label="Retrieve Drafts"
-          title="Retrieve Drafts"
-        >
-          <History class="w-4 h-4" />
-        </button>
-        <button
-          class="btn-ghost border-app rounded-md hover-primary p-2"
-          aria-label="Export CSV"
-          title="Export CSV"
+          aria-label="Export Excel"
+          title="Export Excel"
+          @click="exportToExcel"
         >
           <FileSpreadsheet class="w-4 h-4" />
         </button>
@@ -424,11 +328,13 @@ function rowBg(s, hovered = false) {
           class="btn-ghost border-app rounded-md hover-primary p-2"
           aria-label="Export PDF"
           title="Export PDF"
+          @click="exportToPdf"
         >
           <FileText class="w-4 h-4" />
         </button>
       </div>
     </div>
     <NotificationModal v-model="isNotifyModalOpen" :failure="failureToNotify" />
+    <FailureDetailsDrawer v-model="drawerOpen" :item="activeItem" :show-actions="false" />
   </div>
 </template>

@@ -298,7 +298,7 @@ function removeAssetRow(subSection, assetIndex) {
             <tr v-for="s in sortedSections" :key="s.id" class="border-t border-app/30">
               <td class="py-2 px-3 align-middle text-left">{{ s.depot_name }}</td>
               <td class="py-2 px-3 align-middle text-center">{{ s.name }}</td>
-              <td class="py-2 px-3 align-middle text-center">{{ s.subsections?.length || 0 }}</td>
+              <td class="py-2 px-3 align-middle text-center">{{ s.subsection_count }}</td>
               <td class="py-2 px-3 align-middle">
                 <div class="flex flex-wrap items-center justify-center gap-2">
                    <button class="h-9 w-9 flex items-center justify-center rounded-lg bg-[var(--button-primary)] text-[var(--seasalt)] hover:bg-[var(--button-hover)] transition" @click="openEditModal(s)" title="Edit Section">

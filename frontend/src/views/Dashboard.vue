@@ -11,6 +11,7 @@ import DashboardFilterBar from '@/components/DashboardFilterBar.vue';
 import RecentFailures from '@/components/RecentFailures.vue';
 import SectionPicker from '@/components/SectionPicker.vue';
 import FailureDetailsDrawer from '@/components/FailureDetailsDrawer.vue';
+import NotificationModal from '@/components/NotificationModal.vue';
 import { borderColor } from '@/lib/statusColors';
 import { withAlpha } from '@/lib/theme';
 
@@ -33,10 +34,18 @@ const drawerOpen = ref(false);
 const activeItem = ref(null);
 const filters = ref({
   range: '30d',
-  status: ['Active', 'In Progress', 'Resolved', 'On Hold', 'Draft'],
+  status: ['Active', 'In Progress', 'Resolved', 'On Hold'],
   sections: [],
 });
 const split = ref(Number(localStorage.getItem('dashSplit') || 66));
+
+const isNotifyModalOpen = ref(false);
+const failureToNotify = ref(null);
+
+function openNotifyModal(row) {
+  failureToNotify.value = row;
+  isNotifyModalOpen.value = true;
+}
 
 // --- Data Fetching ---
 onMounted(() => {
@@ -273,7 +282,7 @@ function stopTimer() {
 function resetFilters() {
     filters.value = { 
         range: '30d', 
-        status: ['Active','In Progress','Resolved','On Hold', 'Draft'], 
+        status: ['Active','In Progress','Resolved','On Hold'], 
         sections: [] 
     };
     lastUpdated.value = Date.now();
@@ -377,8 +386,9 @@ watch(split, v => localStorage.setItem('dashSplit', String(v)));
                 storage-key="rf-dashboard" 
                 @view="openDetails" 
                 @edit="handleEdit" 
-            />
+                @notify="openNotifyModal" />
             <FailureDetailsDrawer v-model="drawerOpen" :item="activeItem" />
+            <NotificationModal v-model="isNotifyModalOpen" :failure="failureToNotify" />
           </div>
         </div>
       </template>

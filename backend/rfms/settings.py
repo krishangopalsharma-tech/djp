@@ -30,7 +30,6 @@ INSTALLED_APPS = [
     "notifications.apps.NotificationsConfig", # Add this
     "analytics.apps.AnalyticsConfig",         # Add this
     "operations.apps.OperationsConfig",
-    "telegram.apps.TelegramConfig",
 ]
 
 MIDDLEWARE = [

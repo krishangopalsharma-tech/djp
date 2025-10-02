@@ -18,7 +18,14 @@ class FailureListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Failure
-        fields = '__all__'
+        # Explicitly define fields to prevent errors with old migration data
+        fields = [
+            'id', 'fail_id', 'entry_type', 'severity', 'current_status',
+            'circuit', 'station', 'section', 'sub_section', 'assigned_to',
+            'reported_at', 'resolved_at', 'remark_fail', 'remark_right',
+            'was_notified', 'is_archived', 'archived_at', 'archived_reason',
+            'created_at', 'updated_at'
+        ]
 
 class FailureCreateUpdateSerializer(serializers.ModelSerializer):
     """
@@ -30,7 +37,7 @@ class FailureCreateUpdateSerializer(serializers.ModelSerializer):
             'id', 'fail_id',
             'entry_type', 'current_status', 'circuit', 'station',
             'section', 'sub_section', 'assigned_to', 'reported_at',
-            'resolved_at', 'remark_fail', 'remark_right'
+            'resolved_at', 'remark_fail', 'remark_right', 'was_notified'
         ]
         read_only_fields = ['id', 'fail_id']
 

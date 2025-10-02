@@ -250,7 +250,7 @@ function removeEquipmentRow(index) {
               <td class="py-2 px-3 align-middle text-center">{{ d.name }}</td>
               <td class="py-2 px-3 align-middle text-center">{{ d.code || '—' }}</td>
               <td class="py-2 px-3 align-middle text-center">{{ d.location || '—' }}</td>
-              <td class="py-2 px-3 align-middle text-center">{{ d.equipments?.length || 0 }}</td>
+              <td class="py-2 px-3 align-middle text-center">{{ d.equipment_count }}</td>
               <td class="py-2 px-3 align-middle">
                 <div class="flex flex-wrap items-center justify-center gap-2">
                   <button class="h-9 w-9 flex items-center justify-center rounded-lg bg-[var(--button-primary)] text-[var(--seasalt)] hover:bg-[var(--button-hover)] transition" @click="openEditModal(d)" title="Edit Depot">

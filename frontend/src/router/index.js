@@ -7,6 +7,7 @@ import ReportsManagement from '@/views/settings/ReportsManagement.vue'
 import TelegramSettings from '@/views/settings/TelegramSettings.vue'
 import ReportsNow from '@/views/ReportsNow.vue'
 import SupervisorMovements from '@/views/SupervisorMovements.vue'
+import ArchiveManagement from '@/views/settings/ArchiveManagement.vue'
 const FailureIdSettings = () => import('@/views/settings/FailureIdSettings.vue')
 const UsersRolesSettings = () => import('@/views/settings/UsersRolesSettings.vue')
 const CircuitManagement = () => import('@/views/settings/CircuitManagement.vue')
@@ -37,6 +38,7 @@ const routes = [
       { path: 'failure-id', name: 'SettingsFailureId', component: FailureIdSettings, meta: { title: 'Failure ID Configuration' } },
       { path: 'telegram', name: 'SettingsTelegram', component: TelegramSettings, meta: { title: 'Telegram Integration Settings' } },
       { path: 'users-roles', name: 'SettingsUsersRoles', component: UsersRolesSettings, meta: { title: 'User and Role Management' } },
+      { path: 'archive', name: 'SettingsArchive', component: ArchiveManagement, meta: { title: 'Archive Management' } },
       { path: 'circuits', name: 'SettingsCircuits', component: CircuitManagement, meta: { title: 'Circuit Management' } },
       { path: 'depots', name: 'SettingsDepots', component: DepotManagement, meta: { title: 'Depot Management' } },
       { path: 'supervisors', name: 'SettingsSupervisors', component: SupervisorManagement, meta: { title: 'Supervisor Management' } },

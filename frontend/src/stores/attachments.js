@@ -36,16 +36,16 @@ export const useAttachmentStore = defineStore('attachments', {
 
   this.loading = true;
   try {
-    await http.post('/failures/attachments/', formData, {
+    const response = await http.post('/failures/attachments/', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
     uiStore.pushToast({ type: 'success', title: 'Success', message: 'File uploaded.' });
     await this.fetchAttachments(failureId);
-    return true; // <-- Add this line
+    return response.data;
   } catch (err) {
     uiStore.pushToast({ type: 'error', title: 'Upload Failed', message: 'Could not upload file.' });
     console.error(err);
-    return false; // <-- Add this line
+    return null;
   } finally {
     this.loading = false;
   }

@@ -12,6 +12,7 @@ const links = [
   { to: '/settings/email',             label: 'Email Settings',                 icon: 'email' },
   // 4) User and Role Management
   { to: '/settings/users-roles',       label: 'User and Role Management',       icon: 'users-roles' },
+  { to: '/settings/archive', label: 'Archive Management', icon: 'archive' },
   // 5) Circuit Management
   { to: '/settings/circuits',          label: 'Circuit Management',             icon: 'circuits' },
   // 6) Depot Management
@@ -45,6 +46,7 @@ const title = computed(() => route.meta?.title ?? 'Settings')
             <svg v-if="link.icon==='failure-id'" viewBox="0 0 24 24" class="w-5 h-5"><path fill="currentColor" d="M10 2a2 2 0 0 0-2 2v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-2V4a2 2 0 0 0-2-2zm0 4V4h4v2zM8 12h8v2H8zm0 4h5v2H8z"/></svg>
             <svg v-else-if="link.icon==='telegram'" viewBox="0 0 24 24" class="w-5 h-5"><path fill="currentColor" d="M9.03 14.86 8.7 18.6a.75.75 0 0 0 1.18.68l2.11-1.52l3.94 2.88c.58.43 1.41.11 1.58-.6l3.2-13.22c.18-.75-.5-1.4-1.23-1.16L2.7 10.03c-.83.28-.8 1.46.04 1.7l5.1 1.44l9.24-6.2z"/></svg>
             <svg v-else-if="link.icon==='users-roles'" viewBox="0 0 24 24" class="w-5 h-5"><path fill="currentColor" d="M12 12a5 5 0 1 0-5-5a5 5 0 0 0 5 5m-7 8a7 7 0 0 1 14 0v1H5z"/></svg>
+            <svg v-else-if="link.icon==='archive'" viewBox="0 0 24 24" class="w-5 h-5"><path fill="currentColor" d="M3 3h18v4H3V3m4 6h10v2H7v-2m-4 6h18v4H3v-4Z"/></svg>
             <svg v-else-if="link.icon==='circuits'" viewBox="0 0 24 24" class="w-5 h-5"><path fill="currentColor" d="M7 3h2v4h6V3h2v4h2a2 2 0 0 1 2 2v3h-2V9H5v9h12v-2h2v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2z"/></svg>
             <svg v-else-if="link.icon==='supervisors'" viewBox="0 0 24 24" class="w-5 h-5"><path fill="currentColor" d="M12 12a4 4 0 1 0-4-4a4 4 0 0 0 4 4m6 8v-1a5 5 0 0 0-5-5H7a5 5 0 0 0-5 5v1z"/></svg>
             <svg v-else-if="link.icon==='stations'" viewBox="0 0 24 24" class="w-5 h-5">

@@ -33,6 +33,7 @@ class Failure(TimestampedModel):
     resolved_at = models.DateTimeField(null=True, blank=True)
     remark_fail = models.TextField(blank=True, help_text="Initial notes about the failure.")
     remark_right = models.TextField(blank=True, help_text="Notes on how the failure was resolved.")
+    was_notified = models.BooleanField(default=False)
 
     is_archived = models.BooleanField(default=False)
     archived_at = models.DateTimeField(null=True, blank=True)
