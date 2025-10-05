@@ -118,9 +118,10 @@ async function handleFileUpload() {
 
 // --- Equipment Modal Functions ---
 
-function openManageModal(depot) {
+async function openManageModal(depot) {
   selectedDepot.value = depot
-  const equipments = depot.equipments || []
+  await depotStore.fetchEquipmentsForDepot(depot.id);
+  const equipments = depotStore.depotEquipments; // Get data from the store
   originalEquipments.value = clone(equipments)
   tempEquipments.splice(0, tempEquipments.length, ...clone(equipments))
   isEquipmentModalOpen.value = true

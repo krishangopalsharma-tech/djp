@@ -12,6 +12,11 @@ export const useInfrastructureStore = defineStore('infrastructure', {
     circuits: [],
     supervisors: [],
     subSections: [],
+
+    // ADD THESE NEW STATE PROPERTIES
+    depotEquipments: [],
+    stationEquipments: [],
+    sectionSubsections: [],
     loading: {
       depots: false,
       stations: false,
@@ -577,6 +582,42 @@ export const useInfrastructureStore = defineStore('infrastructure', {
         console.error(err);
       } finally {
         this.loading.circuits = false;
+      }
+    },
+    // ADD THESE THREE NEW ACTIONS AT THE END OF THE 'actions' OBJECT
+    async fetchEquipmentsForDepot(depotId) {
+      this.loading.depots = true;
+      try {
+        const response = await http.get(`/infrastructure/equipments/?depot=${depotId}`);
+        this.depotEquipments = response.data.results || response.data;
+      } catch (err) {
+        console.error(`Failed to fetch equipment for depot ${depotId}`, err);
+      } finally {
+        this.loading.depots = false;
+      }
+    },
+
+    async fetchEquipmentsForStation(stationId) {
+      this.loading.stations = true;
+      try {
+        const response = await http.get(`/infrastructure/station-equipments/?station=${stationId}`);
+        this.stationEquipments = response.data.results || response.data;
+      } catch (err) {
+        console.error(`Failed to fetch equipment for station ${stationId}`, err);
+      } finally {
+        this.loading.stations = false;
+      }
+    },
+
+    async fetchSubsectionsForSection(sectionId) {
+      this.loading.sections = true;
+      try {
+        const response = await http.get(`/infrastructure/subsections/?section=${sectionId}`);
+        this.sectionSubsections = response.data.results || response.data;
+      } catch (err) {
+        console.error(`Failed to fetch subsections for section ${sectionId}`, err);
+      } finally {
+        this.loading.sections = false;
       }
     },
   },

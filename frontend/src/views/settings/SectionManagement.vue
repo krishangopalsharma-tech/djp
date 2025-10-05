@@ -133,9 +133,10 @@ const selectedSection = ref(null)
 const tempSubsections = reactive([])
 const originalSubsections = ref([])
 
-function openSubsectionsModal(section) {
+async function openSubsectionsModal(section) {
   selectedSection.value = section;
-  const subsections = section.subsections || [];
+  await infrastructureStore.fetchSubsectionsForSection(section.id);
+  const subsections = infrastructureStore.sectionSubsections; // Get data from the store
   originalSubsections.value = clone(subsections);
   tempSubsections.splice(0, tempSubsections.length, ...clone(subsections.map(ss => ({ ...ss, assets: ss.assets || [] }))));
   isSubSectionModalOpen.value = true;

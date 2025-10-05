@@ -21,7 +21,7 @@ class AssetSerializer(serializers.ModelSerializer):
 
 class DepotSerializer(serializers.ModelSerializer):
     # This pre-fetches the count, which is much faster than fetching all objects
-    equipment_count = serializers.IntegerField(source='equipments.count', read_only=True)
+    equipment_count = serializers.IntegerField(read_only=True)
     class Meta:
         model = Depot
         fields = ['id', 'name', 'code', 'location', 'equipment_count']
@@ -29,7 +29,7 @@ class DepotSerializer(serializers.ModelSerializer):
 class StationSerializer(serializers.ModelSerializer):
     depot_name = serializers.CharField(source='depot.name', read_only=True)
     # This pre-fetches the count, which is much faster
-    equipment_count = serializers.IntegerField(source='equipments.count', read_only=True)
+    equipment_count = serializers.IntegerField(read_only=True)
     class Meta:
         model = Station
         fields = ['id', 'depot', 'depot_name', 'name', 'code', 'category', 'equipment_count']
@@ -45,7 +45,7 @@ class SubSectionSerializer(serializers.ModelSerializer):
 class SectionSerializer(serializers.ModelSerializer):
     depot_name = serializers.CharField(source='depot.name', read_only=True)
     # This pre-fetches the count, which is much faster
-    subsection_count = serializers.IntegerField(source='subsections.count', read_only=True)
+    subsection_count = serializers.IntegerField(read_only=True)
     class Meta:
         model = Section
         fields = ['id', 'depot', 'depot_name', 'name', 'subsection_count']

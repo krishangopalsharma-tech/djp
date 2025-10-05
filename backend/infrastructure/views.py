@@ -33,21 +33,43 @@ class SectionViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.AllowAny]
 
 class SubSectionViewSet(viewsets.ModelViewSet):
-    # Removed redundant prefetch_related
-    queryset = SubSection.objects.select_related('section').all().order_by('name')
+    # This view already had select_related, which is good.
+    # We will replace the static queryset with the dynamic get_queryset method.
     serializer_class = SubSectionSerializer
     permission_classes = [permissions.AllowAny]
 
+    def get_queryset(self):
+        """Optionally filters the queryset by a `section` query parameter."""
+        queryset = SubSection.objects.select_related('section').all().order_by('name')
+        section_id = self.request.query_params.get('section')
+        if section_id:
+            queryset = queryset.filter(section_id=section_id)
+        return queryset
+
 # --- NO CHANGES NEEDED FOR THE VIEWS BELOW ---
 class EquipmentViewSet(viewsets.ModelViewSet):
-    queryset = Equipment.objects.select_related('depot').all()
     serializer_class = EquipmentSerializer
     permission_classes = [permissions.AllowAny]
 
+    def get_queryset(self):
+        """Optionally filters the queryset by a `depot` query parameter."""
+        queryset = Equipment.objects.select_related('depot').all()
+        depot_id = self.request.query_params.get('depot')
+        if depot_id:
+            queryset = queryset.filter(depot_id=depot_id)
+        return queryset
+
 class StationEquipmentViewSet(viewsets.ModelViewSet):
-    queryset = StationEquipment.objects.select_related('station').all()
     serializer_class = StationEquipmentSerializer
     permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        """Optionally filters the queryset by a `station` query parameter."""
+        queryset = StationEquipment.objects.select_related('station').all()
+        station_id = self.request.query_params.get('station')
+        if station_id:
+            queryset = queryset.filter(station_id=station_id)
+        return queryset
 
 class AssetViewSet(viewsets.ModelViewSet):
     queryset = Asset.objects.select_related('subsection').all()

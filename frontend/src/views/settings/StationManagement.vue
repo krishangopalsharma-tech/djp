@@ -143,10 +143,11 @@ const tempEquipments = reactive([])
 const originalEquipments = ref([]) // To compare for changes
 
 
-function openManage(station) {
+async function openManage(station) {
   selectedStation.value = station
-  const equipments = station.equipments || []
-  originalEquipments.value = clone(equipments); // Store original state
+  await infrastructureStore.fetchEquipmentsForStation(station.id);
+  const equipments = infrastructureStore.stationEquipments; // Get data from the store
+  originalEquipments.value = clone(equipments);
   tempEquipments.splice(0, tempEquipments.length, ...clone(equipments))
   showModal.value = true
 }
