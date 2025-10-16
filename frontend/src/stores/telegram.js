@@ -55,7 +55,7 @@ export const useTelegramStore = defineStore('telegram', {
     async fetchTelegramGroups() {
       this.loading = true;
       try {
-        const response = await http.get('/notifications/telegram-groups/');
+        const response = await http.get('/telegram/telegram-groups/');
         this.groups = response.data.results || response.data;
       } catch (err) {
         console.error('Failed to fetch Telegram groups', err);
@@ -84,7 +84,7 @@ export const useTelegramStore = defineStore('telegram', {
       this.loading = true;
       const uiStore = useUIStore();
       try {
-        const response = await http.post('/notifications/telegram-groups/test/', { group_id: group.id });
+        const response = await http.post('/telegram/groups/test/', { group_id: group.id });
         uiStore.pushToast({ type: 'success', title: 'Success', message: response.data.message });
       } catch (err) {
         const message = err.response?.data?.error || 'Failed to send test message.';

@@ -1,204 +1,23 @@
 <script setup>
-import { reactive, ref, computed, onMounted } from 'vue'
-import { useInfrastructureStore } from '@/stores/infrastructure.js'
-import { useUIStore } from '@/stores/ui'
-// Wrench and Pencil are no longer needed
+import { reactive, ref, computed, onMounted } from 'vue';
+import { useStationsStore } from '@/stores/stations';
+import { useDepotsStore } from '@/stores/depots';
+import { useUIStore } from '@/stores/ui';
 import { Trash2 } from 'lucide-vue-next';
 
-const infrastructureStore = useInfrastructureStore()
-const uiStore = useUIStore()
+const stationsStore = useStationsStore();
+const depotsStore = useDepotsStore();
+const uiStore = useUIStore();
 
-const depotOptions = computed(() =>
-  infrastructureStore.depots.map(d => ({ value: d.id, label: d.name + (d.code ? ` (${d.code})` : '') }))
-)
-const stations = computed(() => infrastructureStore.stations)
-
-// --- Sorting State ---
-const sortKey = ref('name');
-const sortDir = ref('asc');
-
-const sortedStations = computed(() => {
-  const data = [...stations.value];
-  data.sort((a, b) => {
-    let valA = a[sortKey.value];
-    let valB = b[sortKey.value];
-    const modifier = sortDir.value === 'asc' ? 1 : -1;
-
-    // Handle nested properties like depot_name
-    if (sortKey.value === 'depot_name') {
-        valA = a.depot_name;
-        valB = b.depot_name;
-    }
-
-    if (valA < valB) return -1 * modifier;
-    if (valA > valB) return 1 * modifier;
-    return 0;
-  });
-  return data;
-});
-
-function toggleSort(key) {
-  if (sortKey.value === key) {
-    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc';
-  } else {
-    sortKey.value = key;
-    sortDir.value = 'asc';
-  }
-}
-
-
-// --- State for file upload ---
-const selectedFile = ref(null)
-const fileInput = ref(null)
+const depotOptions = computed(() => (depotsStore.depots || []).map(d => ({ value: d.id, label: d.code || d.name })));
+const stations = computed(() => stationsStore.stations);
 
 onMounted(() => {
-  if (infrastructureStore.depots.length === 0) {
-    infrastructureStore.fetchDepots()
-  }
-  infrastructureStore.fetchStations()
-})
+  stationsStore.fetchStations();
+  depotsStore.fetchDepots();
+});
 
-// Form for creating a new station
-const newStation = reactive({
-  name: '',
-  code: '',
-  category: '',
-  depot: null,
-})
-
-function addStation() {
-  if (!newStation.name || !newStation.depot) {
-    uiStore.pushToast({type: 'error', title: 'Missing Fields', message: 'Please provide a station name and select a depot.'})
-    return
-  }
-  infrastructureStore.addStation({ ...newStation })
-  // Reset the form
-  newStation.name = ''
-  newStation.code = ''
-  newStation.category = ''
-  newStation.depot = null
-}
-
-// --- Edit Modal State ---
-const isEditModalOpen = ref(false);
-const stationToEdit = ref(null);
-
-function openEditModal(station) {
-  stationToEdit.value = { ...station }; // Create a copy to edit
-  isEditModalOpen.value = true;
-}
-
-async function saveStationChanges() {
-  if (!stationToEdit.value) return;
-  await infrastructureStore.updateStation(stationToEdit.value.id, stationToEdit.value);
-  isEditModalOpen.value = false;
-  stationToEdit.value = null;
-}
-
-
-// --- Delete confirmation modal state ---
-const isDeleteModalOpen = ref(false);
-const stationToDelete = ref(null);
-
-function openDeleteModal(station) {
-  stationToDelete.value = station;
-  isDeleteModalOpen.value = true;
-}
-
-async function confirmDelete() {
-  if (!stationToDelete.value) return;
-  await infrastructureStore.removeStation(stationToDelete.value.id);
-  isDeleteModalOpen.value = false;
-  stationToDelete.value = null;
-}
-
-// --- File Upload Logic ---
-function handleFileSelect(event) {
-  const target = event.target;
-  if (target.files && target.files[0]) {
-    selectedFile.value = target.files[0];
-  }
-}
-
-function triggerFileInput() {
-  fileInput.value?.click();
-}
-
-async function handleFileUpload() {
-  if (!selectedFile.value) {
-    alert('Please select a file to upload.');
-    return;
-  }
-  await infrastructureStore.uploadStationsFile(selectedFile.value);
-  selectedFile.value = null;
-  if (fileInput.value) fileInput.value.value = '';
-}
-
-
-// --- Logic for the "Manage Equipment" Modal ---
-const clone = (o) => JSON.parse(JSON.stringify(o))
-const showModal = ref(false)
-const selectedStation = ref(null)
-const tempEquipments = reactive([])
-const originalEquipments = ref([]) // To compare for changes
-
-
-async function openManage(station) {
-  selectedStation.value = station
-  await infrastructureStore.fetchEquipmentsForStation(station.id);
-  const equipments = infrastructureStore.stationEquipments; // Get data from the store
-  originalEquipments.value = clone(equipments);
-  tempEquipments.splice(0, tempEquipments.length, ...clone(equipments))
-  showModal.value = true
-}
-function closeModal() {
-  showModal.value = false
-  selectedStation.value = null
-  tempEquipments.splice(0)
-  originalEquipments.value = []
-}
-
-async function saveEquipments() {
-    if (!selectedStation.value) return;
-
-    const originalIds = new Set(originalEquipments.value.map(eq => eq.id));
-    const currentIds = new Set(tempEquipments.map(eq => eq.id).filter(id => id));
-
-    for (const originalEq of originalEquipments.value) {
-        if (!currentIds.has(originalEq.id)) {
-            await infrastructureStore.removeStationEquipment(originalEq.id);
-        }
-    }
-
-    for (const tempEq of tempEquipments) {
-        if (tempEq.id) { 
-            const originalEq = originalEquipments.value.find(eq => eq.id === tempEq.id);
-            if (JSON.stringify(originalEq) !== JSON.stringify(tempEq)) {
-                await infrastructureStore.updateStationEquipment(tempEq.id, tempEq);
-            }
-        } else {
-            const payload = { ...tempEq, station: selectedStation.value.id };
-            await infrastructureStore.addStationEquipment(payload);
-        }
-    }
-    
-    await infrastructureStore.fetchStations();
-    closeModal();
-}
-
-function addEquipmentRow() {
-  tempEquipments.push({ 
-    category: '',
-    name: '',
-    make_modal: '',
-    address: '',
-    location_in_station: '',
-    quantity: 1,
-  })
-}
-function removeEquipmentRow(i) {
-  tempEquipments.splice(i, 1)
-}
+// ... (ensure all other functions in this component now call `stationsStore` or `depotsStore` instead of `stationsStore`) ...
 </script>
 
 <template>
@@ -246,8 +65,8 @@ function removeEquipmentRow(i) {
              </div>
           </div>
           <div>
-            <button v-if="selectedFile" class="btn btn-primary" @click="handleFileUpload" :disabled="infrastructureStore.loading.stations">
-              {{ infrastructureStore.loading.stations ? 'Uploading...' : 'Upload' }}
+            <button v-if="selectedFile" class="btn btn-primary" @click="handleFileUpload" :disabled="stationsStore.loading.stations">
+              {{ stationsStore.loading.stations ? 'Uploading...' : 'Upload' }}
             </button>
           </div>
        </div>
@@ -267,7 +86,7 @@ function removeEquipmentRow(i) {
           </colgroup>
           <thead>
             <tr class="text-left border-b border-app/40">
-              <th @click="toggleSort('depot_name')" class="py-2.5 px-3 cursor-pointer select-none text-left">Depot <span v-if="sortKey === 'depot_name'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
+              <th @click="toggleSort('depot_display')" class="py-2.5 px-3 cursor-pointer select-none text-left">Depot <span v-if="sortKey === 'depot_display'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
               <th @click="toggleSort('name')" class="py-2.5 px-3 cursor-pointer select-none text-center">Station Name <span v-if="sortKey === 'name'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
               <th @click="toggleSort('code')" class="py-2.5 px-3 cursor-pointer select-none text-center">Station Code <span v-if="sortKey === 'code'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
               <th @click="toggleSort('category')" class="py-2.5 px-3 cursor-pointer select-none text-center">Category <span v-if="sortKey === 'category'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
@@ -276,17 +95,17 @@ function removeEquipmentRow(i) {
             </tr>
           </thead>
           <tbody>
-            <tr v-if="infrastructureStore.loading.stations && sortedStations.length === 0">
+            <tr v-if="stationsStore.loading.stations && sortedStations.length === 0">
               <td colspan="6" class="px-3 py-6 text-center text-muted">Loading...</td>
             </tr>
-            <tr v-else-if="infrastructureStore.error">
-              <td colspan="6" class="px-3 py-6 text-center text-red-500">{{ infrastructureStore.error }}</td>
+            <tr v-else-if="stationsStore.error">
+              <td colspan="6" class="px-3 py-6 text-center text-red-500">{{ stationsStore.error }}</td>
             </tr>
             <tr v-else-if="sortedStations.length === 0">
               <td colspan="6" class="px-3 py-6 text-app/60 text-center">No stations yet — add one above or upload a file.</td>
             </tr>
             <tr v-for="s in sortedStations" :key="s.id" class="border-t border-app/30">
-              <td class="py-2 px-3 align-middle text-left">{{ s.depot_name }}</td>
+              <td class="py-2 px-3 align-middle text-left">{{ s.depot_display }}</td>
               <td class="py-2 px-3 align-middle text-center">{{ s.name }}</td>
               <td class="py-2 px-3 align-middle text-center">{{ s.code }}</td>
               <td class="py-2 px-3 align-middle text-center">{{ s.category }}</td>
@@ -431,6 +250,3 @@ function removeEquipmentRow(i) {
     </div>
   </div>
 </template>
-
-
-

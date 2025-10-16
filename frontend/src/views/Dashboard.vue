@@ -1,8 +1,13 @@
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
+import { useDashboardStore } from '@/stores/dashboard';
 import { useFailureStore } from '@/stores/failures';
-import { useInfrastructureStore } from '@/stores/infrastructure';
+import { useRecentFailuresStore } from '@/stores/recentFailures';
+import { useSectionsStore } from '@/stores/sections';
+import { useDebounce } from '@/composables/useDebounce';
+
+// Restore missing component imports
 import SplitPane from '@/components/SplitPane.vue';
 import KpiCard from '@/components/KpiCard.vue';
 import BarChart from '@/components/BarChart.vue';
@@ -16,11 +21,13 @@ import { borderColor } from '@/lib/statusColors';
 import { withAlpha } from '@/lib/theme';
 
 // --- Store and Router setup ---
+const dashboardStore = useDashboardStore();
 const failureStore = useFailureStore();
-const infrastructureStore = useInfrastructureStore();
+const recentFailuresStore = useRecentFailuresStore();
+const sectionsStore = useSectionsStore();
 const router = useRouter();
 
-// --- UI Controls & State ---
+// --- Restore Missing UI Controls & State ---
 const topNMode = ref(true);
 const topN = ref(10);
 const autoRefresh = ref(false);
@@ -28,7 +35,6 @@ const intervalMs = ref(30000);
 const chartsSplit = ref(60);
 const cumulativeMode = ref(true);
 const lastUpdated = ref(Date.now());
-const isLoading = ref(false);
 let refreshTimer = null;
 const drawerOpen = ref(false);
 const activeItem = ref(null);
@@ -38,47 +44,15 @@ const filters = ref({
   sections: [],
 });
 const split = ref(Number(localStorage.getItem('dashSplit') || 66));
-
 const isNotifyModalOpen = ref(false);
 const failureToNotify = ref(null);
 
-function openNotifyModal(row) {
-  failureToNotify.value = row;
-  isNotifyModalOpen.value = true;
-}
-
-// --- Data Fetching ---
-onMounted(() => {
-  refresh(); // Initial data load
-  startTimer();
-});
-
-onBeforeUnmount(() => {
-  stopTimer();
-});
-
-// --- Helper Functions ---
-function toMs(ts) {
-  if (ts == null) return null;
-  if (typeof ts === 'number') return ts;
-  const ms = new Date(ts).getTime();
-  return Number.isNaN(ms) ? null : ms;
-}
-
-function rangeStart(key) {
-  const now = new Date();
-  if (key === 'today') return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  if (key === '7d') { const d = new Date(now); d.setDate(d.getDate() - 6); d.setHours(0,0,0,0); return d.getTime(); }
-  if (key === '30d'){ const d = new Date(now); d.setDate(d.getDate() - 29); d.setHours(0,0,0,0); return d.getTime(); }
-  return 0;
-}
-
+// --- Restore Missing Helper Functions ---
 const nf = new Intl.NumberFormat('en-IN');
 const formatInt = n => (typeof n === 'number' ? nf.format(n) : n);
-
 function timeAgo(ts) {
-  const ms = toMs(ts);
-  if (ms == null) return '—';
+  const ms = new Date(ts).getTime();
+  if (isNaN(ms)) return '—';
   const diff = Date.now() - ms;
   const m = Math.floor(diff / 60000);
   if (m < 1) return 'just now';
@@ -88,143 +62,44 @@ function timeAgo(ts) {
   const d = Math.floor(h / 24);
   return `${d}d ago`;
 }
+// --- End of restored code ---
 
-function fmtDuration(ms) {
-  if (!ms || ms < 0) return '—';
-  const h = Math.floor(ms / 3600000);
-  const m = Math.round((ms % 3600000) / 60000);
-  return `${h}h ${m}m`;
-}
+const fetchData = useDebounce(() => {
+    // We need to map section names to IDs for the API
+    const sectionNameToIdMap = new Map(sectionsStore.sections.map(s => [s.name, s.id]));
+    const sectionIds = filters.value.sections.map(name => sectionNameToIdMap.get(name)).filter(id => id);
 
-// --- Computed Properties ---
-const allSectionsMaster = computed(() =>
-  (infrastructureStore.sections || []).map(s => s.name).sort()
-);
+    dashboardStore.fetchDashboardData({ ...filters.value, sections: sectionIds });
+    recentFailuresStore.fetchRecentFailures();
+    lastUpdated.value = Date.now();
+}, 300);
 
-const startTs = computed(() => rangeStart(filters.value.range));
-
-const filtered = computed(() => {
-  const allowedStatus = new Set(filters.value.status);
-  const allowedSections = new Set(filters.value.sections || []);
-  const ts0 = startTs.value;
-  
-  return failureStore.failures.filter(f => {
-    if (!f) return false;
-    if (allowedSections.size && !allowedSections.has(f.section?.name)) return false;
-    if (!allowedStatus.has(f.current_status)) return false;
-    
-    const ts = f.current_status === 'Resolved' ? (toMs(f.resolved_at) ?? toMs(f.reported_at)) : toMs(f.reported_at);
-    if (!ts) return false;
-    return ts >= ts0;
+onMounted(() => {
+  sectionsStore.fetchSections().then(() => {
+    fetchData(); // Initial data load after sections are available
   });
+  // No need to fetch all failures here anymore, recentFailuresStore handles its own
 });
 
-// KPIs
-const kpiActive = computed(() => filtered.value.filter(f => f.current_status === 'Active').length);
-const kpiResolved = computed(() => filtered.value.filter(f => f.current_status === 'Resolved').length);
-const kpiCritical = computed(() => filtered.value.filter(f => f.severity === 'Critical').length);
+onBeforeUnmount(() => stopTimer());
 
-const avgResolution = computed(() => {
-  const res = filtered.value.filter(f => f.current_status === 'Resolved' && f.resolved_at && f.reported_at);
-  if (!res.length) return '—';
-  const avgMs = res.reduce((sum, f) => sum + (toMs(f.resolved_at) - toMs(f.reported_at)), 0) / res.length;
-  return fmtDuration(avgMs);
-});
+watch(filters, fetchData, { deep: true });
 
-const kpis = computed(() => ([
-  { label: 'Active Failures', value: formatInt(kpiActive.value), sublabel: 'in range' },
-  { label: 'Resolved', value: formatInt(kpiResolved.value), sublabel: 'in range' },
-  { label: 'Avg Resolution Time', value: avgResolution.value, sublabel: 'for range' },
-  { label: 'Critical Alerts', value: formatInt(kpiCritical.value), sublabel: 'filtered' },
-]));
+const isLoading = computed(() => dashboardStore.loading || recentFailuresStore.loading);
 
-const recent = computed(() =>
-  [...failureStore.failures]
-    .sort((a,b) => (toMs(b.reported_at) ?? 0) - (toMs(a.reported_at) ?? 0))
-    .slice(0, 8)
+// --- Restore missing computed properties ---
+const allSectionsMaster = computed(() =>
+  (sectionsStore.sections || []).map(s => s.name).sort()
 );
 
-// --- Chart Specific Computeds ---
-const allSectionsInFiltered = computed(() => Array.from(new Set(filtered.value.map(f => f.section?.name))).filter(name => name).sort());
-
-function countBy(sectionName, status) {
-  return filtered.value.filter(f => f.section?.name === sectionName && f.current_status === status).length;
-}
-
-const statusBySection = computed(() => {
-  const labels = allSectionsInFiltered.value;
-  const active = labels.map(s => countBy(s, 'Active'));
-  const resolved = labels.map(s => countBy(s, 'Resolved'));
-
-  return {
-    labels,
-    datasets: [
-      { label: 'Active', data: active, borderRadius: 6 },
-      { label: 'Resolved', data: resolved, borderRadius: 6 },
-    ],
-  };
-});
-
-function buildBuckets() {
-  const now = new Date();
-  const start = new Date(startTs.value);
-  const ends = [];
-  const labels = [];
-  if (filters.value.range === 'today') {
-    for (const h of [0, 4, 8, 12, 16, 20, 23]) {
-      const t = new Date(start);
-      t.setHours(h, 59, 59, 999);
-      if (t.getTime() <= now.getTime() + 3 * 3600 * 1000) {
-        ends.push(t.getTime());
-        labels.push(new Date(t).toLocaleTimeString([], { hour: '2-digit' }));
-      }
-    }
-  } else {
-    const d = new Date(start);
-    while (d.getTime() <= now.getTime()) {
-      const end = new Date(d);
-      end.setHours(23, 59, 59, 999);
-      ends.push(end.getTime());
-      labels.push(d.toLocaleDateString([], { month: 'short', day: '2-digit' }));
-      d.setDate(d.getDate() + 1);
-    }
-  }
-  return { ends, labels };
-}
-
-const resolvedOverTime = computed(() => {
-  if (!filters.value.status.includes('Resolved')) {
-    return { labels: [''], datasets: [{ label: 'Resolved', data: [0] }] };
-  }
-  const { ends, labels } = buildBuckets();
-  const times = filtered.value
-    .filter(f => f.current_status === 'Resolved' && f.resolved_at)
-    .map(f => toMs(f.resolved_at))
-    .filter(ts => ts && ts >= startTs.value)
-    .sort((a, b) => a - b);
-
-  const cum = [];
-  let i = 0;
-  for (const end of ends) {
-    while (i < times.length && times[i] <= end) i++;
-    cum.push(i);
-  }
-
-  const per = cum.map((v, idx) => (idx === 0 ? v : v - cum[idx - 1]));
-  const series = cumulativeMode.value ? cum : per;
-  const primary = borderColor('Resolved');
-
-  return {
-    labels,
-    datasets: [{
-      label: cumulativeMode.value ? 'Resolved (cumulative)' : 'Resolved (per interval)',
-      data: series,
-      tension: 0.3,
-      fill: true,
-      borderColor: primary,
-      backgroundColor: withAlpha(primary, 0.2),
-    }],
-  };
+const kpis = computed(() => {
+  const data = dashboardStore.data?.kpis;
+  return [
+    { label: 'Active Failures', value: formatInt(data?.active_failures), sublabel: 'in range' },
+    { label: 'Resolved', value: formatInt(data?.resolved_in_range), sublabel: 'in range' },
+    { label: 'Avg Resolution Time', value: data?.avg_resolution_time || '—', sublabel: 'for range' },
+    { label: 'Critical Alerts', value: formatInt(data?.critical_alerts), sublabel: 'filtered' },
+  ];
 });
 
 const hasBarData = computed(() => {
@@ -242,56 +117,57 @@ const rangeLabel = computed(() =>
   filters.value.range === '7d' ? 'last 7 days' : 'last 30 days'
 );
 
-// --- Action Methods ---
-function openDetails(item) {
-  activeItem.value = item;
-  drawerOpen.value = true;
-}
+const statusBySection = computed(() => {
+  const chartData = dashboardStore.data?.charts?.status_by_section || [];
+  const topData = topNMode.value ? chartData.slice(0, topN.value) : chartData;
+  const labels = topData.map(item => item.section__name);
+  return {
+    labels,
+    datasets: [
+      { label: 'Active', data: topData.map(item => item.active), borderRadius: 6 },
+      { label: 'Resolved', data: topData.map(item => item.resolved), borderRadius: 6 },
+    ],
+  };
+});
 
-function handleEdit(id) {
-    router.push(`/failures/edit/${id}`);
-}
+const resolvedOverTime = computed(() => {
+  const chartData = dashboardStore.data?.charts?.resolved_over_time || [];
+  const labels = chartData.map(item => new Date(item.date).toLocaleDateString([], { month: 'short', day: '2-digit' }));
+  const data = chartData.map(item => item.count);
 
-function refresh() {
-  isLoading.value = true;
-  Promise.all([
-    failureStore.fetchFailures(),
-    infrastructureStore.fetchSections(),
-  ]).finally(() => {
-    setTimeout(() => {
-      lastUpdated.value = Date.now();
-      isLoading.value = false;
-    }, 600);
-  });
-}
+  const series = cumulativeMode.value
+    ? data.map((sum => value => sum += value)(0))
+    : data;
 
+  const primary = borderColor('Resolved');
+  return {
+    labels,
+    datasets: [{
+      label: cumulativeMode.value ? 'Resolved (cumulative)' : 'Resolved (per interval)',
+      data: series,
+      tension: 0.3,
+      fill: true,
+      borderColor: primary,
+      backgroundColor: withAlpha(primary, 0.2),
+    }],
+  };
+});
+
+const recent = computed(() => recentFailuresStore.items);
+
+// --- Other methods that can remain ---
+function openDetails(item) { activeItem.value = item; drawerOpen.value = true; }
+function handleEdit(id) { router.push(`/failures/edit/${id}`); }
+function openNotifyModal(row) { failureToNotify.value = row; isNotifyModalOpen.value = true; }
+function stopTimer() { if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; } }
 function startTimer() {
-  stopTimer();
-  if (autoRefresh.value) {
-    refreshTimer = setInterval(refresh, Number(intervalMs.value) || 30000);
-  }
+    stopTimer();
+    if (autoRefresh.value) {
+        refreshTimer = setInterval(fetchData, Number(intervalMs.value) || 30000);
+    }
 }
-
-function stopTimer() {
-  if (refreshTimer) {
-    clearInterval(refreshTimer);
-    refreshTimer = null;
-  }
-}
-
-function resetFilters() {
-    filters.value = { 
-        range: '30d', 
-        status: ['Active','In Progress','Resolved','On Hold'], 
-        sections: [] 
-    };
-    lastUpdated.value = Date.now();
-}
-
-// --- Watchers ---
 watch([autoRefresh, intervalMs], startTimer);
 watch(split, v => localStorage.setItem('dashSplit', String(v)));
-
 </script>
 
 <template>

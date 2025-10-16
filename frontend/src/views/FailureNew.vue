@@ -2,8 +2,9 @@
 import { reactive, ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUIStore } from '@/stores/ui'
-import { useInfrastructureStore } from '@/stores/infrastructure'
+import { useSectionsStore } from '@/stores/sections';
 import { useFailureStore } from '@/stores/failures'
+import { useRecentFailuresStore } from '@/stores/recentFailures';
 import { useTelegramStore } from '@/stores/telegram'
 import { useAttachmentStore } from '@/stores/attachments'
 import FailureForm from '@/components/FailureForm.vue'
@@ -22,8 +23,9 @@ function toLocalISOString(date) {
 
 // Initialize Stores
 const ui = useUIStore();
-const infrastructureStore = useInfrastructureStore();
+const sectionsStore = useSectionsStore();
 const failureStore = useFailureStore();
+const recentFailuresStore = useRecentFailuresStore();
 const telegramStore = useTelegramStore();
 const attachmentStore = useAttachmentStore();
 const router = useRouter();
@@ -52,7 +54,7 @@ onMounted(() => {
     infrastructureStore.fetchSections(),
     infrastructureStore.fetchSubSections(),
     infrastructureStore.fetchSupervisors(),
-    failureStore.fetchFailures(),
+    recentFailuresStore.fetchRecentFailures(),
     telegramStore.fetchTelegramGroups(),
   ]).catch(error => {
     console.error("Failed to load initial form data:", error);
@@ -70,6 +72,8 @@ const options = computed(() => ({
   supervisors: infrastructureStore.supervisors.map(s => ({ label: s.name, value: s.id })),
   statuses: [ { label: 'Active', value: 'Active' }, { label: 'In Progress', value: 'In Progress' }, { label: 'Resolved', value: 'Resolved' }, { label: 'On Hold', value: 'On Hold' }, { label: 'Information', value: 'Information' }],
 }));
+
+const recentFailures = computed(() => recentFailuresStore.items)
 
 async function handleEditRequest(id) {
   await initialDataLoadPromise;
@@ -188,7 +192,7 @@ function onDragEnd() { dragging.value = false; window.removeEventListener('mouse
       <div class="flex flex-col" :style="{ width: 100 - split + '%' }">
         <h2 class="text-xl font-semibold leading-tight mb-4">Recent Failure Logs</h2>
         <RecentFailures
-          :items="failureStore.failures"
+          :items="recentFailures"
           storage-key="rf-newfailure"
           :editing-id="editingFailureId"
           :show-header="false"

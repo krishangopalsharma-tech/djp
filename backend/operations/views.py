@@ -1,11 +1,11 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from infrastructure.models import Supervisor
+from supervisors.models import Supervisor
 from .models import SupervisorMovement
 from .serializers import SupervisorMovementSerializer, SupervisorWithMovementSerializer
 from datetime import datetime
-from notifications.models import TelegramGroup
+from telegram_notifications.models import TelegramGroup
 
 import io
 from reportlab.lib.enums import TA_CENTER

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from infrastructure.models import Supervisor
+from supervisors.models import Supervisor
 from .models import SupervisorMovement
 class SupervisorMovementSerializer(serializers.ModelSerializer):
     class Meta:
@@ -11,11 +11,16 @@ class SupervisorWithMovementSerializer(serializers.ModelSerializer):
     Serializes a Supervisor and nests their movement for a specific day.
     """
     movement = SupervisorMovementSerializer(read_only=True)
-    depot_name = serializers.CharField(source='depot.name', read_only=True, allow_null=True)
+    depot_display = serializers.SerializerMethodField()
 
     class Meta:
         model = Supervisor
         fields = [
-            'id', 'name', 'designation', 'depot_name',
+            'id', 'name', 'designation', 'depot_display',
             'movement' # This will be our nested movement data
         ]
+    
+    def get_depot_display(self, obj):
+        if obj.depot:
+            return obj.depot.code if obj.depot.code else obj.depot.name
+        return None

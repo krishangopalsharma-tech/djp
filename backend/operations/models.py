@@ -1,6 +1,6 @@
 from django.db import models
 from core.models import TimestampedModel
-from infrastructure.models import Supervisor
+from supervisors.models import Supervisor
 
 class SupervisorMovement(TimestampedModel):
     date = models.DateField()

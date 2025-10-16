@@ -1,12 +1,12 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
 import { useSupervisorMovementsStore } from '@/stores/supervisorMovements';
-import { useInfrastructureStore } from '@/stores/infrastructure';
+import { useSectionsStore } from '@/stores/sections';
 import { Save, Send } from 'lucide-vue-next';
 
 // --- Store Setup ---
 const movementsStore = useSupervisorMovementsStore();
-const infrastructureStore = useInfrastructureStore();
+const sectionsStore = useSectionsStore();
 
 // --- State ---
 const today = new Date().toISOString().slice(0, 10);
@@ -159,7 +159,7 @@ async function handleSendReport() {
           </colgroup>
           <thead>
             <tr class="text-left border-b border-app/40">
-              <th @click="toggleSort('depot_name')" class="py-2.5 px-3 cursor-pointer select-none">Depot <span v-if="sortKey === 'depot_name'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
+              <th @click="toggleSort('depot_display')" class="py-2.5 px-3 cursor-pointer select-none">Depot <span v-if="sortKey === 'depot_display'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
               <th @click="toggleSort('name')" class="py-2.5 px-3 cursor-pointer select-none">Name <span v-if="sortKey === 'name'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
               <th @click="toggleSort('designation')" class="py-2.5 px-3 cursor-pointer select-none">Designation <span v-if="sortKey === 'designation'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
               <th @click="toggleSort('location')" class="py-2.5 px-3 cursor-pointer select-none">Location <span v-if="sortKey === 'location'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
@@ -170,7 +170,7 @@ async function handleSendReport() {
           </thead>
           <tbody>
             <tr v-for="row in sortedData" :key="row.id" class="border-t border-app/30">
-              <td class="py-2 px-3 align-top font-semibold">{{ row.depot_name || 'N/A' }}</td>
+              <td class="py-2 px-3 align-top font-semibold">{{ row.depot_display || 'N/A' }}</td>
               <td class="py-2 px-3 align-top">{{ row.name }}</td>
               <td class="py-2 px-3 align-top text-muted">{{ row.designation }}</td>
               <td class="py-2 px-3 align-top">

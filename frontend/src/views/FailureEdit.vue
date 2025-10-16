@@ -2,7 +2,7 @@
 import { ref, reactive, onMounted, computed, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useFailureStore } from '@/stores/failures';
-import { useInfrastructureStore } from '@/stores/infrastructure';
+import { useSectionsStore } from '@/stores/sections';
 import { useUIStore } from '@/stores/ui';
 import FailureForm from '@/components/FailureForm.vue';
 import Spinner from '@/components/ui/Spinner.vue';
@@ -20,7 +20,7 @@ function toLocalISOString(date) {
 const route = useRoute();
 const router = useRouter();
 const failureStore = useFailureStore();
-const infrastructureStore = useInfrastructureStore();
+const sectionsStore = useSectionsStore();
 const ui = useUIStore();
 
 const failureId = route.params.id;

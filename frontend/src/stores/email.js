@@ -84,7 +84,7 @@ export const useEmailStore = defineStore('email', {
       this.loading = true;
       const uiStore = useUIStore();
       try {
-        const response = await http.post('/notifications/settings/email/test/', { to_email: toEmail });
+        const response = await http.post('/email/settings/test/', { to_email: toEmail });
         uiStore.pushToast({ type: 'success', title: 'Success', message: response.data.message });
       } catch (err) {
         const message = err.response?.data?.error || 'An unknown error occurred.';

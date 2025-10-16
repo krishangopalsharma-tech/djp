@@ -21,15 +21,26 @@ INSTALLED_APPS = [
     "corsheaders",
     "django_extensions",
     "debug_toolbar",
-    # Local apps (Corrected)
+    # Local apps
     "core.apps.CoreConfig",
     "users.apps.UsersConfig",
     "failures.apps.FailuresConfig",
-    "reports.apps.ReportsConfig",
-    "infrastructure.apps.InfrastructureConfig", # Add this
-    "notifications.apps.NotificationsConfig", # Add this
-    "analytics.apps.AnalyticsConfig",         # Add this
     "operations.apps.OperationsConfig",
+    "analytics.apps.AnalyticsConfig",
+    # Refactored apps
+    "archive.apps.ArchiveConfig",
+    "circuits.apps.CircuitsConfig",
+    "dashboard.apps.DashboardConfig",
+    "depots.apps.DepotsConfig",
+    "email_notifications.apps.EmailNotificationsConfig",
+    "failure_config.apps.FailureConfigConfig",
+    "logbook.apps.LogbookConfig",
+    "recent_failures.apps.RecentFailuresConfig",
+    "reports.apps.ReportsConfig",
+    "sections.apps.SectionsConfig",
+    "stations.apps.StationsConfig",
+    "supervisors.apps.SupervisorsConfig",
+    "telegram_notifications.apps.TelegramNotificationsConfig",
 ]
 
 MIDDLEWARE = [
