@@ -24,9 +24,9 @@ urlpatterns = [
     path("api/v1/sections/", include("sections.urls")),
     path("api/v1/stations/", include("stations.urls")),
     path("api/v1/supervisors/", include("supervisors.urls")),
-    path("api/v1/depots/", include("depots.urls")),
+    path("api/v1/", include("depots.urls")),
     path("api/v1/circuits/", include("circuits.urls")),
-    path("api/v1/archive/", include("archive.urls")), # <-- ADD THIS LINE
+    path("api/v1/archive/", include("archive.urls"))
 ]
 if settings.DEBUG:
     urlpatterns += [
