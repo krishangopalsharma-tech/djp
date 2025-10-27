@@ -42,12 +42,39 @@ export const useDepotsStore = defineStore('depots', {
       this.loading = true;
       const uiStore = useUIStore();
       try {
-        await http.patch(`/depots/${id}/`, payload); // CORRECTED PATH
+        const updateData = {
+          name: payload.name,
+          code: payload.code,
+          location: payload.location,
+        };
+        await http.patch(`/depots/${id}/`, updateData);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Depot updated.' });
         await this.fetchDepots();
       } catch (err) {
-        this.error = 'Failed to update depot.';
-        uiStore.pushToast({ type: 'error', title: 'Error', message: this.error });
+        this.error = 'Failed to update depot.'; // Keep a generic error state
+
+        // --- IMPROVED ERROR HANDLING ---
+        let errorDetail = 'An unknown error occurred.';
+        if (err.response && err.response.data) {
+            // DRF validation errors are often objects where keys are field names
+            if (typeof err.response.data === 'object') {
+                errorDetail = Object.entries(err.response.data)
+                    .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
+                    .join('; ');
+            } else {
+                // Fallback for non-field errors or simple strings
+                errorDetail = String(err.response.data.detail || err.response.data);
+            }
+        } else if (err.message) {
+            errorDetail = err.message;
+        }
+        
+        // Log the detailed error to the console
+        console.error("Update Depot Error:", err.response?.data || err);
+
+        // Show the detailed error in the toast
+        uiStore.pushToast({ type: 'error', title: 'Update Failed', message: errorDetail });
+
       } finally {
         this.loading = false;
       }
@@ -88,9 +115,13 @@ export const useDepotsStore = defineStore('depots', {
         this.loading = true;
         const uiStore = useUIStore();
         try {
-            const response = await http.get('/depots/depots/export-excel/', { // CORRECTED PATH
-                responseType: 'blob',
+            // --- FIX: CORRECTED URL PATH ---
+            // Ensure it calls /depots/export_to_excel/ (relative to the base /api/v1/)
+            const response = await http.get('/depots/export_to_excel/', {
+                responseType: 'blob', // Keep this for file handling
             });
+
+            // ... (rest of the download logic remains the same) ...
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
             link.href = url;
@@ -102,6 +133,7 @@ export const useDepotsStore = defineStore('depots', {
             uiStore.pushToast({ type: 'success', title: 'Success', message: 'Depot data export started.' });
         } catch (err) {
             uiStore.pushToast({ type: 'error', title: 'Error', message: 'Failed to download depot data.' });
+            console.error("Download Error:", err); // Log the error for debugging
         } finally {
             this.loading = false;
         }

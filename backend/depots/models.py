@@ -19,6 +19,7 @@ class Equipment(TimestampedModel):
     asset_id = models.CharField(max_length=100, blank=True, help_text="Asset / Serial ID")
     location_in_depot = models.CharField(max_length=150, blank=True, help_text="Location within the Depot")
     notes = models.TextField(blank=True)
+    quantity = models.PositiveIntegerField(default=1, null=True, blank=True) # Add quantity field
 
     def __str__(self):
         return f"{self.name} ({self.depot.name})"
