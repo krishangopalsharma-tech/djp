@@ -1,8 +1,6 @@
 <script setup>
 import { ref, watch, computed } from 'vue';
 import { useAttachmentStore } from '@/stores/attachments';
-import { http } from '@/lib/http';
-import { useUIStore } from '@/stores/ui';
 import { Trash2 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -13,14 +11,11 @@ const props = defineProps({
 });
 
 const attachmentStore = useAttachmentStore();
-const uiStore = useUIStore();
 const attachments = computed(() => attachmentStore.attachments);
 
 const fileInput = ref(null);
 const selectedFile = ref(null);
 const description = ref('');
-const isLoading = ref(false);
-const selectedGroupKeys = ref(['files']); // Default 'files' group is selected
 
 watch(() => props.failureId, (newId) => {
   if (newId) {
@@ -34,36 +29,15 @@ function handleFileSelect(event) {
 
 async function handleUpload() {
   if (!selectedFile.value || !props.failureId) {
-    uiStore.pushToast({ type: 'error', title: 'Missing File', message: 'Please select a file to upload.' });
     return;
   }
+  await attachmentStore.uploadAttachment(props.failureId, selectedFile.value, description.value);
 
-  const formData = new FormData();
-  formData.append('failure_id', props.failureId);
-  formData.append('file', selectedFile.value);
-  formData.append('group_keys', JSON.stringify(selectedGroupKeys.value));
-
-  isLoading.value = true;
-  try {
-    // Use the new, direct-send endpoint
-    await http.post('/failures/send-attachment-to-telegram/', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-
-    uiStore.pushToast({ type: 'success', title: 'Success', message: 'File sent to Telegram.' });
-
-    // Reset the form
-    selectedFile.value = null;
-    if (fileInput.value) {
-      fileInput.value.value = '';
-    }
-
-  } catch (err) {
-    const message = err.response?.data?.error || 'Could not send file to Telegram.';
-    uiStore.pushToast({ type: 'error', title: 'Upload Failed', message });
-    console.error(err);
-  } finally {
-    isLoading.value = false;
+  // Reset form
+  selectedFile.value = null;
+  description.value = '';
+  if (fileInput.value) {
+    fileInput.value.value = '';
   }
 }
 
@@ -96,22 +70,14 @@ function getFileUrl(fileUrl) {
               <input type="file" ref="fileInput" @change="handleFileSelect" class="text-sm" />
             </div>
             <div class="self-end">
-              <button @click="handleUpload" :disabled="!selectedFile || isLoading || selectedGroupKeys.length === 0" class="btn btn-secondary">
-                {{ isLoading ? 'Uploading...' : 'Upload to Telegram' }}
+              <button @click="handleUpload" :disabled="!selectedFile || attachmentStore.loading" class="btn btn-secondary">
+                {{ attachmentStore.loading ? 'Uploading...' : 'Upload' }}
               </button>
             </div>
         </div>
-
-        <div class="flex items-center gap-4 pt-2">
-            <span class="text-sm font-medium">Send to:</span>
-            <label class="flex items-center gap-2">
-                <input type="checkbox" value="alert" v-model="selectedGroupKeys" class="h-4 w-4 rounded" />
-                <span>Alerts Group</span>
-            </label>
-            <label class="flex items-center gap-2">
-                <input type="checkbox" value="files" v-model="selectedGroupKeys" class="h-4 w-4 rounded" />
-                <span>Files Group</span>
-            </label>
+        <div>
+          <label class="block text-sm font-medium mb-1">Description (Optional)</label>
+          <input type="text" v-model="description" placeholder="e.g., 'Photo of damaged cable'" class="input w-full text-sm">
         </div>
       </div>
 

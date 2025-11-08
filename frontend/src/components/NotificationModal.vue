@@ -17,8 +17,8 @@ async function sendNotification() {
   if (!props.failure) {
     return;
   }
-  // Directly send to the 'alert' group
-  await failureStore.sendFailureNotification(props.failure.id, ['alert']);
+  // THE FIX: Hard-code 'alerts' plural
+  await failureStore.sendFailureNotification(props.failure.id, ['alerts']);
   close();
 }
 </script>

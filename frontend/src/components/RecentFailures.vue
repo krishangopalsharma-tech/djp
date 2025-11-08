@@ -38,7 +38,7 @@ const props = defineProps({
   editingId: { type: [String, Number], default: null },
 })
 
-const emit = defineEmits(['view', 'edit', 'delete'])
+const emit = defineEmits(['view', 'edit', 'delete', 'notify'])
 
 const q = ref('')
 const status = ref('all')
@@ -217,11 +217,10 @@ function exportToPdf() {
 
 <template>
   <div class="space-y-4">
-    <div v-if="showHeader">
-      <h2 class="text-xl font-semibold leading-tight">Recent Failure Logs</h2>
-    </div>
-
     <div class="rounded-2xl border-app bg-card text-app p-4">
+      <div v-if="showHeader" class="pb-3 mb-3 border-b border-app">
+        <h2 class="text-xl font-semibold leading-tight">Recent Failure Logs</h2>
+      </div>
       <div v-if="showToolbar" class="p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between flex-wrap gap-2">
         <div class="chip-group">
           <button

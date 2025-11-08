@@ -152,7 +152,7 @@ class SendMovementReportView(APIView):
         caption = f"Supervisor Movement Report for {target_date.strftime('%d-%b-%Y')}"
 
         try:
-            groups_to_send = ['alert', 'reports']
+            groups_to_send = ['alerts', 'reports']
             for group_key in groups_to_send:
                 tg_group = TelegramGroup.objects.get(key=group_key)
                 tg_group.send_document(pdf_buffer, pdf_filename, caption)

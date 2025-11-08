@@ -1,5 +1,10 @@
 from django.db import models
 from core.models import TimestampedModel
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from telegram_notifications.models import TelegramGroup
+from telegram_notifications.bot import send_telegram_document
+from xml.sax.saxutils import escape
 
 def attachment_upload_path(instance, filename):
     return f'attachments/failures/{instance.failure.fail_id}/{filename}'
@@ -30,3 +35,33 @@ class FailureAttachment(TimestampedModel):
     file = models.FileField(upload_to=attachment_upload_path)
     description = models.CharField(max_length=255, blank=True)
     uploaded_by = models.ForeignKey('users.User', on_delete=models.SET_NULL, null=True, blank=True)
+
+@receiver(post_save, sender=FailureAttachment)
+def on_attachment_saved(sender, instance, created, **kwargs):
+    if created:
+        try:
+            # Send to 'alerts' group by default
+            group = TelegramGroup.objects.get(key='alerts')
+            if group.chat_id:
+                failure = instance.failure
+                caption_lines = [
+                    f"<b>📎 Attachment Added to Event {escape(failure.fail_id)}</b>",
+                    f"<b>Circuit:</b> {escape(failure.circuit.circuit_id if failure.circuit else 'N/A')}",
+                    f"<b>Station:</b> {escape(failure.station.name if failure.station else 'N/A')}",
+                ]
+                if instance.description:
+                    caption_lines.append(f"\n<b>Description:</b> {escape(instance.description)}")
+
+                caption = "\n".join(caption_lines)
+
+                # Open the file in binary read mode
+                with instance.file.open('rb') as f:
+                    send_telegram_document(
+                        chat_id=group.chat_id,
+                        document=f,
+                        caption=caption
+                    )
+        except TelegramGroup.DoesNotExist:
+            print(f"Telegram group 'alerts' not found. Cannot send attachment notification.")
+        except Exception as e:
+            print(f"Error sending attachment to Telegram: {e}")

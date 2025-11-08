@@ -151,7 +151,7 @@ async function submit() {
         resetForm();
 
         if (savedFailure.current_status !== 'Information') {
-             await failureStore.sendFailureNotification(savedFailure.id, ['alert']);
+             await failureStore.sendFailureNotification(savedFailure.id, ['alerts']);
              ui.pushToast({ type: 'info', title: 'Notified', message: 'Alert notification sent.' });
         }
     }
@@ -176,12 +176,10 @@ function onDragEnd() { dragging.value = false; window.removeEventListener('mouse
         <h2 class="text-xl font-semibold leading-tight mb-4">{{ isEditMode ? `Editing Entry #${form.fail_id}` : 'New Logbook Entry' }}</h2>
         <div class="card">
           <FailureForm v-model="form" :options="options" :errors="errors" :is-edit-mode="isEditMode" />
-          <div class="sm:col-span-2 flex items-center justify-between pt-4 mt-4 border-t border-app">
-            <div :class="{'invisible': isEditMode}">
-                </div>
+          <div class="sm:col-span-2 flex items-center justify-end pt-4 mt-4 border-t border-app">
             <div class="flex gap-3">
-              <button type="button" class="btn btn-outline" @click="resetForm">{{ isEditMode ? 'Cancel Edit' : 'Reset' }}</button>
-              <button type="button" class="btn btn-primary" @click="submit">{{ isEditMode ? 'Save Changes' : 'Submit & Notify' }}</button>
+              <button type="button" class="btn btn-outline" @click="resetForm">{{ editingFailureId ? 'Cancel Edit' : 'Reset Form' }}</button>
+              <button type="button" class="btn btn-primary" @click="submit">{{ editingFailureId ? 'Save Changes' : 'Submit' }}</button>
             </div>
           </div>
         </div>
