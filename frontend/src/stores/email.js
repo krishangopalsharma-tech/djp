@@ -27,11 +27,14 @@ export const useEmailStore = defineStore('email', {
       this.error = null;
       const uiStore = useUIStore();
       try {
-        const response = await http.get('/notifications/settings/email/');
-        const recipients = response.data.recipients || {};
+        // FIXED: URL must match backend router
+        const response = await http.get('/email/settings/email/');
+        
+        const data = response.data;
+        const recipients = data.recipients || {};
         // Ensure recipients object and its arrays exist
         this.settings = {
-          ...response.data,
+          ...data,
           recipients: {
             to: recipients.to || [],
             cc: recipients.cc || [],
@@ -57,7 +60,9 @@ export const useEmailStore = defineStore('email', {
           delete payload.password;
         }
         
-        const response = await http.put('/notifications/settings/email/', payload);
+        // FIXED: URL must be PUT to /email/settings/email/1/
+        const response = await http.put('/email/settings/email/1/', payload);
+        
         const recipients = response.data.recipients || {};
         this.settings = {
           ...response.data,
@@ -67,6 +72,7 @@ export const useEmailStore = defineStore('email', {
             bcc: recipients.bcc || [],
           }
         };
+        this.settings.password = '';
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Email settings saved.' });
       } catch (err) {
         this.error = 'Failed to save email settings.';
@@ -84,7 +90,8 @@ export const useEmailStore = defineStore('email', {
       this.loading = true;
       const uiStore = useUIStore();
       try {
-        const response = await http.post('/email/settings/test/', { to_email: toEmail });
+        // FIXED: URL must be /email/settings/email/test/
+        const response = await http.post('/email/settings/email/test/', { to_email: toEmail });
         uiStore.pushToast({ type: 'success', title: 'Success', message: response.data.message });
       } catch (err) {
         const message = err.response?.data?.error || 'An unknown error occurred.';
@@ -96,4 +103,3 @@ export const useEmailStore = defineStore('email', {
     }
   },
 });
-

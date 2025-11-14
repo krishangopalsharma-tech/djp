@@ -1,10 +1,8 @@
-from django.db import models
+# Path: backend/failures/models.py
+from django.db import models, transaction
+from django.utils import timezone
 from core.models import TimestampedModel
-from django.db.models.signals import post_save
-from django.dispatch import receiver
-from telegram_notifications.models import TelegramGroup
-from telegram_notifications.bot import send_telegram_document
-from xml.sax.saxutils import escape
+from failure_config.models import FailureIDSettings # <-- 1. IMPORT SETTINGS
 
 def attachment_upload_path(instance, filename):
     return f'attachments/failures/{instance.failure.fail_id}/{filename}'
@@ -29,39 +27,42 @@ class Failure(TimestampedModel):
     sub_section = models.ForeignKey('sections.SubSection', on_delete=models.CASCADE, null=True, blank=True)
     assigned_to = models.ForeignKey('users.User', on_delete=models.SET_NULL, null=True, blank=True)
 
+    def save(self, *args, **kwargs):
+        if not self.fail_id: # Only generate an ID if it's a new record
+            with transaction.atomic():
+                # Lock the settings row to prevent race conditions
+                settings = FailureIDSettings.objects.select_for_update().get(pk=1)
+                now = timezone.now()
+                
+                # Check if we need to reset the counter
+                if settings.reset_cycle == 'yearly' and now.year != settings.last_reset_date.year:
+                    settings.last_number = 0
+                    settings.last_reset_date = now.date()
+                elif settings.reset_cycle == 'monthly' and (now.month != settings.last_reset_date.month or now.year != settings.last_reset_date.year):
+                    settings.last_number = 0
+                    settings.last_reset_date = now.date()
+                
+                # Increment the counter
+                settings.last_number += 1
+                settings.save()
+                
+                # Format the new ID
+                number_str = str(settings.last_number).zfill(settings.padding_digits)
+                prefix = settings.prefix
+                
+                date_part = ""
+                if settings.reset_cycle == 'yearly':
+                    date_part = f"-{now.year}"
+                elif settings.reset_cycle == 'monthly':
+                    date_part = f"-{now.year}{now.month:02d}"
+                
+                self.fail_id = f"{prefix}{date_part}-{number_str}"
+        
+        super(Failure, self).save(*args, **kwargs)
+
 
 class FailureAttachment(TimestampedModel):
     failure = models.ForeignKey(Failure, on_delete=models.CASCADE, related_name='attachments')
     file = models.FileField(upload_to=attachment_upload_path)
     description = models.CharField(max_length=255, blank=True)
     uploaded_by = models.ForeignKey('users.User', on_delete=models.SET_NULL, null=True, blank=True)
-
-@receiver(post_save, sender=FailureAttachment)
-def on_attachment_saved(sender, instance, created, **kwargs):
-    if created:
-        try:
-            # Send to 'alerts' group by default
-            group = TelegramGroup.objects.get(key='alerts')
-            if group.chat_id:
-                failure = instance.failure
-                caption_lines = [
-                    f"<b>📎 Attachment Added to Event {escape(failure.fail_id)}</b>",
-                    f"<b>Circuit:</b> {escape(failure.circuit.circuit_id if failure.circuit else 'N/A')}",
-                    f"<b>Station:</b> {escape(failure.station.name if failure.station else 'N/A')}",
-                ]
-                if instance.description:
-                    caption_lines.append(f"\n<b>Description:</b> {escape(instance.description)}")
-
-                caption = "\n".join(caption_lines)
-
-                # Open the file in binary read mode
-                with instance.file.open('rb') as f:
-                    send_telegram_document(
-                        chat_id=group.chat_id,
-                        document=f,
-                        caption=caption
-                    )
-        except TelegramGroup.DoesNotExist:
-            print(f"Telegram group 'alerts' not found. Cannot send attachment notification.")
-        except Exception as e:
-            print(f"Error sending attachment to Telegram: {e}")

@@ -4,8 +4,6 @@ from rest_framework.decorators import action
 from django.utils import timezone
 from .models import Failure, FailureAttachment
 from .serializers import FailureSerializer, FailureAttachmentSerializer
-from rest_framework.parsers import MultiPartParser, FormParser
-from xml.sax.saxutils import escape
 
 # --- START OF FIX: Add imports for Telegram ---
 from telegram_notifications.bot import send_telegram_message
@@ -19,7 +17,7 @@ class FailureViewSet(viewsets.ModelViewSet):
     """
     queryset = Failure.objects.filter(is_archived=False).order_by('-reported_at')
     serializer_class = FailureSerializer
-    permission_classes = [permissions.AllowAny] # Use AllowAny for dev
+    permission_classes = [permissions.AllowAny]  # Use AllowAny for dev
     filterset_fields = ['current_status', 'severity', 'circuit', 'station', 'section', 'assigned_to']
     search_fields = ['fail_id', 'circuit__name', 'station__name', 'remark_fail']
 
@@ -88,21 +86,21 @@ class FailureViewSet(viewsets.ModelViewSet):
         try:
             message_lines = [
                 "<b>🔔 Failure Notification 🔔</b>",
-                f"<b>Event ID:</b> {escape(str(failure.fail_id))}",
+                f"<b>Event ID:</b> {failure.fail_id}",
             ]
             if failure.circuit:
-                message_lines.append(f"<b>Circuit:</b> {escape(str(failure.circuit.circuit_id))} ({escape(failure.circuit.name)})")
+                message_lines.append(f"<b>Circuit:</b> {failure.circuit.circuit_id} ({failure.circuit.name})")
             if failure.station:
-                message_lines.append(f"<b>Station:</b> {escape(failure.station.name)}")
+                message_lines.append(f"<b>Station:</b> {failure.station.name}")
             if failure.section:
-                message_lines.append(f"<b>Section:</b> {escape(failure.section.name)}")
+                message_lines.append(f"<b>Section:</b> {failure.section.name}")
             
-            message_lines.append(f"<b>Reported:</b> {escape(failure.reported_at.strftime('%d-%m-%Y %H:%M'))}")
-            message_lines.append(f"<b>Status:</b> {escape(failure.current_status)}")
-            message_lines.append(f"<b>Severity:</b> {escape(failure.severity)}")
+            message_lines.append(f"<b>Reported:</b> {failure.reported_at.strftime('%d-%m-%Y %H:%M')}")
+            message_lines.append(f"<b>Status:</b> {failure.current_status}")
+            message_lines.append(f"<b>Severity:</b> {failure.severity}")
             
             if failure.remark_fail:
-                message_lines.append(f"\n<b>Notes:</b> {escape(failure.remark_fail)}")
+                message_lines.append(f"\n<b>Notes:</b> {failure.remark_fail}")
             
             message = "\n".join(message_lines)
 
@@ -111,7 +109,7 @@ class FailureViewSet(viewsets.ModelViewSet):
 
             for key in group_keys:
                 try:
-                    group, created = TelegramGroup.objects.get_or_create(key=key, defaults={'name': f"{key.title()} Group"})
+                    group = TelegramGroup.objects.get(key=key)
                     if group.chat_id:
                         send_telegram_message(chat_id=group.chat_id, text=message)
                         sent_to.append(key)
@@ -140,8 +138,7 @@ class FailureAttachmentViewSet(viewsets.ModelViewSet):
     """
     API endpoint for Failure Attachments.
     """
-    parser_classes = [MultiPartParser, FormParser]
     queryset = FailureAttachment.objects.all()
     serializer_class = FailureAttachmentSerializer
-    permission_classes = [permissions.AllowAny] # Use AllowAny for dev
+    permission_classes = [permissions.AllowAny]  # Use AllowAny for dev
     filterset_fields = ['failure']

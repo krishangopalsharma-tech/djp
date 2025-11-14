@@ -1,18 +1,24 @@
+# Path: backend/users/serializers.py
 from rest_framework import serializers
 from .models import User
 
 class UserSerializer(serializers.ModelSerializer):
+    """Serializer for the custom User model."""
     class Meta:
         model = User
-        # Define the fields to be exposed in the API
-        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'role', 'designation', 'is_active', 'password')
-        # Make the password write-only so it is not sent back in API responses
+        fields = (
+            'id', 'username', 'email', 'first_name', 'last_name', 
+            'role', 'designation', 'phone_number', 'is_active', 'password'
+        )
         extra_kwargs = {
             'password': {'write_only': True, 'required': False}
         }
 
     def create(self, validated_data):
-        # Use Django's create_user method to ensure the password is properly hashed
+        """
+        Create a new user, ensuring the password is properly hashed.
+        """
+        # Use create_user to handle password hashing
         user = User.objects.create_user(
             username=validated_data['username'],
             email=validated_data.get('email', ''),
@@ -20,23 +26,26 @@ class UserSerializer(serializers.ModelSerializer):
             first_name=validated_data.get('first_name', ''),
             last_name=validated_data.get('last_name', ''),
             role=validated_data.get('role', 'viewer'),
-            designation=validated_data.get('designation', '')
+            designation=validated_data.get('designation', ''),
+            phone_number=validated_data.get('phone_number', '')
         )
         return user
 
     def update(self, instance, validated_data):
-        # Allow username (PF Number) to be updated
+        """
+        Update an existing user, with special handling for the password.
+        """
+        # Update standard fields
         instance.username = validated_data.get('username', instance.username)
-        
-        # Handle regular field updates
         instance.email = validated_data.get('email', instance.email)
         instance.first_name = validated_data.get('first_name', instance.first_name)
         instance.last_name = validated_data.get('last_name', instance.last_name)
         instance.role = validated_data.get('role', instance.role)
         instance.designation = validated_data.get('designation', instance.designation)
+        instance.phone_number = validated_data.get('phone_number', instance.phone_number)
         instance.is_active = validated_data.get('is_active', instance.is_active)
           
-        # Handle password updates separately to ensure hashing
+        # Update password if provided
         password = validated_data.get('password')
         if password:
             instance.set_password(password)

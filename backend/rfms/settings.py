@@ -6,7 +6,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-insecure-change-me")
 DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost", "192.168.3.240", "192.168.29.240"]
+ALLOWED_HOSTS = ["127.0.0.1", "localhost", "192.168.3.240", "192.168.3.230"]
 
 INSTALLED_APPS = [
     # Django
@@ -21,6 +21,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "django_extensions",
     "debug_toolbar",
+    "django_filters",
     # Local apps
     "core.apps.CoreConfig",
     "users.apps.UsersConfig",
@@ -93,7 +94,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Asia/Kolkata"
-USE_I18N = True
+USE_I1N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
@@ -106,6 +107,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
+    "DEFAULT_FILTER_BACKENDS": ["django_filters.rest_framework.DjangoFilterBackend"],
 }
 
 # CORS / CSRF for Vite (adjust for prod later)
@@ -118,7 +120,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://192.168.3.240:5173",
-    "http://192.168.29.240:5173",
+    "http://192.168.3.230:5173",
 ]
 
 AUTH_USER_MODEL = 'users.User'
@@ -127,12 +129,25 @@ AUTH_USER_MODEL = 'users.User'
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
 
 # Base URL for the frontend application, used for generating links in notifications
-FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://192.168.3.240:5173")
+FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://192.168.3.230:5173")
 
 INTERNAL_IPS = [
     "127.0.0.1",
-    "192.168.3.111", # <-- Add your computer's IP here
+    "192.168.3.111", # &lt;-- Add your computer's IP here
     "192.168.3.33",
-    "192.168.3.17",
-    "192.168.3.240", # <-- ADD THIS LINE
+    "192.168.3.230",
+    "192.168.3.240", # &lt;-- ADD THIS LINE
 ]
+
+# --- EMAIL CONFIGURATION ---
+# These are the settings that Django's send_mail function will use.
+# For a basic setup, you can hardcode them here.
+# For a dynamic setup, you'd need a custom email backend
+# that reads from the EmailSettings model.
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.example.com'  # Replace with your host
+EMAIL_PORT = 587                   # Replace with your port
+EMAIL_USE_TLS = True               # Use True for STARTTLS
+EMAIL_USE_SSL = False              # Use True for SSL/TLS
+EMAIL_HOST_USER = 'user@example.com' # Replace with your username
+EMAIL_HOST_PASSWORD = 'your-password' # Replace with your password

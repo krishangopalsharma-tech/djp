@@ -13,7 +13,7 @@
           this.loading = true;
           this.error = null;
           try {
-            const response = await http.get('/reports/schedules/');
+        const response = await http.get('/reports/');
             this.schedules = response.data.results || response.data;
           } catch (err) {
             this.error = 'Failed to fetch report schedules.';
@@ -23,40 +23,58 @@
           }
         },
         async addSchedule(payload) {
+      this.loading = true;
           const uiStore = useUIStore();
           try {
-            await http.post('/reports/schedules/', payload);
+        await http.post('/reports/', payload);
             uiStore.pushToast({ type: 'success', title: 'Success', message: 'Report schedule added.' });
             await this.fetchSchedules();
           } catch (err) {
             console.error('Failed to add schedule:', err);
-            uiStore.pushToast({ type: 'error', title: 'Error', message: 'Could not add report schedule.' });
+        const errorDetail = err.response?.data ? JSON.stringify(err.response.data) : 'Could not add schedule.';
+        uiStore.pushToast({ type: 'error', title: 'Error', message: errorDetail });
+      } finally {
+          this.loading = false;
           }
         },
         async updateSchedule(scheduleId, payload) {
+      this.loading = true;
           const uiStore = useUIStore();
-          // The backend now expects 'telegram_group_keys'
-          const apiPayload = { ...payload };
-          delete apiPayload.id; // Don't send the ID in the body of a PATCH request
+      
+      // The frontend uses 'telegram_group_keys', but the serializer expects 'telegram_groups'
+      const apiPayload = {
+        ...payload,
+        telegram_groups: payload.telegram_group_keys || [], // Rename key
+      };
+      // Clean up fields not in the backend model
+      delete apiPayload.id;
+      delete apiPayload.template_name;
+      delete apiPayload.telegram_group_keys;
 
           try {
-            await http.patch(`/reports/schedules/${scheduleId}/`, apiPayload);
+        await http.patch(`/reports/${scheduleId}/`, apiPayload);
             uiStore.pushToast({ type: 'success', title: 'Saved', message: 'Report schedule updated.' });
-            await this.fetchSchedules(); // Refresh list to get latest state
+        await this.fetchSchedules(); // Refresh list
           } catch (err) {
             console.error('Failed to update schedule:', err);
-            uiStore.pushToast({ type: 'error', title: 'Error', message: 'Could not update schedule.' });
+        const errorDetail = err.response?.data ? JSON.stringify(err.response.data) : 'Could not update schedule.';
+        uiStore.pushToast({ type: 'error', title: 'Error', message: errorDetail });
+      } finally {
+          this.loading = false;
           }
         },
         async removeSchedule(scheduleId) {
+      this.loading = true;
           const uiStore = useUIStore();
           try {
-            await http.delete(`/reports/schedules/${scheduleId}/`);
+        await http.delete(`/reports/${scheduleId}/`);
             uiStore.pushToast({ type: 'success', title: 'Deleted', message: 'Report schedule removed.' });
             await this.fetchSchedules();
           } catch (err) {
             console.error('Failed to remove schedule:', err);
             uiStore.pushToast({ type: 'error', title: 'Error', message: 'Could not remove schedule.' });
+      } finally {
+          this.loading = false;
           }
         },
         async uploadTemplate(scheduleId, file) {
@@ -65,11 +83,11 @@
           formData.append('template', file);
           this.loading = true;
           try {
-            await http.post(`/reports/schedules/${scheduleId}/upload_template/`, formData, {
+        await http.post(`/reports/${scheduleId}/upload_template/`, formData, {
               headers: { 'Content-Type': 'multipart/form-data' },
             });
             uiStore.pushToast({ type: 'success', title: 'Success', message: 'Template uploaded.' });
-            await this.fetchSchedules();
+        await this.fetchSchedules(); // Refresh to show new template name
           } catch (err) {
             console.error('Failed to upload template:', err);
             uiStore.pushToast({ type: 'error', title: 'Upload Failed', message: 'Could not upload template.' });

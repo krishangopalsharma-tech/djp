@@ -1,9 +1,12 @@
+# Path: backend/telegram_notifications/bot.py
 import telegram
 from .models import TelegramSettings
 import asyncio
 
 def get_bot_token():
-    """Fetches the bot token from the singleton settings."""
+    """
+    Fetches the bot token from the singleton settings.
+    """
     try:
         settings = TelegramSettings.objects.get(pk=1)
         return settings.bot_token
