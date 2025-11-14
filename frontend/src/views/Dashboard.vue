@@ -4,10 +4,11 @@ import { useRouter } from 'vue-router';
 import { useDashboardStore } from '@/stores/dashboard';
 import { useFailureStore } from '@/stores/failures';
 import { useRecentFailuresStore } from '@/stores/recentFailures';
-import { useSectionsStore } from '@/stores/sections';
+// --- START OF FIX ---
+import { useInfrastructureStore } from '@/stores/infrastructure';
+// --- END OF FIX ---
 import { useDebounce } from '@/composables/useDebounce';
 
-// Restore missing component imports
 import SplitPane from '@/components/SplitPane.vue';
 import KpiCard from '@/components/KpiCard.vue';
 import BarChart from '@/components/BarChart.vue';
@@ -24,10 +25,12 @@ import { withAlpha } from '@/lib/theme';
 const dashboardStore = useDashboardStore();
 const failureStore = useFailureStore();
 const recentFailuresStore = useRecentFailuresStore();
-const sectionsStore = useSectionsStore();
+// --- START OF FIX ---
+const infrastructureStore = useInfrastructureStore();
+// --- END OF FIX ---
 const router = useRouter();
 
-// --- Restore Missing UI Controls & State ---
+// --- UI Controls & State ---
 const topNMode = ref(true);
 const topN = ref(10);
 const autoRefresh = ref(false);
@@ -47,7 +50,7 @@ const split = ref(Number(localStorage.getItem('dashSplit') || 66));
 const isNotifyModalOpen = ref(false);
 const failureToNotify = ref(null);
 
-// --- Restore Missing Helper Functions ---
+// --- Helper Functions ---
 const nf = new Intl.NumberFormat('en-IN');
 const formatInt = n => (typeof n === 'number' ? nf.format(n) : n);
 function timeAgo(ts) {
@@ -62,11 +65,10 @@ function timeAgo(ts) {
   const d = Math.floor(h / 24);
   return `${d}d ago`;
 }
-// --- End of restored code ---
 
 const fetchData = useDebounce(() => {
     // We need to map section names to IDs for the API
-    const sectionNameToIdMap = new Map(sectionsStore.sections.map(s => [s.name, s.id]));
+    const sectionNameToIdMap = new Map(infrastructureStore.sections.map(s => [s.name, s.id]));
     const sectionIds = filters.value.sections.map(name => sectionNameToIdMap.get(name)).filter(id => id);
 
     dashboardStore.fetchDashboardData({ ...filters.value, sections: sectionIds });
@@ -75,7 +77,8 @@ const fetchData = useDebounce(() => {
 }, 300);
 
 onMounted(() => {
-  sectionsStore.fetchSections().then(() => {
+  // Use infrastructureStore to fetch sections
+  infrastructureStore.fetchSections().then(() => {
     fetchData(); // Initial data load after sections are available
   });
   // No need to fetch all failures here anymore, recentFailuresStore handles its own
@@ -87,9 +90,8 @@ watch(filters, fetchData, { deep: true });
 
 const isLoading = computed(() => dashboardStore.loading || recentFailuresStore.loading);
 
-// --- Restore missing computed properties ---
 const allSectionsMaster = computed(() =>
-  (sectionsStore.sections || []).map(s => s.name).sort()
+  (infrastructureStore.sections || []).map(s => s.name).sort()
 );
 
 const kpis = computed(() => {
@@ -188,13 +190,9 @@ watch(split, v => localStorage.setItem('dashSplit', String(v)));
           <input type="checkbox" v-model="autoRefresh" class="h-4 w-4 rounded border-app align-middle" />
           <span class="align-middle">Auto-refresh</span>
         </label>
-        <button @click="refresh" :disabled="isLoading" class="h-10 inline-flex items-center gap-2 rounded-lg border-app bg-card text-app px-3 text-sm shadow-card hover:shadow-popover hover:bg-[var(--seasalt-lighter)] transition disabled:opacity-60 disabled:cursor-not-allowed" title="Refresh now">
+        <button @click="fetchData" :disabled="isLoading" class="h-10 inline-flex items-center gap-2 rounded-lg border-app bg-card text-app px-3 text-sm shadow-card hover:shadow-popover hover:bg-[var(--seasalt-lighter)] transition disabled:opacity-60 disabled:cursor-not-allowed" title="Refresh now">
           <svg viewBox="0 0 24 24" class="w-4 h-4 shrink-0 align-middle"><path fill="currentColor" d="M12 6V3l-4 4l4 4V8c2.76 0 5 2.24 5 5a5 5 0 0 1-8.66 3.54a1 1 0 1 0-1.41 1.41A7 7 0 0 0 19 13c0-3.87-3.13-7-7-7Z"/></svg>
           <span class="leading-none">Refresh</span>
-        </button>
-        <button @click="resetFilters" :disabled="isLoading" class="h-10 inline-flex items-center gap-2 rounded-lg border-app bg-card text-app px-3 text-sm shadow-card hover:shadow-popover hover:bg-[var(--seasalt-lighter)] transition disabled:opacity-60 disabled:cursor-not-allowed" title="Reset Filters">
-          <svg viewBox="0 0 24 24" class="w-4 h-4 shrink-0 align-middle"><path fill="currentColor" d="M12 5a7 7 0 1 1-6.71 9H3a1 1 0 0 1 0-2h4v4a1 1 0 1 1-2 0v-1.52A9 9 0 1 0 12 3a1 1 0 1 1 0 2Z"/></svg>
-          <span class="leading-none">Reset</span>
         </button>
       </div>
     </div>

@@ -1,3 +1,4 @@
+// Path: frontend/src/stores/recentFailures.js
 import { defineStore } from 'pinia';
 import { http } from '@/lib/http';
 import { useUIStore } from './ui';

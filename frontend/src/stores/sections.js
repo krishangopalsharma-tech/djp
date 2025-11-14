@@ -63,7 +63,7 @@ export const useSectionsStore = defineStore('sections', {
       formData.append('file', file);
       try {
         const response = await http.post('/sections/import_master_file/', formData, { // Use correct action path
-          headers: { 'Content-Type': 'multipart/form-data' },
+           headers: { 'Content-Type': 'multipart/form-data' },
         });
         uiStore.pushToast({ type: 'success', title: 'Import Complete', message: response.data.message });
         await this.fetchSections(); // Refresh after import
@@ -103,7 +103,7 @@ export const useSectionsStore = defineStore('sections', {
       const uiStore = useUIStore();
       try {
         await http.patch(`/subsections/${id}/`, payload);
-        uiStore.pushToast({ type: 'success', title: 'Success', message: 'Sub-section updated.' });
+        // uiStore.pushToast({ type: 'success', title: 'Success', message: 'Sub-section updated.' });
       } catch (err) {
         const errorDetail = err.response?.data ? JSON.stringify(err.response.data) : 'Could not update sub-section.';
         uiStore.pushToast({ type: 'error', title: 'Error', message: errorDetail });

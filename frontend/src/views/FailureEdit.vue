@@ -2,7 +2,9 @@
 import { ref, reactive, onMounted, computed, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useFailureStore } from '@/stores/failures';
-import { useSectionsStore } from '@/stores/sections';
+// --- START OF FIX ---
+import { useInfrastructureStore } from '@/stores/infrastructure';
+// --- END OF FIX ---
 import { useUIStore } from '@/stores/ui';
 import FailureForm from '@/components/FailureForm.vue';
 import Spinner from '@/components/ui/Spinner.vue';
@@ -20,7 +22,9 @@ function toLocalISOString(date) {
 const route = useRoute();
 const router = useRouter();
 const failureStore = useFailureStore();
-const sectionsStore = useSectionsStore();
+// --- START OF FIX ---
+const infrastructureStore = useInfrastructureStore();
+// --- END OF FIX ---
 const ui = useUIStore();
 
 const failureId = route.params.id;
@@ -34,7 +38,9 @@ const options = computed(() => ({
   stations: infrastructureStore.stations,
   sections: infrastructureStore.sections,
   subSections: infrastructureStore.subSections,
-  supervisors: infrastructureStore.supervisors.map(s => ({ label: s.name, value: s.id })),
+  supervisors: infrastructureStore.supervisors
+    .filter(s => s.user != null)
+    .map(s => ({ label: s.name, value: s.user })),
   statuses: [ { label: 'Active', value: 'Active' }, { label: 'In Progress', value: 'In Progress' }, { label: 'Resolved', value: 'Resolved' }, { label: 'On Hold', value: 'On Hold' }, { label: 'Information', value: 'Information' }],
 }));
 
@@ -55,18 +61,24 @@ onMounted(async () => {
     if (failureData) {
       Object.assign(form, {
         ...failureData,
-        depot: failureData.station?.depot || failureData.section?.depot || null,
         circuit: failureData.circuit?.id || null,
-        station: failureData.station?.id || null,
-        section: failureData.section?.id || null,
-        sub_section: failureData.sub_section?.id || null,
-        assigned_to: failureData.assigned_to?.id || null,
+        assigned_to: failureData.assigned_to?.id || null, // Use the user ID
         reported_at: toLocalISOString(failureData.reported_at),
         resolved_at: toLocalISOString(failureData.resolved_at),
         userTags: [],
       });
+
+      // Find the depot based on station or section
+      const station = infrastructureStore.stations.find(s => s.id === failureData.station?.id);
+      const section = infrastructureStore.sections.find(s => s.id === failureData.section?.id);
+      form.depot = station?.depot || section?.depot || null;
+
       // Use nextTick to ensure dependent dropdowns populate correctly
       await nextTick();
+      form.station = failureData.station?.id || null;
+      form.section = failureData.section?.id || null;
+      await nextTick();
+      form.sub_section = failureData.sub_section?.id || null;
     }
   } catch (error) {
     console.error("Failed to load data for editing:", error);
@@ -103,14 +115,26 @@ async function submit() {
     return;
   }
   
-  const payload = { ...form };
-  delete payload.userTags;
-  payload.resolved_at = payload.resolved_at || null;
+  // Use the ID-based fields for writing
+  const payload = {
+    entry_type: form.entry_type,
+    current_status: form.current_status,
+    reported_at: form.reported_at,
+    resolved_at: form.resolved_at || null,
+    remark_fail: form.remark_fail,
+    remark_right: form.remark_right,
+    circuit_id: form.circuit,
+    station_id: form.station,
+    section_id: form.section,
+    sub_section_id: form.sub_section,
+    assigned_to_id: form.assigned_to, // Pass the user ID
+  };
 
   const savedFailure = await failureStore.updateFailure(failureId, payload);
   if (savedFailure) {
     ui.pushToast({ type: 'success', title: 'Success', message: 'Logbook entry updated.' });
     if (savedFailure.current_status !== 'Draft' && savedFailure.current_status !== 'Information') {
+      // Note: 'alert' key vs 'alerts' in FailureNew.vue. Using 'alert' to match target file.
       await failureStore.sendFailureNotification(savedFailure.id, ['alert']);
       ui.pushToast({ type: 'info', title: 'Notification', message: 'Update notification sent.' });
     }

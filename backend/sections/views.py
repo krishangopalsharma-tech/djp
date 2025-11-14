@@ -7,11 +7,14 @@ import pandas as pd
 from django.db import transaction
 from .models import Section, SubSection, Asset
 from depots.models import Depot
-from .serializers import SectionSerializer, SubSectionSerializer, AssetSerializer
+from .serializers import (
+    SectionSerializer, SubSectionSerializer, AssetSerializer,
+    _DepotTreeSerializer
+)
+from rest_framework.views import APIView # Import APIView
 
 class SectionViewSet(viewsets.ModelViewSet):
     """API endpoint for Sections."""
-    # Optimized queryset using select_related and prefetch_related
     queryset = Section.objects.select_related('depot').prefetch_related('subsections__assets').all().order_by('depot__name', 'name')
     serializer_class = SectionSerializer
     permission_classes = [permissions.AllowAny] # Use AllowAny for development
@@ -30,7 +33,6 @@ class SectionViewSet(viewsets.ModelViewSet):
                 df = pd.read_excel(file, engine='openpyxl')
 
             df.columns = df.columns.str.strip()
-            # Convert NaN/None strings to actual None, treat all columns as objects first
             df = df.astype(object).where(pd.notnull(df), None)
 
             processed_count = 0
@@ -63,16 +65,14 @@ class SectionViewSet(viewsets.ModelViewSet):
                     # --- Section Update/Create ---
                     section, section_created = Section.objects.get_or_create(depot=depot, name=section_name)
                     if section_created: created['sections'] += 1
-                    # No updatable fields on Section currently besides name/depot link
-
+                    
                     # --- SubSection Update/Create ---
                     subsection = None
                     if subsection_name and pd.notna(subsection_name):
                         subsection_name = str(subsection_name).strip()
                         subsection, sub_created = SubSection.objects.get_or_create(section=section, name=subsection_name)
                         if sub_created: created['subsections'] += 1
-                        # No updatable fields on SubSection currently
-
+                    
                     # --- Asset Update/Create ---
                     if asset_name and pd.notna(asset_name) and subsection:
                         asset_name = str(asset_name).strip()
@@ -80,14 +80,12 @@ class SectionViewSet(viewsets.ModelViewSet):
                         unit_val = row.get('Unit')
 
                         asset_defaults = {}
-                        valid_quantity = True
                         if quantity_val is not None:
                             try:
                                 asset_defaults['quantity'] = float(quantity_val) # Store as float/decimal
                             except (ValueError, TypeError):
                                 errors.append(f"Row {index+2}: Invalid quantity '{quantity_val}' for asset '{asset_name}'. Using null.")
                                 asset_defaults['quantity'] = None
-                                valid_quantity = False
                         if unit_val is not None:
                             asset_defaults['unit'] = str(unit_val).strip()
 
@@ -97,22 +95,17 @@ class SectionViewSet(viewsets.ModelViewSet):
                            defaults=asset_defaults
                         )
                         if asset_created:
-                             created['assets'] += 1
-                        # Check if update occurred (update_or_create doesn't directly tell us)
+                            created['assets'] += 1
+                        # Check if update occurred
                         elif any(getattr(asset, k) != v for k, v in asset_defaults.items() if hasattr(asset, k)):
-                             updated['assets'] += 1
+                            updated['assets'] += 1
                         else:
                              skipped +=1 # Increment skipped only if nothing changed
-
-                    elif not section_created: # No asset AND section wasn't created in this row
+                    
+                    elif not section_created: # No asset AND section/subsection wasn't created
                          skipped += 1
 
                     processed_count += 1
-
-                # If any errors occurred during processing, you might want to rollback.
-                # Currently, it saves valid entries and reports errors.
-                # if errors: raise Exception("Import errors occurred.")
-
 
             message = (f'Import finished. Processed rows: {processed_count}. '
                        f'Created (Sec/Sub/Ast): {created["sections"]}/{created["subsections"]}/{created["assets"]}. '
@@ -136,7 +129,6 @@ class SubSectionViewSet(viewsets.ModelViewSet):
     queryset = SubSection.objects.select_related('section__depot').prefetch_related('assets').all().order_by('section__name', 'name')
     serializer_class = SubSectionSerializer
     permission_classes = [permissions.AllowAny]
-    # Add filtering capability
     filterset_fields = ['section']
 
 
@@ -145,5 +137,21 @@ class AssetViewSet(viewsets.ModelViewSet):
     queryset = Asset.objects.select_related('subsection__section__depot').all().order_by('subsection__name', 'name')
     serializer_class = AssetSerializer
     permission_classes = [permissions.AllowAny]
-    # Add filtering capability
     filterset_fields = ['subsection']
+
+# --- Infrastructure Tree View (from previous step, included for completeness) ---
+class InfrastructureTreeView(APIView):
+    """
+    A read-only endpoint that returns the entire infrastructure hierarchy
+    (Depots -> Sections -> SubSections -> Assets) for use in 
+    assignment modals.
+    """
+    permission_classes = [permissions.AllowAny] # Use AllowAny for dev
+
+    def get(self, request, *args, **kwargs):
+        queryset = Depot.objects.prefetch_related(
+            'sections__subsections__assets'
+        ).all().order_by('name')
+        
+        serializer = _DepotTreeSerializer(queryset, many=True)
+        return Response(serializer.data)

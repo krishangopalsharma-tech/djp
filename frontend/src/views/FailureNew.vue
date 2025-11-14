@@ -2,7 +2,10 @@
 import { reactive, ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUIStore } from '@/stores/ui'
-import { useSectionsStore } from '@/stores/sections';
+// --- START OF FIX ---
+// 1. Import the correct store
+import { useInfrastructureStore } from '@/stores/infrastructure';
+// --- END OF FIX ---
 import { useFailureStore } from '@/stores/failures'
 import { useRecentFailuresStore } from '@/stores/recentFailures';
 import { useTelegramStore } from '@/stores/telegram'
@@ -23,7 +26,10 @@ function toLocalISOString(date) {
 
 // Initialize Stores
 const ui = useUIStore();
-const sectionsStore = useSectionsStore();
+// --- START OF FIX ---
+// 2. Use the correct store variable
+const infrastructureStore = useInfrastructureStore();
+// --- END OF FIX ---
 const failureStore = useFailureStore();
 const recentFailuresStore = useRecentFailuresStore();
 const telegramStore = useTelegramStore();
@@ -48,6 +54,7 @@ const errors = reactive({});
 let initialDataLoadPromise = null;
 onMounted(() => {
   initialDataLoadPromise = Promise.all([
+    // These calls will now work
     infrastructureStore.fetchDepots(),
     infrastructureStore.fetchCircuits(),
     infrastructureStore.fetchStations(),
@@ -69,7 +76,9 @@ const options = computed(() => ({
   stations: infrastructureStore.stations,
   sections: infrastructureStore.sections,
   subSections: infrastructureStore.subSections,
-  supervisors: infrastructureStore.supervisors.map(s => ({ label: s.name, value: s.id })),
+  supervisors: infrastructureStore.supervisors
+    .filter(s => s.user != null) // Only include supervisors linked to a user account
+    .map(s => ({ label: s.name, value: s.user })), // Map to the user ID
   statuses: [ { label: 'Active', value: 'Active' }, { label: 'In Progress', value: 'In Progress' }, { label: 'Resolved', value: 'Resolved' }, { label: 'On Hold', value: 'On Hold' }, { label: 'Information', value: 'Information' }],
 }));
 
@@ -77,8 +86,8 @@ const recentFailures = computed(() => recentFailuresStore.items)
 
 async function handleEditRequest(id) {
   await initialDataLoadPromise;
-  await failureStore.fetchFailure(id); // 1. Call the action to update the store
-  const failureData = failureStore.currentFailure; // 2. Get the data from the store's state
+  await failureStore.fetchFailure(id); 
+  const failureData = failureStore.currentFailure; 
 
   if (failureData) {
     resetForm();
@@ -86,12 +95,16 @@ async function handleEditRequest(id) {
     Object.assign(form, {
       ...failureData,
       circuit: failureData.circuit?.id || null,
-      assigned_to: failureData.assigned_to?.id || null,
+      assigned_to: failureData.assigned_to?.id || null, // Use the user ID
       reported_at: toLocalISOString(failureData.reported_at),
       resolved_at: toLocalISOString(failureData.resolved_at),
       userTags: [],
     });
-    form.depot = failureData.station?.depot || failureData.section?.depot || null;
+    // Find the depot based on station or section
+    const station = infrastructureStore.stations.find(s => s.id === failureData.station?.id);
+    const section = infrastructureStore.sections.find(s => s.id === failureData.section?.id);
+    form.depot = station?.depot || section?.depot || null;
+    
     await nextTick();
     form.station = failureData.station?.id || null;
     form.section = failureData.section?.id || null;
@@ -109,7 +122,7 @@ watch(() => form.entry_type, (newType, oldType) => {
     form.circuit = infoCircuit?.id || null;
     form.current_status = 'Information';
     form.depot = allDepot?.id || null;
-    form.assigned_to = allSupervisor?.id || null;
+    form.assigned_to = allSupervisor?.user || null; // Use the user ID
   } else if (oldType === 'message') {
     resetForm();
   }
@@ -130,28 +143,38 @@ async function submit() {
     ui.pushToast({ type: 'error', title: 'Missing fields', message: 'Circuit is required.' });
     return;
   }
-  const payload = { ...form };
-  delete payload.userTags;
-  payload.resolved_at = payload.resolved_at || null;
+  
+  // Use the ID-based fields for writing
+  const payload = {
+    entry_type: form.entry_type,
+    current_status: form.current_status,
+    reported_at: form.reported_at,
+    resolved_at: form.resolved_at || null,
+    remark_fail: form.remark_fail,
+    remark_right: form.remark_right,
+    circuit_id: form.circuit,
+    station_id: form.station,
+    section_id: form.section,
+    sub_section_id: form.sub_section,
+    assigned_to_id: form.assigned_to, // Pass the user ID
+  };
 
   let savedFailure;
   if (isEditMode.value) {
     savedFailure = await failureStore.updateFailure(editingFailureId.value, payload);
     if (savedFailure) {
         ui.pushToast({ type: 'success', title: 'Success', message: 'Logbook entry updated.' });
-        // After updating, you might want to stay on the page or redirect
-        // For now, we stay.
+        recentFailuresStore.fetchRecentFailures();
     }
   } else {
-    // This is a new entry
     savedFailure = await failureStore.addFailure(payload);
      if (savedFailure) {
-        ui.pushToast({ type: 'success', title: 'Success', message: 'Entry saved. You can now add attachments.' });
-        // Reset the form for the next entry
+       ui.pushToast({ type: 'success', title: 'Success', message: 'Entry saved. You can now add attachments.' });
+        recentFailuresStore.fetchRecentFailures();
         resetForm();
 
         if (savedFailure.current_status !== 'Information') {
-             await failureStore.sendFailureNotification(savedFailure.id, ['alerts']);
+             await failureStore.sendFailureNotification(savedFailure.id, ['alert']);
              ui.pushToast({ type: 'info', title: 'Notified', message: 'Alert notification sent.' });
         }
     }

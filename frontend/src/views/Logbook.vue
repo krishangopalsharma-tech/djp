@@ -3,7 +3,9 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useDebounce } from '@/composables/useDebounce';
 import { useLogbookStore } from '@/stores/logbook';
-import { useSectionsStore } from '@/stores/sections';
+// --- START OF FIX ---
+import { useInfrastructureStore } from '@/stores/infrastructure';
+// --- END OF FIX ---
 import { useFailureStore } from '@/stores/failures';
 import DataTable from '@/components/DataTable.vue';
 import FailureDetailsDrawer from '@/components/FailureDetailsDrawer.vue';
@@ -13,7 +15,9 @@ import { Bell, Pencil, Trash2, FileDown, FileText, ChevronLeft, ChevronRight, Ch
 
 // --- Store setup ---
 const logbookStore = useLogbookStore();
-const sectionsStore = useSectionsStore();
+// --- START OF FIX ---
+const infrastructureStore = useInfrastructureStore();
+// --- END OF FIX ---
 const failureStore = useFailureStore(); // Keep for archive action
 const router = useRouter();
 
@@ -25,7 +29,6 @@ const failureToArchive = ref(null);
 const archiveReason = ref('');
 
 // --- Filtering, Sorting, and Pagination State ---
-// This is the main state object that drives the API calls
 const filters = ref({
   query: '',
   circuits: [],
@@ -64,9 +67,8 @@ const fetchData = useDebounce(() => {
         rowsPerPage: filters.value.rowsPerPage,
     };
     logbookStore.fetchLogbookData(params);
-}, 300); // Debounce API calls to prevent spamming
+}, 300); // Debounce API calls
 
-// Watch for any changes in filters and re-fetch data
 watch(filters, fetchData, { deep: true });
 
 // --- Computed Data for UI ---
@@ -79,7 +81,7 @@ const currentPage = computed({
     set: (val) => { filters.value.page = val; }
 });
 
-// --- RESTORED: Options for Filter Dropdowns ---
+// --- Options for Filter Dropdowns ---
 const circuitOptions = computed(() => infrastructureStore.circuits.map(c => ({ label: `${c.circuit_id} (${c.name})`, value: c.id })));
 const sectionOptions = computed(() => infrastructureStore.sections.map(s => ({ label: s.name, value: s.id })));
 const stationOptions = computed(() => infrastructureStore.stations.map(s => ({ label: s.name, value: s.id })));
@@ -89,7 +91,6 @@ const statusOptions = computed(() => ([
     { label: 'Resolved', value: 'Resolved' }, { label: 'On Hold', value: 'On Hold' },
 ]));
 
-// --- RESTORED: Columns definition for DataTable ---
 const columns = [
   { key: 'reported_at', label: 'Reported', sortable: true },
   { key: 'resolved_at', label: 'Resolved', sortable: true },
@@ -113,13 +114,11 @@ function toggleSort(key) {
   }
 }
 
-// Pagination methods
 function goToFirstPage() { filters.value.page = 1; }
 function goToLastPage() { filters.value.page = totalPages.value; }
 function goToNextPage() { if (filters.value.page < totalPages.value) filters.value.page++; }
 function goToPreviousPage() { if (filters.value.page > 1) filters.value.page--; }
 
-// --- RESTORED: All other helper methods ---
 function openDetails(row) { activeItem.value = row; drawerOpen.value = true; }
 function editFailure(row) { router.push(`/failures/edit/${row.id}`); }
 function openArchiveModal(row) { failureToArchive.value = row; isArchiveModalOpen.value = true; archiveReason.value = ''; }
@@ -157,7 +156,6 @@ function badgeClasses(status) {
       <h2 class="text-2xl font-semibold">Logbook</h2>
     </div>
 
-    <!-- Filter Bar -->
     <div class="sticky top-0 z-10 bg-app py-4 card">
        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <input v-model="filters.query" type="search" placeholder="Search anything..." class="h-11 w-full rounded-lg border-app bg-card text-app px-3 text-sm" />
@@ -205,7 +203,6 @@ function badgeClasses(status) {
         </DataTable>
       </div>
         
-      <!-- Pagination Controls -->
       <div class="mt-4 flex items-center justify-between">
         <div class="flex items-center justify-center gap-2 p-2 rounded-lg">
           <button class="btn btn-outline btn-sm gap-2"><FileDown class="w-4 h-4" /><span>Export CSV</span></button>
@@ -223,7 +220,6 @@ function badgeClasses(status) {
 
     <FailureDetailsDrawer v-model="drawerOpen" :item="activeItem" />
 
-    <!-- Archive Confirmation Modal -->
     <div v-if="isArchiveModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div class="bg-card rounded-lg p-6 shadow-xl w-full max-w-md">
         <h3 class="text-lg font-bold">Confirm Archival</h3>
