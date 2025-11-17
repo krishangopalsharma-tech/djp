@@ -1,6 +1,8 @@
+# Path: backend/operations/serializers.py
 from rest_framework import serializers
 from supervisors.models import Supervisor
 from .models import SupervisorMovement
+
 class SupervisorMovementSerializer(serializers.ModelSerializer):
     class Meta:
         model = SupervisorMovement

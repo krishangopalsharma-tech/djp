@@ -1,3 +1,4 @@
+# Path: backend/operations/models.py
 from django.db import models
 from core.models import TimestampedModel
 from supervisors.models import Supervisor
@@ -16,8 +17,13 @@ class SupervisorMovement(TimestampedModel):
         blank=True,
         related_name='looking_after_assignments'
     )
-    purpose = models.TextField(blank=True)
+    # --- FIELD CHANGE ---
+    purpose = models.CharField(max_length=100, blank=True) # Was TextField
     
+    # --- ADD META CLASS ---
+    class Meta:
+        ordering = ['-date', 'supervisor__name']
+        unique_together = ('date', 'supervisor') # Ensure one entry per supervisor per day
 
     def __str__(self):
         return f"{self.supervisor.name} - {self.date}"

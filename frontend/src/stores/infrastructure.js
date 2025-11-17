@@ -13,11 +13,17 @@ export const useInfrastructureStore = defineStore('infrastructure', {
   }),
   actions: {
     async fetchInfrastructureTree() {
-      if (this.tree.length > 0) return; // Cache check
+      // Don't re-fetch if already loaded
+      if (this.tree.length > 0) return; 
+      
       this.loading.tree = true;
       this.error = null;
       try {
-        const response = await http.get('/sections/infrastructure-tree/');
+        // --- THIS IS THE FIX ---
+        // The URL is at the root /api/v1/, not under /sections/
+        const response = await http.get('/infrastructure-tree/');
+        // --- END OF FIX ---
+        
         this.tree = response.data;
       } catch (err) {
         this.error = 'Failed to fetch infrastructure tree.';

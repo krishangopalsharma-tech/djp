@@ -65,9 +65,24 @@ export const useSectionsStore = defineStore('sections', {
         const response = await http.post('/sections/import_master_file/', formData, { // Use correct action path
            headers: { 'Content-Type': 'multipart/form-data' },
         });
-        uiStore.pushToast({ type: 'success', title: 'Import Complete', message: response.data.message });
+        
+        // --- START OF FIX: Show detailed errors ---
+        const data = response.data;
+        if (data.errors && data.errors.length > 0) {
+            uiStore.pushToast({ 
+                type: 'warning', 
+                title: 'Import Finished with Errors', 
+                message: `${data.message} First error: ${data.errors[0]}`,
+                duration: 10000 // Show for 10 seconds
+            });
+        } else {
+            uiStore.pushToast({ type: 'success', title: 'Import Complete', message: data.message });
+        }
+        // --- END OF FIX ---
+        
         await this.fetchSections(); // Refresh after import
       } catch (err) {
+        // Handle 400/500 level errors
         const message = err.response?.data?.error || err.response?.data?.message || 'File upload failed.';
         this.error = message;
         uiStore.pushToast({ type: 'error', title: 'Import Failed', message });
@@ -124,8 +139,6 @@ export const useSectionsStore = defineStore('sections', {
       const uiStore = useUIStore();
       try {
         await http.post('/assets/', payload);
-        // Avoid toast spam in bulk operations
-        // uiStore.pushToast({ type: 'success', title: 'Success', message: 'Asset added.' });
       } catch (err) {
         const errorDetail = err.response?.data ? JSON.stringify(err.response.data) : 'Could not add asset.';
         uiStore.pushToast({ type: 'error', title: 'Error', message: errorDetail });
@@ -135,7 +148,6 @@ export const useSectionsStore = defineStore('sections', {
       const uiStore = useUIStore();
       try {
         await http.patch(`/assets/${id}/`, payload);
-        // uiStore.pushToast({ type: 'success', title: 'Success', message: 'Asset updated.' });
       } catch (err) {
         const errorDetail = err.response?.data ? JSON.stringify(err.response.data) : 'Could not update asset.';
         uiStore.pushToast({ type: 'error', title: 'Error', message: errorDetail });
@@ -145,7 +157,6 @@ export const useSectionsStore = defineStore('sections', {
       const uiStore = useUIStore();
       try {
         await http.delete(`/assets/${id}/`);
-        // uiStore.pushToast({ type: 'success', title: 'Success', message: 'Asset removed.' });
       } catch (err) {
         uiStore.pushToast({ type: 'error', title: 'Error', message: 'Could not remove asset.' });
       }

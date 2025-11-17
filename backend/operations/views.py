@@ -1,3 +1,4 @@
+# Path: backend/operations/views.py
 from rest_framework import viewsets, permissions, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -6,11 +7,12 @@ from .models import SupervisorMovement
 from .serializers import SupervisorMovementSerializer, SupervisorWithMovementSerializer
 from datetime import datetime
 from telegram_notifications.models import TelegramGroup
+from telegram_notifications.bot import send_telegram_document # Import the bot function
 
 import io
-from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from xml.sax.saxutils import escape
 from reportlab.lib.pagesizes import A4, landscape
@@ -45,9 +47,13 @@ def generate_movement_report_pdf(target_date, movements):
         ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
         ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
         ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        # Add left alignment for details column
+        ('ALIGN', (6, 1), (6, -1), 'LEFT'),
     ]
 
-    body_style = styles['BodyText']
+    # Create a custom style for left-aligned body text
+    body_style_left = ParagraphStyle(name='BodyTextLeft', parent=styles['BodyText'], alignment=TA_LEFT)
+
     for i, m in enumerate(movements):
         row_index = i + 1
         
@@ -64,28 +70,31 @@ def generate_movement_report_pdf(target_date, movements):
             date_range = "N/A"
             if m.leave_from and m.leave_to:
                 date_range = f"{m.leave_from.strftime('%d-%b')} to {m.leave_to.strftime('%d-%b')}"
-            details_flowables.append(Paragraph(f"Duration: {escape(date_range)}", body_style))
+            
+            # Use left-aligned style
+            details_flowables.append(Paragraph(f"Duration: {escape(date_range)}", body_style_left))
             if m.look_after:
-                details_flowables.append(Paragraph(f"Looked After By: {escape(m.look_after.name)}", body_style))
+                details_flowables.append(Paragraph(f"Looked After By: {escape(m.look_after.name)}", body_style_left))
         else:
             location_text = escape(m.location)
             if m.purpose:
-                details_flowables.append(Paragraph(escape(m.purpose), body_style))
+                 details_flowables.append(Paragraph(escape(m.purpose), body_style_left))
 
         data.append([
             str(row_index),
-            Paragraph(depot_code, body_style),
-            Paragraph(supervisor_name, body_style),
-            Paragraph(designation, body_style),
-            Paragraph(status_text, body_style),
-            Paragraph(location_text, body_style),
+            Paragraph(depot_code, styles['BodyText']),
+            Paragraph(supervisor_name, styles['BodyText']),
+            Paragraph(designation, styles['BodyText']),
+            Paragraph(status_text, styles['BodyText']),
+            Paragraph(location_text, styles['BodyText']),
             details_flowables,
         ])
         
         if m.on_leave:
             style_commands.append(('BACKGROUND', (0, row_index), (-1, row_index), colors.lightpink))
 
-    table = Table(data, colWidths=[35, 60, 130, 130, 70, 70, 230])
+    # Updated column widths
+    table = Table(data, colWidths=[35, 60, 120, 120, 60, 100, 250])
     table.setStyle(TableStyle(style_commands))
     
     
@@ -96,8 +105,6 @@ def generate_movement_report_pdf(target_date, movements):
     doc.build(elements)
     buffer.seek(0)
     return buffer
-
-
 
 class SupervisorMovementByDateView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -112,7 +119,7 @@ class SupervisorMovementByDateView(APIView):
             return Response({"error": "Invalid date format. Use YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
 
         supervisors = Supervisor.objects.select_related('depot').all().order_by('name')
-        movements = SupervisorMovement.objects.filter(date=target_date).select_related('supervisor')
+        movements = SupervisorMovement.objects.filter(date=target_date).select_related('supervisor', 'look_after')
         movement_map = {m.supervisor.id: m for m in movements}
 
         for s in supervisors:
@@ -125,8 +132,6 @@ class SupervisorMovementViewSet(viewsets.ModelViewSet):
     queryset = SupervisorMovement.objects.all()
     serializer_class = SupervisorMovementSerializer
     permission_classes = [permissions.AllowAny]
-
-
 
 class SendMovementReportView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -152,14 +157,21 @@ class SendMovementReportView(APIView):
         caption = f"Supervisor Movement Report for {target_date.strftime('%d-%b-%Y')}"
 
         try:
-            groups_to_send = ['alerts', 'reports']
-            for group_key in groups_to_send:
-                tg_group = TelegramGroup.objects.get(key=group_key)
-                tg_group.send_document(pdf_buffer, pdf_filename, caption)
-                pdf_buffer.seek(0)
+            # --- UPDATED: Send to 'operations' group only ---
+            group_key = 'operations'
+            tg_group = TelegramGroup.objects.get(key=group_key)
+            if tg_group.chat_id:
+                pdf_buffer.seek(0) 
+                send_telegram_document(
+                    chat_id=tg_group.chat_id,
+                    document=pdf_buffer,
+                    caption=caption
+                )
+            else:
+                return Response({"error": f"Telegram group '{group_key}' has no Chat ID configured."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
             return Response({"status": "Report PDF sent successfully"}, status=status.HTTP_200_OK)
         except TelegramGroup.DoesNotExist:
-            return Response({"error": "A required Telegram group (alert or reports) is not configured."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"error": f"Telegram group '{group_key}' is not configured."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         except Exception as e:
             return Response({"error": f"Failed to send Telegram document: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

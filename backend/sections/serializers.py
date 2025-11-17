@@ -2,6 +2,7 @@
 from rest_framework import serializers
 from .models import Section, SubSection, Asset
 from depots.models import Depot
+from stations.models import Station, StationEquipment # <-- IMPORT Station models
 
 class AssetSerializer(serializers.ModelSerializer):
     class Meta:
@@ -50,11 +51,27 @@ class _SectionTreeSerializer(serializers.ModelSerializer):
         model = Section
         fields = ['id', 'name', 'subsections']
 
+# --- NEW SERIALIZERS FOR STATIONS ---
+class _StationEquipmentTreeSerializer(serializers.ModelSerializer):
+    """Lightweight Station Equipment serializer for the tree view."""
+    class Meta:
+        model = StationEquipment
+        fields = ['id', 'name']
+
+class _StationTreeSerializer(serializers.ModelSerializer):
+    """Lightweight Station serializer for the tree view."""
+    equipments = _StationEquipmentTreeSerializer(many=True, read_only=True)
+    class Meta:
+        model = Station
+        fields = ['id', 'name', 'code', 'equipments']
+# --- END NEW SERIALIZERS ---
+
 class _DepotTreeSerializer(serializers.ModelSerializer):
     """Lightweight Depot serializer for the tree view."""
     sections = _SectionTreeSerializer(many=True, read_only=True)
-    # We can add stations here if needed by the modal
+    # --- ADD STATIONS TO THE DEPOT TREE ---
+    stations = _StationTreeSerializer(many=True, read_only=True)
     
     class Meta:
         model = Depot
-        fields = ['id', 'name', 'code', 'sections']
+        fields = ['id', 'name', 'code', 'sections', 'stations'] # Add 'stations'

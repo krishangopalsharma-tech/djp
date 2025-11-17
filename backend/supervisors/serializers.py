@@ -4,7 +4,7 @@ from .models import Supervisor
 from depots.models import Depot
 # Import the models we need to link
 from sections.models import SubSection, Asset, Section
-from stations.models import Station
+from stations.models import Station, StationEquipment # Import StationEquipment
 
 class SupervisorSerializer(serializers.ModelSerializer):
     depot_display = serializers.CharField(source='depot.name', read_only=True)
@@ -15,12 +15,13 @@ class SupervisorSerializer(serializers.ModelSerializer):
     sections = serializers.PrimaryKeyRelatedField(queryset=Section.objects.all(), many=True, required=False)
     subsections = serializers.PrimaryKeyRelatedField(queryset=SubSection.objects.all(), many=True, required=False)
     assets = serializers.PrimaryKeyRelatedField(queryset=Asset.objects.all(), many=True, required=False)
+    station_equipments = serializers.PrimaryKeyRelatedField(queryset=StationEquipment.objects.all(), many=True, required=False)
 
     class Meta:
         model = Supervisor
         fields = [
             'id', 'name', 'designation', 'mobile', 'email', 'depot', 'depot_display', 'user', 
-            'stations', 'sections', 'subsections', 'assets', # Add new fields
+            'stations', 'sections', 'subsections', 'assets', 'station_equipments', # Add new fields
             'created_at', 'updated_at'
         ]
         read_only_fields = ['depot_display']
@@ -31,6 +32,7 @@ class SupervisorSerializer(serializers.ModelSerializer):
         sections_data = validated_data.pop('sections', None)
         subsections_data = validated_data.pop('subsections', None)
         assets_data = validated_data.pop('assets', None)
+        station_equipments_data = validated_data.pop('station_equipments', None)
         
         # Update the supervisor instance
         instance = super().update(instance, validated_data)
@@ -44,5 +46,7 @@ class SupervisorSerializer(serializers.ModelSerializer):
             instance.subsections.set(subsections_data)
         if assets_data is not None:
             instance.assets.set(assets_data)
+        if station_equipments_data is not None:
+            instance.station_equipments.set(station_equipments_data)
             
         return instance

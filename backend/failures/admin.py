@@ -1,63 +1,57 @@
 # Path: backend/failures/admin.py
 from django.contrib import admin
-from .models import Failure, FailureAttachment, SmsRecipient
-
-class FailureAttachmentInline(admin.TabularInline):
-    """Allows editing attachments directly within the Failure admin page."""
-    model = FailureAttachment
-    extra = 1  # Number of empty forms to display
-    readonly_fields = ('created_at', 'updated_at')
+from .models import Failure, FailureAttachment
+from django.utils.html import format_html
+from django.urls import reverse
+from django.conf import settings
 
 @admin.register(Failure)
 class FailureAdmin(admin.ModelAdmin):
-    """Customized admin view for the Failure model."""
     list_display = (
-        'fail_id', 'station', 'severity', 'current_status', 'reported_at',
-        'resolved_at', 'created_by', 'assigned_to'
+        'fail_id', 
+        'circuit_link', 
+        'station_link', 
+        'current_status', 
+        'severity', 
+        'reported_at', 
+        'resolved_at',
+        'is_archived'
     )
-    list_filter = ('current_status', 'severity', 'section', 'station', 'created_by')
+    list_filter = ('current_status', 'severity', 'section', 'station', 'is_archived')
     search_fields = ('fail_id', 'circuit__circuit_id', 'station__name', 'remark_fail')
     date_hierarchy = 'reported_at'
     
-    # Fieldsets for better organization in the detail view
-    fieldsets = (
-        ('Core Information', {
-            'fields': ('fail_id', 'entry_type', 'severity', 'current_status', 'reported_at', 'resolved_at')
-        }),
-        ('Location Details', {
-            'fields': ('circuit', 'station', 'section', 'sub_section')
-        }),
-        ('Assignment and Ownership', {
-            'fields': ('created_by', 'assigned_to')
-        }),
-        ('Remarks', {
-            'fields': ('remark_fail', 'remark_right')
-        }),
-        ('Archive Status', {
-            'fields': ('is_archived', 'archived_at', 'archived_reason')
-        }),
-        ('Notification Status', {
-            'fields': ('was_notified',)
-        }),
-    )
-    
-    readonly_fields = ('fail_id', 'created_at', 'updated_at', 'archived_at')
-    inlines = [FailureAttachmentInline]
-    
-    # Optimize database queries
-    list_select_related = ('circuit', 'station', 'section', 'sub_section', 'assigned_to', 'created_by')
+    # Use list_select_related for foreign keys
+    list_select_related = ('circuit', 'station', 'section', 'sub_section', 'assigned_to')
+
+    @admin.display(description='Circuit')
+    def circuit_link(self, obj):
+        if not obj.circuit:
+            return "N/A"
+        link = reverse("admin:circuits_circuit_change", args=[obj.circuit.id])
+        return format_html('<a href="{}">{}</a>', link, obj.circuit.circuit_id)
+
+    @admin.display(description='Station')
+    def station_link(self, obj):
+        if not obj.station:
+            return "N/A"
+        link = reverse("admin:stations_station_change", args=[obj.station.id])
+        return format_html('<a href="{}">{}</a>', link, obj.station.name)
 
 @admin.register(FailureAttachment)
 class FailureAttachmentAdmin(admin.ModelAdmin):
-    """Customized admin view for Failure Attachments."""
-    list_display = ('id', 'failure', 'file', 'description', 'uploaded_by', 'created_at')
-    list_filter = ('failure__station', 'uploaded_by')
-    search_fields = ('description', 'failure__fail_id')
+    list_display = ('id', 'failure_link', 'description', 'file_link', 'uploaded_by')
+    list_filter = ('failure__station', 'failure__section')
+    search_fields = ('failure__fail_id', 'description')
     list_select_related = ('failure', 'uploaded_by')
 
-@admin.register(SmsRecipient)
-class SmsRecipientAdmin(admin.ModelAdmin):
-    """Admin view for managing SMS recipients."""
-    list_display = ('phone_number', 'is_active')
-    list_filter = ('is_active',)
-    search_fields = ('phone_number',)
+    @admin.display(description='Failure')
+    def failure_link(self, obj):
+        link = reverse("admin:failures_failure_change", args=[obj.failure.id])
+        return format_html('<a href="{}">{}</a>', link, obj.failure.fail_id)
+    
+    @admin.display(description='File')
+    def file_link(self, obj):
+        if obj.file:
+            return format_html('<a href="{}" target="_blank">View File</a>', obj.file.url)
+        return "No file"

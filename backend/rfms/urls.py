@@ -7,7 +7,7 @@ from rest_framework.routers import DefaultRouter
 
 # Import all the ViewSets
 from depots.views import DepotViewSet, EquipmentViewSet
-# --- Import InfrastructureTreeView from sections.views ---
+# --- IMPORT InfrastructureTreeView HERE ---
 from sections.views import SectionViewSet, SubSectionViewSet, AssetViewSet, InfrastructureTreeView
 from stations.views import StationViewSet, StationEquipmentViewSet
 from supervisors.views import SupervisorViewSet
@@ -33,12 +33,11 @@ router.register(r'telegram-settings', TelegramSettingsViewSet, basename='telegra
 router.register(r'telegram-groups', TelegramGroupViewSet, basename='telegram-group')
 router.register(r'failure-id-settings', FailureIDSettingsViewSet, basename='failureid-settings')
 router.register(r'users', UserViewSet, basename='user')
-# ... (add other viewsets here as you build them) ...
 
 urlpatterns = [
     path("admin/", admin.site.urls),
 
-    # --- ADD THIS CUSTOM PATH ---
+    # --- THIS IS THE CORRECT LOCATION FOR THE URL ---
     path("api/v1/infrastructure-tree/", InfrastructureTreeView.as_view(), name="infrastructure-tree"),
     
     # API Routes from the main router

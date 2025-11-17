@@ -17,19 +17,21 @@ const depotOptions = computed(() =>
 );
 
 // --- Sorting ---
-const sortKey = ref('name');
+const sortKey = ref('depot_code');
 const sortDir = ref('asc');
+
 const sortedSections = computed(() => {
-  const data = [...sections.value];
+  const data = Array.isArray(sections.value) ? [...sections.value] : [];
   return data.sort((a, b) => {
     const modifier = sortDir.value === 'asc' ? 1 : -1;
-    const valA = sortKey.value === 'depot_display' ? (a.depot_display || '') : (a[sortKey.value] || '');
-    const valB = sortKey.value === 'depot_display' ? (b.depot_display || '') : (b[sortKey.value] || '');
+    const valA = sortKey.value === 'depot_code' ? (a.depot_code || '') : (a[sortKey.value] || '');
+    const valB = sortKey.value === 'depot_code' ? (b.depot_code || '') : (b[sortKey.value] || '');
     if (valA < valB) return -1 * modifier;
     if (valA > valB) return 1 * modifier;
     return 0;
   });
 });
+
 function toggleSort(key) {
   if (sortKey.value === key) {
     sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc';
@@ -42,7 +44,6 @@ function toggleSort(key) {
 // --- Fetch initial data ---
 onMounted(() => {
   sectionsStore.fetchSections();
-  // Ensure depots are loaded for the dropdown
   if (depotsStore.depots.length === 0) {
     depotsStore.fetchDepots();
   }
@@ -56,15 +57,13 @@ async function addSection() {
     return;
   }
   await sectionsStore.addSection({ ...newSection });
-  newSection.name = ''; // Clear name after adding
-  // Keep depot selected
+  newSection.name = '';
 }
 
 // --- Edit Modal ---
 const isEditModalOpen = ref(false);
 const sectionToEdit = ref(null);
 function openEditModal(section) {
-  // Ensure we set the depot ID correctly for the select dropdown
   sectionToEdit.value = { ...section, depot: section.depot };
   isEditModalOpen.value = true;
 }
@@ -115,23 +114,26 @@ async function handleFileUpload() {
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const isSubSectionModalOpen = ref(false);
 const selectedSection = ref(null);
-const tempSubsections = ref([]); // Use ref for reactivity
+const tempSubsections = ref([]);
 const originalSubsections = ref([]);
 
 async function openSubsectionsModal(section) {
   selectedSection.value = section;
-  await sectionsStore.fetchSubsectionsForSection(section.id); // Fetch data first
-  const subsections = sectionsStore.sectionSubsections; // Use the fetched data
+  await sectionsStore.fetchSubsectionsForSection(section.id);
+  const subsections = sectionsStore.sectionSubsections;
   originalSubsections.value = clone(subsections);
-  // Ensure assets array exists
-  tempSubsections.value = clone(subsections.map(ss => ({ ...ss, assets: ss.assets || [] })));
+  tempSubsections.value = clone(subsections.map(ss => ({ 
+    ...ss, 
+    assets: ss.assets || [], 
+    isCollapsed: true // Default all to collapsed
+  })));
   isSubSectionModalOpen.value = true;
 }
 
 function closeSubsectionsModal() {
     isSubSectionModalOpen.value = false;
     selectedSection.value = null;
-    sectionsStore.sectionSubsections = []; // Clear store data on close
+    sectionsStore.sectionSubsections = [];
 }
 
 async function saveSubsectionsAndAssets() {
@@ -142,12 +144,11 @@ async function saveSubsectionsAndAssets() {
     const currentSubMap = new Map(tempSubsections.value.filter(s => s.id).map(s => [s.id, s]));
     const promises = [];
 
-    // --- Process Deletions First ---
+    // Process Deletions
     for (const originalSub of originalSubsections.value) {
         if (!currentSubMap.has(originalSub.id)) {
             promises.push(sectionsStore.removeSubSection(originalSub.id));
         } else {
-            // Check for asset deletions within existing subsections
             const currentSub = currentSubMap.get(originalSub.id);
             const originalAssetIds = new Set((originalSub.assets || []).map(a => a.id));
             const currentAssetIds = new Set((currentSub.assets || []).filter(a => a.id).map(a => a.id));
@@ -158,22 +159,21 @@ async function saveSubsectionsAndAssets() {
             }
         }
     }
-    // Wait for deletions before proceeding
     await Promise.all(promises);
     promises.length = 0;
 
-    // --- Process Updates and Creations ---
+    // Process Updates and Creations
     for (const sub of tempSubsections.value) {
+        const payload = { name: sub.name, section: sub.section }; 
         if (sub.id) { // Existing sub-section
             const originalSub = originalSubMap.get(sub.id);
             if (originalSub && originalSub.name !== sub.name) {
-                promises.push(sectionsStore.updateSubSection(sub.id, { name: sub.name }));
+                promises.push(sectionsStore.updateSubSection(sub.id, payload));
             }
-            // Process assets for existing sub-section
             for (const asset of (sub.assets || [])) {
                 if (asset.id) { // Existing asset
                     const originalAsset = originalSub?.assets?.find(a => a.id === asset.id);
-                    if (originalAsset && JSON.stringify(originalAsset) !== JSON.stringify(asset)) {
+                    if (originalAsset && (originalAsset.name !== asset.name || originalAsset.quantity !== asset.quantity || originalAsset.unit !== asset.unit)) {
                          promises.push(sectionsStore.updateAsset(asset.id, asset));
                     }
                 } else { // New asset
@@ -181,7 +181,6 @@ async function saveSubsectionsAndAssets() {
                 }
             }
         } else { // New sub-section
-            // Use await here to get the new ID for subsequent asset creation
             const newSubSectionData = await sectionsStore.addSubSection({ name: sub.name, section: selectedSection.value.id });
             if (newSubSectionData && newSubSectionData.id) {
                 for (const asset of (sub.assets || [])) {
@@ -192,16 +191,20 @@ async function saveSubsectionsAndAssets() {
     }
 
     await Promise.all(promises);
-
     uiStore.pushToast({ type: 'success', title: 'Save Complete', message: 'Infrastructure updated successfully.' });
-    await sectionsStore.fetchSections(); // Refresh main list
+    await sectionsStore.fetchSections();
     closeSubsectionsModal();
 }
 
-
-function addSubSectionRow() { tempSubsections.value.push({ name: '', assets: [] }); }
+function addSubSectionRow() { 
+  tempSubsections.value.push({ 
+    name: '', 
+    assets: [], 
+    isCollapsed: false // Default new ones to open
+  }); 
+}
 function removeSubSectionRow(index) { tempSubsections.value.splice(index, 1); }
-function addAssetRow(subSection) { if (!subSection.assets) { subSection.assets = []; } subSection.assets.push({ name: '', quantity: null, unit: '' }); } // Default quantity null
+function addAssetRow(subSection) { if (!subSection.assets) { subSection.assets = []; } subSection.assets.push({ name: '', quantity: null, unit: '' }); }
 function removeAssetRow(subSection, assetIndex) { subSection.assets.splice(assetIndex, 1); }
 </script>
 
@@ -229,12 +232,12 @@ function removeAssetRow(subSection, assetIndex) { subSection.assets.splice(asset
         </div>
       </div>
     </div>
-
+    
     <div class="card">
        <div class="flex items-end gap-4">
           <div class="flex-grow">
             <label class="block text-sm font-medium mb-1">Upload Master Infrastructure File</label>
-             <p class="text-xs text-app/60 mb-2">Excel/CSV: Depot, Section, Sub-section, Asset, Quantity, Unit. Depots must exist.</p>
+             <p class="text-xs text-app/60 mb-2">Excel/CSV: Depot, Section, sub-Sections, Asset, Quantity, Unit. Depots must exist.</p>
              <div class="flex items-center gap-2">
                 <input type="file" ref="fileInput" @change="handleFileSelect" class="hidden" accept=".xlsx, .xls, .csv" />
                 <button class="btn" @click="triggerFileInput">Choose File...</button>
@@ -254,10 +257,10 @@ function removeAssetRow(subSection, assetIndex) { subSection.assets.splice(asset
         <table class="w-full text-sm">
           <thead>
             <tr class="text-left border-b border-app/40">
-              <th @click="toggleSort('depot_display')" class="py-2.5 px-3 text-left cursor-pointer select-none">Depot <span v-if="sortKey === 'depot_display'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
+              <th @click="toggleSort('depot_code')" class="py-2.5 px-3 text-left cursor-pointer select-none">Depot <span v-if="sortKey === 'depot_code'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
               <th @click="toggleSort('name')" class="py-2.5 px-3 text-center cursor-pointer select-none">Section <span v-if="sortKey === 'name'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
               <th class="py-2.5 px-3 text-center">Sub-sections</th>
-              <th class="py-2.5 px-3 text-center">Actions</th>
+              <th class="py-2.5 px-3 w-40 text-center">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -270,21 +273,21 @@ function removeAssetRow(subSection, assetIndex) { subSection.assets.splice(asset
               <td colspan="4" class="px-3 py-6 text-app/60 text-center">No sections yet — add one above.</td>
             </tr>
             <tr v-for="s in sortedSections" :key="s.id" class="border-t border-app/30">
-              <td class="py-2 px-3 align-middle text-left">{{ s.depot_display }}</td>
+              <td class="py-2 px-3 align-middle text-left">{{ s.depot_code || 'N/A' }}</td>
               <td class="py-2 px-3 align-middle text-center">{{ s.name }}</td>
               <td class="py-2 px-3 align-middle text-center">{{ s.subsection_count || 0 }}</td>
               <td class="py-2 px-3 align-middle">
-                <div class="flex flex-wrap items-center justify-center gap-2">
+                 <div class="flex flex-wrap items-center justify-center gap-2">
                    <button class="h-9 w-9 flex items-center justify-center rounded-lg bg-[var(--button-primary)] text-[var(--seasalt)] hover:bg-[var(--button-hover)] transition" @click="openEditModal(s)" title="Edit Section">
                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
                    </button>
                    <button class="h-9 w-9 flex items-center justify-center rounded-lg bg-[var(--button-primary)] text-[var(--seasalt)] hover:bg-[var(--button-hover)] transition" @click="openSubsectionsModal(s)" title="Manage Sub-sections & Assets">
                      <Wrench class="w-6 h-6" />
                    </button>
-                  <button class="inline-flex items-center justify-center h-9 w-9 rounded-md text-app border border-app hover:bg-black/10 transition" title="Remove Section" @click="openDeleteModal(s)">
+                   <button class="inline-flex items-center justify-center h-9 w-9 rounded-md text-app border border-app hover:bg-black/10 transition" title="Remove Section" @click="openDeleteModal(s)">
                     <Trash2 class="w-6 h-6" />
                   </button>
-                </div>
+                 </div>
               </td>
             </tr>
           </tbody>
@@ -341,28 +344,47 @@ function removeAssetRow(subSection, assetIndex) { subSection.assets.splice(asset
           <div class="p-3 flex-1 overflow-y-auto space-y-3">
             <div v-if="sectionsStore.loading" class="text-center py-10 text-muted">Loading sub-sections...</div>
             <div v-else-if="tempSubsections.length === 0" class="text-center py-10 text-muted">No sub-sections yet. Add one below.</div>
-            <div v-for="(sub, subIndex) in tempSubsections" :key="sub.id || `new-${subIndex}`" class="card">
-              <div class="flex items-center gap-2">
+            
+            <div v-for="(sub, subIndex) in tempSubsections" :key="sub.id || `new-${subIndex}`" class="rounded-lg border border-app/40">
+              <div class="flex items-center gap-2 p-2">
                 <input v-model="sub.name" class="field h-9 flex-grow" placeholder="Enter sub-section name"/>
-                <button class="inline-flex items-center justify-center h-9 w-9 rounded-md text-app border border-app hover:bg-gray-100 transition" title="Remove Sub-section" @click="removeSubSectionRow(subIndex)">
+                
+                <button 
+                  @click="sub.isCollapsed = !sub.isCollapsed" 
+                  class="btn btn-sm btn-secondary h-9 flex items-center gap-1.5" 
+                  :title="sub.isCollapsed ? 'Show Assets' : 'Hide Assets'"
+                >
+                  <span>Assets ({{ sub.assets?.length || 0 }})</span>
+                  <svg v-if="sub.isCollapsed" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+                  <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" /></svg>
+                </button>
+                
+                <button 
+                  class="inline-flex items-center justify-center h-9 w-9 rounded-md text-app border border-app hover:bg-gray-100 transition" 
+                  title="Remove Sub-section" 
+                  @click="removeSubSectionRow(subIndex)"
+                >
                    <Trash2 class="w-5 h-5" />
                 </button>
               </div>
-              <div class="mt-3 pl-4 border-l-2 border-app/40">
-                <h4 class="text-xs font-semibold text-app/80 mb-2">Assets in this Sub-section</h4>
-                <table class="w-full text-sm">
-                  <tr v-for="(asset, assetIndex) in sub.assets" :key="asset.id || `new-asset-${assetIndex}`">
-                    <td class="py-1 pr-2"><input v-model="asset.name" class="field h-8" placeholder="Asset Name"></td>
-                    <td class="py-1 pr-2 w-28"><input v-model.number="asset.quantity" type="number" step="0.01" class="field h-8" placeholder="Qty"></td>
-                    <td class="py-1 pr-2 w-28"><input v-model="asset.unit" class="field h-8" placeholder="Unit"></td>
-                    <td class="py-1 w-10 text-center">
-                      <button @click="removeAssetRow(sub, assetIndex)" class="text-app/50 hover:text-red-500 text-xl font-bold">&times;</button>
-                    </td>
-                  </tr>
-                </table>
-                <button @click="addAssetRow(sub)" class="text-xs btn btn-sm mt-2">+ Add Asset</button>
+              
+              <div class="p-2 pt-0" v-if="!sub.isCollapsed">
+                <div class="mt-2 pl-4 border-l-2 border-app/40">
+                  <table class="w-full text-sm">
+                    <tr v-for="(asset, assetIndex) in sub.assets" :key="asset.id || `new-asset-${assetIndex}`">
+                      <td class="py-1 pr-2"><input v-model="asset.name" class="field h-8" placeholder="Asset Name"></td>
+                      <td class="py-1 pr-2 w-28"><input v-model.number="asset.quantity" type="number" step="0.01" class="field h-8" placeholder="Qty"></td>
+                      <td class="py-1 pr-2 w-28"><input v-model="asset.unit" class="field h-8" placeholder="Unit"></td>
+                      <td class="py-1 w-10 text-center">
+                        <button @click="removeAssetRow(sub, assetIndex)" class="text-app/50 hover:text-red-500 text-xl font-bold" title="Remove Asset">×</button>
+                      </td>
+                    </tr>
+                  </table>
+                  <button @click="addAssetRow(sub)" class="text-xs btn btn-sm mt-2">+ Add Asset</button>
+                </div>
               </div>
             </div>
+            
           </div>
           <footer class="p-3 border-t border-app/40 grid grid-cols-[1fr_auto_1fr] items-center">
             <div></div>

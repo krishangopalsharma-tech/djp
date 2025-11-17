@@ -3,7 +3,7 @@ from django.db import models
 from core.models import TimestampedModel
 from depots.models import Depot
 from sections.models import Section, SubSection, Asset # Import SubSection and Asset
-from stations.models import Station
+from stations.models import Station, StationEquipment # Import StationEquipment
 from django.conf import settings
 
 class Supervisor(TimestampedModel):
@@ -25,6 +25,7 @@ class Supervisor(TimestampedModel):
     # --- INFRASTRUCTURE ASSIGNMENTS ---
     stations = models.ManyToManyField(Station, blank=True, related_name='supervisors')
     sections = models.ManyToManyField(Section, blank=True, related_name='supervisors')
+    station_equipments = models.ManyToManyField(StationEquipment, blank=True, related_name='supervisors')
     
     # --- ADD THESE TWO LINES ---
     subsections = models.ManyToManyField(SubSection, blank=True, related_name='supervisors')

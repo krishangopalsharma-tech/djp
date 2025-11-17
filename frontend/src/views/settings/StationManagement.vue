@@ -3,28 +3,220 @@ import { reactive, ref, computed, onMounted } from 'vue';
 import { useStationsStore } from '@/stores/stations';
 import { useDepotsStore } from '@/stores/depots';
 import { useUIStore } from '@/stores/ui';
-import { Trash2 } from 'lucide-vue-next';
+import { Trash2, Wrench } from 'lucide-vue-next';
 
 const stationsStore = useStationsStore();
 const depotsStore = useDepotsStore();
 const uiStore = useUIStore();
 
-const depotOptions = computed(() => (depotsStore.depots || []).map(d => ({ value: d.id, label: d.code || d.name })));
+const depotOptions = computed(() =>
+  (depotsStore.depots || []).map(d => ({ value: d.id, label: d.code || d.name }))
+);
 const stations = computed(() => stationsStore.stations);
 
-onMounted(() => {
-  stationsStore.fetchStations();
-  depotsStore.fetchDepots();
+// --- Sorting State ---
+// --- FIX: Sort by depot_code ---
+const sortKey = ref('depot_code');
+const sortDir = ref('asc');
+
+const sortedStations = computed(() => {
+  const data = Array.isArray(stations.value) ? [...stations.value] : [];
+  data.sort((a, b) => {
+    let valA, valB;
+    const modifier = sortDir.value === 'asc' ? 1 : -1;
+    
+    // --- FIX: Use depot_code for sorting ---
+    if (sortKey.value === 'depot_code') {
+        valA = a.depot_code || '';
+        valB = b.depot_code || '';
+    } else {
+        valA = a[sortKey.value] || '';
+        valB = b[sortKey.value] || '';
+    }
+
+    if (valA < valB) return -1 * modifier;
+    if (valA > valB) return 1 * modifier;
+    return 0;
+  });
+  return data;
 });
 
-// ... (ensure all other functions in this component now call `stationsStore` or `depotsStore` instead of `stationsStore`) ...
+function toggleSort(key) {
+  if (sortKey.value === key) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortKey.value = key;
+    sortDir.value = 'asc';
+  }
+}
+
+// --- State for file upload ---
+const selectedFile = ref(null)
+const fileInput = ref(null)
+
+onMounted(() => {
+  if (depotsStore.depots.length === 0) {
+    depotsStore.fetchDepots()
+  }
+  stationsStore.fetchStations()
+})
+
+// --- Form for creating a new station ---
+const newStation = reactive({
+  name: '',
+  code: '',
+  category: '',
+  depot: null,
+})
+
+async function addStation() {
+  if (!newStation.name || !newStation.depot || !newStation.code) {
+    uiStore.pushToast({type: 'error', title: 'Missing Fields', message: 'Depot, Station Name, and Station Code are required.'})
+    return
+  }
+  await stationsStore.addStation({ ...newStation });
+  newStation.name = ''
+  newStation.code = ''
+  newStation.category = ''
+}
+
+// --- Edit Modal State ---
+const isEditModalOpen = ref(false);
+const stationToEdit = ref(null);
+
+function openEditModal(station) {
+  stationToEdit.value = { ...station, depot: station.depot }; 
+  isEditModalOpen.value = true;
+}
+
+async function saveStationChanges() {
+  if (!stationToEdit.value) return;
+  await stationsStore.updateStation(stationToEdit.value.id, stationToEdit.value);
+  isEditModalOpen.value = false;
+  stationToEdit.value = null;
+}
+
+// --- Delete confirmation modal state ---
+const isDeleteModalOpen = ref(false);
+const stationToDelete = ref(null);
+
+function openDeleteModal(station) {
+  stationToDelete.value = station;
+  isDeleteModalOpen.value = true;
+}
+
+async function confirmDelete() {
+  if (!stationToDelete.value) return;
+  await stationsStore.removeStation(stationToDelete.value.id);
+  isDeleteModalOpen.value = false;
+  stationToDelete.value = null;
+}
+
+// --- File Upload Logic ---
+function handleFileSelect(event) {
+  const target = event.target;
+  if (target.files && target.files[0]) {
+    selectedFile.value = target.files[0];
+  }
+}
+
+function triggerFileInput() {
+  fileInput.value?.click();
+}
+
+async function handleFileUpload() {
+  if (!selectedFile.value) {
+    uiStore.pushToast({ type: 'error', title: 'No file', message: 'Please select a file to upload.' });
+    return;
+  }
+  await stationsStore.uploadStationsFile(selectedFile.value);
+  selectedFile.value = null;
+  if (fileInput.value) fileInput.value.value = '';
+}
+
+// --- Logic for the "Manage Equipment" Modal ---
+const clone = (o) => JSON.parse(JSON.stringify(o))
+const showModal = ref(false)
+const selectedStation = ref(null)
+const tempEquipments = ref([]) 
+const originalEquipments = ref([]) 
+
+function openManage(station) {
+  selectedStation.value = station
+  const equipments = station.equipments || [] 
+  originalEquipments.value = clone(equipments);
+  tempEquipments.value = clone(equipments);
+  showModal.value = true
+}
+function closeModal() {
+  showModal.value = false
+  selectedStation.value = null
+  tempEquipments.value = []
+  originalEquipments.value = []
+}
+
+async function saveEquipments() {
+    if (!selectedStation.value) return;
+    uiStore.pushToast({ type: 'info', title: 'Saving...', message: 'Processing equipment changes.' });
+
+    const originalIds = new Set(originalEquipments.value.map(eq => eq.id));
+    const currentIds = new Set(tempEquipments.value.map(eq => eq.id).filter(id => id));
+    const promises = [];
+
+    for (const originalEq of originalEquipments.value) {
+        if (!currentIds.has(originalEq.id)) {
+            promises.push(stationsStore.removeStationEquipment(originalEq.id));
+        }
+    }
+    
+    for (const tempEq of tempEquipments.value) {
+        // --- FIX: Remove 'category' from the payload ---
+        const payload = { 
+            ...tempEq, 
+            station: selectedStation.value.id,
+        };
+        delete payload.category; // This field might not be needed for equipment
+        
+        if (tempEq.id) { 
+            const originalEq = originalEquipments.value.find(eq => eq.id === tempEq.id);
+            // Check only relevant fields
+            if (originalEq.name !== tempEq.name || 
+                originalEq.make_modal !== tempEq.make_modal ||
+                originalEq.address !== tempEq.address ||
+                originalEq.location_in_station !== tempEq.location_in_station ||
+                originalEq.quantity !== tempEq.quantity) {
+                promises.push(stationsStore.updateStationEquipment(tempEq.id, payload));
+            }
+        } else {
+            promises.push(stationsStore.addStationEquipment(payload));
+        }
+    }
+    
+    await Promise.all(promises);
+    await stationsStore.fetchStations(); 
+    uiStore.pushToast({ type: 'success', title: 'Success', message: 'Equipment saved.' });
+    closeModal();
+}
+
+function addEquipmentRow() {
+  tempEquipments.value.push({ 
+    // --- FIX: Remove 'category' ---
+    name: '',
+    make_modal: '',
+    address: '',
+    location_in_station: '',
+    quantity: 1,
+  })
+}
+function removeEquipmentRow(i) {
+  tempEquipments.value.splice(i, 1)
+}
 </script>
 
 <template>
   <div class="space-y-5">
     <p class="text-app/80 text-sm">Map stations to depots, manage communication equipment, or upload a complete list via Excel.</p>
 
-    <!-- Form for creating a new station -->
     <div class="card">
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div class="md:col-span-1">
@@ -48,11 +240,12 @@ onMounted(() => {
         </div>
       </div>
        <div class="mt-3 flex justify-end">
-          <button class="btn btn-primary" @click="addStation">Add Station</button>
+          <button class="btn btn-primary" @click="addStation" :disabled="stationsStore.loading.stations">
+            {{ stationsStore.loading.stations ? 'Adding...' : 'Add Station' }}
+          </button>
       </div>
     </div>
     
-    <!-- File Upload Section -->
     <div class="card">
        <div class="flex items-end gap-4">
           <div class="flex-grow">
@@ -68,11 +261,13 @@ onMounted(() => {
             <button v-if="selectedFile" class="btn btn-primary" @click="handleFileUpload" :disabled="stationsStore.loading.stations">
               {{ stationsStore.loading.stations ? 'Uploading...' : 'Upload' }}
             </button>
+            <button class="btn btn-outline ml-2" @click="stationsStore.exportStationsToExcel()" :disabled="stationsStore.loading.stations">
+                Export Excel
+            </button>
           </div>
        </div>
     </div>
 
-    <!-- Stations List Table -->
     <div class="rounded-2xl border-app bg-card text-app overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
@@ -86,7 +281,7 @@ onMounted(() => {
           </colgroup>
           <thead>
             <tr class="text-left border-b border-app/40">
-              <th @click="toggleSort('depot_display')" class="py-2.5 px-3 cursor-pointer select-none text-left">Depot <span v-if="sortKey === 'depot_display'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
+              <th @click="toggleSort('depot_code')" class="py-2.5 px-3 cursor-pointer select-none text-left">Depot <span v-if="sortKey === 'depot_code'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
               <th @click="toggleSort('name')" class="py-2.5 px-3 cursor-pointer select-none text-center">Station Name <span v-if="sortKey === 'name'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
               <th @click="toggleSort('code')" class="py-2.5 px-3 cursor-pointer select-none text-center">Station Code <span v-if="sortKey === 'code'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
               <th @click="toggleSort('category')" class="py-2.5 px-3 cursor-pointer select-none text-center">Category <span v-if="sortKey === 'category'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
@@ -105,7 +300,7 @@ onMounted(() => {
               <td colspan="6" class="px-3 py-6 text-app/60 text-center">No stations yet — add one above or upload a file.</td>
             </tr>
             <tr v-for="s in sortedStations" :key="s.id" class="border-t border-app/30">
-              <td class="py-2 px-3 align-middle text-left">{{ s.depot_display }}</td>
+              <td class="py-2 px-3 align-middle text-left">{{ s.depot_code || 'N/A' }}</td>
               <td class="py-2 px-3 align-middle text-center">{{ s.name }}</td>
               <td class="py-2 px-3 align-middle text-center">{{ s.code }}</td>
               <td class="py-2 px-3 align-middle text-center">{{ s.category }}</td>
@@ -118,9 +313,7 @@ onMounted(() => {
                     </svg>
                   </button>
                   <button class="h-9 w-9 flex items-center justify-center rounded-lg bg-[var(--button-primary)] text-[var(--seasalt)] hover:bg-[var(--button-hover)] transition" @click="openManage(s)" title="Manage Equipment">
-                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437 1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008Z" />
-                    </svg>
+                     <Wrench class="w-6 h-6" />
                   </button>
                   <button
                     class="inline-flex items-center justify-center h-9 w-9 rounded-md text-app ring-1 ring-app/60 hover:bg-black/10 transition"
@@ -136,7 +329,6 @@ onMounted(() => {
       </div>
     </div>
     
-    <!-- Edit Station Modal -->
     <div v-if="isEditModalOpen" class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
       <div class="bg-card rounded-2xl p-6 w-full max-w-2xl space-y-4">
         <h3 class="text-lg font-semibold">Edit Station</h3>
@@ -162,28 +354,30 @@ onMounted(() => {
         </div>
         <div class="flex justify-end gap-3 pt-4">
           <button @click="isEditModalOpen = false" class="btn btn-outline">Cancel</button>
-          <button @click="saveStationChanges" class="btn btn-primary">Save Changes</button>
+          <button @click="saveStationChanges" class="btn btn-primary" :disabled="stationsStore.loading.stations">
+            {{ stationsStore.loading.stations ? 'Saving...' : 'Save Changes' }}
+          </button>
         </div>
       </div>
     </div>
 
-    <!-- Delete Confirmation Modal -->
     <div v-if="isDeleteModalOpen" class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
       <div class="bg-card rounded-2xl p-6 w-full max-w-md space-y-4">
         <h3 class="text-lg font-semibold">Confirm Deletion</h3>
-        <p>Are you sure you want to delete station "{{ stationToDelete?.name }}"? This action cannot be undone.</p>
+        <p>Are you sure you want to delete station "<strong>{{ stationToDelete?.name }}</strong>"? This action cannot be undone.</p>
         <div class="flex justify-end gap-3 pt-4">
           <button @click="isDeleteModalOpen = false" class="btn btn-outline">Cancel</button>
-          <button @click="confirmDelete" class="btn" style="background-color: #ef4444; color: white;">Delete</button>
+          <button @click="confirmDelete" class="btn" style="background-color: #ef4444; color: white;" :disabled="stationsStore.loading.stations">
+             {{ stationsStore.loading.stations ? 'Deleting...' : 'Delete' }}
+          </button>
         </div>
       </div>
     </div>
 
-    <!-- Manage Equipment Modal -->
     <div v-if="showModal" class="fixed inset-0 z-50">
       <div class="absolute inset-0 bg-black/40" @click="closeModal"></div>
       <div class="absolute inset-0 grid place-items-center p-4">
-        <section class="w-full max-w-7xl rounded-2xl border-app bg-card text-app shadow-2xl overflow-hidden flex flex-col">
+        <section class="w-full max-w-7xl rounded-2xl border-app bg-card text-app shadow-2xl overflow-hidden flex flex-col" style="max-height: 90vh;">
           <header class="flex items-center justify-between px-4 py-3 border-b border-app/40">
             <div class="min-w-0">
               <h3 class="font-semibold truncate">Manage Communication Equipment — {{ selectedStation?.name || '' }}</h3>
@@ -193,13 +387,12 @@ onMounted(() => {
               <svg viewBox="0 0 24 24" class="w-5 h-5"><path fill="currentColor" d="M6.4 4.99L5 6.4L10.6 12L5 17.6L6.4 19L12 13.4L17.6 19l1.4-1.4L13.4 12L19 6.4L17.6 4.99L12 10.6z" /></svg>
             </button>
           </header>
-          <div class="p-3 flex-1 overflow-y-auto">
+          <div class="p-3 flex-1 overflow-y-auto" style="min-height: 50vh;">
             <div class="rounded-2xl border-app bg-card text-app overflow-hidden">
               <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                   <thead>
                     <tr class="text-left border-b border-app/40">
-                      <th class="py-2.5 px-3">Category</th>
                       <th class="py-2.5 px-3">Equipment Name</th>
                       <th class="py-2.5 px-3">Make / Model</th>
                       <th class="py-2.5 px-3">Address</th>
@@ -210,10 +403,9 @@ onMounted(() => {
                   </thead>
                   <tbody>
                     <tr v-if="tempEquipments.length === 0">
-                      <td colspan="7" class="px-3 py-6 text-app/60 text-center">No equipment yet — add a row below.</td>
+                      <td colspan="6" class="px-3 py-6 text-app/60 text-center">No equipment yet — add a row below.</td>
                     </tr>
                     <tr v-for="(r, i) in tempEquipments" :key="r.id || i" class="border-t border-app/30">
-                      <td class="py-2 px-3 align-top"><input v-model="r.category" class="field h-9" placeholder="e.g., Telecom" /></td>
                       <td class="py-2 px-3 align-top"><input v-model="r.name" class="field h-9" placeholder="e.g., Modem" /></td>
                       <td class="py-2 px-3 align-top"><input v-model="r.make_modal" class="field h-9" placeholder="e.g., Cisco / 887VA" /></td>
                       <td class="py-2 px-3 align-top"><input v-model="r.address" class="field h-9" placeholder="e.g., 16.12.13.39" /></td>
@@ -235,16 +427,18 @@ onMounted(() => {
                 </table>
               </div>
             </div>
-            <div class="mt-3 grid grid-cols-[1fr_auto_1fr] items-center">
+          </div>
+          <footer class="p-3 border-t border-app/40 grid grid-cols-[1fr_auto_1fr] items-center">
               <div></div>
               <div class="justify-self-center">
                 <button class="btn" @click="addEquipmentRow">+ Add Row</button>
               </div>
               <div class="justify-self-end flex items-center gap-2">
-                <button class="btn btn-primary" @click="saveEquipments">Save Changes</button>
+                <button class="btn btn-primary" @click="saveEquipments" :disabled="stationsStore.loading.equipment">
+                  {{ stationsStore.loading.equipment ? 'Saving...' : 'Save Changes' }}
+                </button>
               </div>
-            </div>
-          </div>
+            </footer>
         </section>
       </div>
     </div>
