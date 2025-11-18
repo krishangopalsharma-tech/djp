@@ -149,7 +149,7 @@ onMounted(() => {
   failureStore.fetchFailures(); // Initial data load
 });
 
-const statuses = ['Active', 'In Progress', 'Resolved', 'On Hold'];
+const statuses = ['Active', 'In Progress', 'Resolved', 'On Hold', 'Draft'];
 
 /* ------------------- sample data generator ------------------- */
 

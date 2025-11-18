@@ -12,20 +12,17 @@ export const useTelegramStore = defineStore('telegram', {
     error: null,
   }),
 
-  getters: {    list: (state) => state.groups,
+  getters: {
+    // A getter to easily access the list of groups
+    list: (state) => state.groups,
   },
 
   actions: {
     async fetchTelegramSettings() {
       this.loading = true;
       try {
-        // CORRECTED PATH: Use the singleton endpoint list view
         const response = await http.get('/telegram-settings/');
-        if (response.data && typeof response.data === 'object') {
-          this.settings = response.data;
-        } else {
-          console.warn('Received invalid data for Telegram settings, preserving initial state.');
-        }
+        this.settings = response.data;
       } catch (err) {
         console.error('Failed to fetch Telegram settings', err);
         useUIStore().pushToast({ type: 'error', title: 'Error', message: 'Could not load Telegram settings.' });
@@ -38,7 +35,6 @@ export const useTelegramStore = defineStore('telegram', {
       this.loading = true;
       const uiStore = useUIStore();
       try {
-        // CORRECTED PATH: Update the singleton object at pk=1
         const response = await http.patch('/telegram-settings/1/', this.settings);
         this.settings = response.data;
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Bot Token saved.' });
@@ -53,7 +49,6 @@ export const useTelegramStore = defineStore('telegram', {
     async fetchTelegramGroups() {
       this.loading = true;
       try {
-        // CORRECTED PATH
         const response = await http.get('/telegram-groups/');
         this.groups = response.data.results || response.data;
       } catch (err) {
@@ -68,7 +63,6 @@ export const useTelegramStore = defineStore('telegram', {
       this.loading = true;
       const uiStore = useUIStore();
       try {
-        // CORRECTED PATH
         await http.patch(`/telegram-groups/${group.id}/`, group);
         uiStore.pushToast({ type: 'success', title: 'Success', message: `Group "${group.name}" updated.` });
         await this.fetchTelegramGroups();
@@ -84,7 +78,6 @@ export const useTelegramStore = defineStore('telegram', {
       this.loading = true;
       const uiStore = useUIStore();
       try {
-        // CORRECTED PATH: Use the new custom action
         const response = await http.post(`/telegram-groups/${group.id}/send-test-message/`);
         uiStore.pushToast({ type: 'success', title: 'Success', message: response.data.message });
       } catch (err) {

@@ -1,16 +1,115 @@
 <script setup>
-import { onMounted, computed, ref } from 'vue';
-import { useCircuitsStore } from '@/stores/circuits';
-import { Trash2 } from 'lucide-vue-next';
+import { onMounted, computed, ref } from 'vue'
+import { useInfrastructureStore } from '@/stores/infrastructure.js'
+import { Trash2 } from 'lucide-vue-next'
 
-const circuitsStore = useCircuitsStore();
-const rows = computed(() => circuitsStore.circuits);
+const infrastructureStore = useInfrastructureStore()
 
-onMounted(() => {
-  circuitsStore.fetchCircuits();
+const rows = computed(() => infrastructureStore.circuits)
+
+// --- Sorting State ---
+const sortKey = ref('circuit_id');
+const sortDir = ref('asc');
+
+const sortedRows = computed(() => {
+  const data = [...rows.value];
+  data.sort((a, b) => {
+    let valA = a[sortKey.value] || '';
+    let valB = b[sortKey.value] || '';
+    const modifier = sortDir.value === 'asc' ? 1 : -1;
+    if (valA < valB) return -1 * modifier;
+    if (valA > valB) return 1 * modifier;
+    return 0;
+  });
+  return data;
 });
 
-// ... (ensure all other functions now call `circuitsStore`) ...
+function toggleSort(key) {
+  if (sortKey.value === key) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortKey.value = key;
+    sortDir.value = 'asc';
+  }
+}
+
+onMounted(() => {
+  infrastructureStore.fetchCircuits()
+})
+
+const severityOptions = ['Minor', 'Major', 'Critical']
+
+// --- Modal State ---
+const isModalOpen = ref(false)
+const currentCircuit = ref(null)
+const isDeleteModalOpen = ref(false)
+const circuitToDelete = ref(null)
+
+// --- File Upload State ---
+const selectedFile = ref(null)
+const fileInput = ref(null)
+
+function handleFileSelect(event) {
+  const target = event.target;
+  if (target.files && target.files[0]) {
+    selectedFile.value = target.files[0];
+  }
+}
+
+function triggerFileInput() {
+  fileInput.value?.click();
+}
+
+async function handleFileUpload() {
+  if (!selectedFile.value) {
+    alert('Please select a file to upload.');
+    return;
+  }
+  await infrastructureStore.uploadCircuitsFile(selectedFile.value);
+  selectedFile.value = null;
+  if(fileInput.value) fileInput.value.value = '';
+}
+
+
+function openAddModal() {
+  currentCircuit.value = {
+    circuit_id: '',
+    name: '',
+    related_equipment: '',
+    severity: 'Minor',
+    details: ''
+  };
+  isModalOpen.value = true;
+}
+
+function openEditModal(circuit) {
+  currentCircuit.value = { ...circuit }; // Create a copy for editing
+  isModalOpen.value = true;
+}
+
+async function saveChanges() {
+  if (!currentCircuit.value) return;
+  if (currentCircuit.value.id) {
+    // Update existing
+    await infrastructureStore.updateCircuit(currentCircuit.value.id, currentCircuit.value);
+  } else {
+    // Create new
+    await infrastructureStore.addCircuit(currentCircuit.value);
+  }
+  isModalOpen.value = false;
+}
+
+function openDeleteModal(circuit) {
+  circuitToDelete.value = circuit;
+  isDeleteModalOpen.value = true;
+}
+
+async function confirmDelete() {
+  if (!circuitToDelete.value) return;
+  await infrastructureStore.removeCircuit(circuitToDelete.value.id);
+  isDeleteModalOpen.value = false;
+}
+
 </script>
 
 <template>
@@ -35,11 +134,11 @@ onMounted(() => {
             </tr>
           </thead>
           <tbody>
-            <tr v-if="circuitsStore.loading.circuits && sortedRows.length === 0">
+            <tr v-if="infrastructureStore.loading.circuits && sortedRows.length === 0">
               <td colspan="6" class="py-6 px-3 text-center text-muted">Loading circuits...</td>
             </tr>
-            <tr v-else-if="circuitsStore.error">
-              <td colspan="6" class="py-6 px-3 text-center text-red-500">{{ circuitsStore.error }}</td>
+            <tr v-else-if="infrastructureStore.error">
+              <td colspan="6" class="py-6 px-3 text-center text-red-500">{{ infrastructureStore.error }}</td>
             </tr>
              <tr v-else-if="sortedRows.length === 0">
               <td colspan="6" class="py-6 px-3 text-center text-app/60">No circuits defined. Add one above.</td>
@@ -74,8 +173,8 @@ onMounted(() => {
             <input type="file" ref="fileInput" @change="handleFileSelect" class="hidden" accept=".xlsx, .xls, .csv" />
             <button class="btn" @click="triggerFileInput">Choose File</button>
             <span v-if="selectedFile" class="text-sm text-muted truncate max-w-xs">{{ selectedFile.name }}</span>
-            <button v-if="selectedFile" class="btn btn-primary" @click="handleFileUpload" :disabled="circuitsStore.loading.circuits">
-                {{ circuitsStore.loading.circuits ? 'Uploading...' : 'Upload' }}
+            <button v-if="selectedFile" class="btn btn-primary" @click="handleFileUpload" :disabled="infrastructureStore.loading.circuits">
+                {{ infrastructureStore.loading.circuits ? 'Uploading...' : 'Upload' }}
             </button>
         </div>
     </div>
@@ -128,3 +227,4 @@ onMounted(() => {
     </div>
   </div>
 </template>
+

@@ -33,6 +33,26 @@ class TelegramGroupViewSet(viewsets.ModelViewSet):
     serializer_class = TelegramGroupSerializer
     permission_classes = [permissions.AllowAny]
 
+    def list(self, request, *args, **kwargs):
+        """
+        Ensure the default groups (alerts, reports, operations) exist
+        before listing.
+        """
+        expected_groups = [
+            {'key': 'alerts', 'name': 'Alerts (Failures & Notifications)'},
+            {'key': 'reports', 'name': 'Reports (Scheduled)'},
+            {'key': 'operations', 'name': 'Operations (Movements)'},
+        ]
+        
+        for group_def in expected_groups:
+            TelegramGroup.objects.get_or_create(
+                key=group_def['key'],
+                defaults={'name': group_def['name']}
+            )
+        
+        # Now, call the original list method
+        return super().list(request, *args, **kwargs)
+
     # --- ADD THIS ACTION ---
     @action(detail=True, methods=['post'], url_path='send-test-message')
     def send_test_message(self, request, pk=None):

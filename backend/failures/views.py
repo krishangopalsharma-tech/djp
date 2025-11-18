@@ -84,23 +84,63 @@ class FailureViewSet(viewsets.ModelViewSet):
 
         # Build the notification message
         try:
-            message_lines = [
-                "<b>🔔 Failure Notification 🔔</b>",
-                f"<b>Event ID:</b> {failure.fail_id}",
-            ]
+            # 1. Define status emojis
+            status_emoji_map = {
+                'Active': '🔴',
+                'Resolved': '✅',
+                'In Progress': '🟡',
+                'On Hold': '⏸️',
+                'Information': 'ℹ️',
+                'Draft': '📝',
+            }
+            status_text = failure.current_status
+            emoji = status_emoji_map.get(status_text, '')
+            
+            # --- START OF FIX: Add Tags ---
+            tags = []
             if failure.circuit:
-                message_lines.append(f"<b>Circuit:</b> {failure.circuit.circuit_id} ({failure.circuit.name})")
+                tags.append(f"#{failure.circuit.circuit_id.replace(' ', '_')}")
             if failure.station:
-                message_lines.append(f"<b>Station:</b> {failure.station.name}")
+                tags.append(f"#{failure.station.code.replace(' ', '_')}")
+            if failure.section:
+                tags.append(f"#{failure.section.name.replace(' ', '_')}")
+            # --- END OF FIX ---
+
+            # 2. Build message lines
+            message_lines = [
+                f"<b>ID:</b> {failure.fail_id}",
+                "", # Blank line
+            ]
+
+            if failure.circuit:
+                # Use circuit_id (e.g., "BPAC01") as requested
+                message_lines.append(f"<b>Circuit:</b> {failure.circuit.circuit_id}") 
+            
+            message_lines.append(f"<b>Status:</b> {status_text} {emoji}")
+            message_lines.append("") # Blank line
+
+            if failure.station:
+                # Use station.code (e.g., "DBO") as requested
+                message_lines.append(f"<b>Station:</b> {failure.station.code}") 
             if failure.section:
                 message_lines.append(f"<b>Section:</b> {failure.section.name}")
-            
-            message_lines.append(f"<b>Reported:</b> {failure.reported_at.strftime('%d-%m-%Y %H:%M')}")
-            message_lines.append(f"<b>Status:</b> {failure.current_status}")
-            message_lines.append(f"<b>Severity:</b> {failure.severity}")
-            
+            if failure.sub_section:
+                message_lines.append(f"<b>Sub-Section:</b> {failure.sub_section.name}")
+
+            # 3. Add Fail Remarks
             if failure.remark_fail:
-                message_lines.append(f"\n<b>Notes:</b> {failure.remark_fail}")
+                message_lines.append("\n<b>❗️ Fail Remarks:</b>")
+                message_lines.append(failure.remark_fail)
+
+            # 4. Add Resolved Remarks (only if status is Resolved)
+            if failure.current_status == 'Resolved' and failure.remark_right:
+                message_lines.append("\n<b>✅ Resolved Remark:</b>")
+                message_lines.append(failure.remark_right)
+
+            # --- START OF FIX: Add tags to the end ---
+            if tags:
+                message_lines.append("\n" + " ".join(tags))
+            # --- END OF FIX ---
             
             message = "\n".join(message_lines)
 

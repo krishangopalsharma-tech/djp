@@ -7,7 +7,7 @@ This file is a new Vue component for managing archived failures.
 -->
 <script setup>
 import { onMounted, computed, ref } from 'vue';
-import { useFailureStore } from '@/stores/failures';
+import { useFailureStore } from '@/src/stores/failures';
 import { Trash2 } from 'lucide-vue-next';
 import Spinner from '@/components/ui/Spinner.vue';
 

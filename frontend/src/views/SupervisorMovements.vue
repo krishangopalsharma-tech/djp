@@ -2,7 +2,10 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useSupervisorMovementsStore } from '@/stores/supervisorMovements';
 // --- FIX: Import the correct store ---
+// --- START OF FIX ---
+// This path is now correct because we merged the folders.
 import { useInfrastructureStore } from '@/stores/infrastructure';
+// --- END OF FIX ---
 import { Save, Send } from 'lucide-vue-next';
 
 // --- Store Setup ---
@@ -13,11 +16,7 @@ const infrastructureStore = useInfrastructureStore();
 const today = new Date().toISOString().slice(0, 10);
 const selectedDate = ref(today);
 const supervisorData = computed(() => movementsStore.dailyMovements);
-// --- FIX: Use infrastructureStore for supervisors ---
-const supervisorOptions = computed(() => infrastructureStore.supervisors
-    .filter(s => s.user != null) // Only include supervisors linked to a user
-    .map(s => ({ value: s.user, label: s.name })) // Use the user ID
-);
+const supervisorOptions = computed(() => infrastructureStore.supervisors.map(s => ({ value: s.id, label: s.name })));
 
 const editableData = ref([]);
 const dirtyRows = ref(new Set());
@@ -27,10 +26,7 @@ const sortDir = ref('asc');
 // --- Data Fetching ---
 onMounted(() => {
   movementsStore.fetchMovementsByDate(selectedDate.value);
-  // --- FIX: Fetch supervisors from infrastructureStore ---
-  if (infrastructureStore.supervisors.length === 0) {
-      infrastructureStore.fetchSupervisors();
-  }
+  infrastructureStore.fetchSupervisors();
 });
 
 // --- Sorting Logic ---
@@ -138,7 +134,7 @@ async function handleSendReport() {
                     :disabled="dirtyRows.size === 0 || movementsStore.loading" 
                     title="Save All Changes">
                     <Save class="w-5 h-5" />
-                 </button>
+                </button>
                 <button 
                     @click="handleSendReport" 
                     class="h-9 w-9 flex items-center justify-center rounded-lg bg-[var(--french-gray)] text-[var(--eerie-black)] hover:bg-[var(--french-gray-lighter)] transition"
@@ -167,7 +163,7 @@ async function handleSendReport() {
           </colgroup>
           <thead>
             <tr class="text-left border-b border-app/40">
-              <th @click="toggleSort('depot_display')" class="py-2.5 px-3 cursor-pointer select-none">Depot <span v-if="sortKey === 'depot_display'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
+              <th @click="toggleSort('depot_name')" class="py-2.5 px-3 cursor-pointer select-none">Depot <span v-if="sortKey === 'depot_name'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
               <th @click="toggleSort('name')" class="py-2.5 px-3 cursor-pointer select-none">Name <span v-if="sortKey === 'name'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
               <th @click="toggleSort('designation')" class="py-2.5 px-3 cursor-pointer select-none">Designation <span v-if="sortKey === 'designation'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
               <th @click="toggleSort('location')" class="py-2.5 px-3 cursor-pointer select-none">Location <span v-if="sortKey === 'location'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
@@ -177,11 +173,8 @@ async function handleSendReport() {
             </tr>
           </thead>
           <tbody>
-            <tr v-if="!sortedData.length" class="border-t border-app/30">
-                <td colspan="7" class="py-6 px-3 text-center text-muted">No supervisors found. Please add supervisors in Settings.</td>
-            </tr>
             <tr v-for="row in sortedData" :key="row.id" class="border-t border-app/30">
-              <td class="py-2 px-3 align-top font-semibold">{{ row.depot_display || 'N/A' }}</td>
+              <td class="py-2 px-3 align-top font-semibold">{{ row.depot_name || 'N/A' }}</td>
               <td class="py-2 px-3 align-top">{{ row.name }}</td>
               <td class="py-2 px-3 align-top text-muted">{{ row.designation }}</td>
               <td class="py-2 px-3 align-top">

@@ -1,95 +1,172 @@
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
-import { useDebounce } from '@/composables/useDebounce';
-import { useLogbookStore } from '@/stores/logbook';
-// --- START OF FIX ---
-import { useInfrastructureStore } from '@/stores/infrastructure';
-// --- END OF FIX ---
-import { useFailureStore } from '@/stores/failures';
-import DataTable from '@/components/DataTable.vue';
-import FailureDetailsDrawer from '@/components/FailureDetailsDrawer.vue';
-import Spinner from '@/components/ui/Spinner.vue';
-import SearchSelect from '@/components/form/SearchSelect.vue';
-import { Bell, Pencil, Trash2, FileDown, FileText, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-vue-next';
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import DataTable from '@/components/DataTable.vue'
+import FailureDetailsDrawer from '@/components/FailureDetailsDrawer.vue'
+import Spinner from '@/components/ui/Spinner.vue'
+import SearchSelect from '@/components/form/SearchSelect.vue'
+import { Bell, Pencil, Trash2, FileDown, FileText, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-vue-next'
+import { useFailureStore } from '@/stores/failures'
+import { useInfrastructureStore } from '@/stores/infrastructure'
 
 // --- Store setup ---
-const logbookStore = useLogbookStore();
-// --- START OF FIX ---
-const infrastructureStore = useInfrastructureStore();
-// --- END OF FIX ---
-const failureStore = useFailureStore(); // Keep for archive action
-const router = useRouter();
+const failureStore = useFailureStore()
+const infrastructureStore = useInfrastructureStore()
+const router = useRouter()
 
 // --- UI State ---
-const drawerOpen = ref(false);
-const activeItem = ref(null);
-const isArchiveModalOpen = ref(false);
-const failureToArchive = ref(null);
-const archiveReason = ref('');
+const drawerOpen = ref(false)
+const activeItem = ref(null)
+const isArchiveModalOpen = ref(false)
+const failureToArchive = ref(null)
+const archiveReason = ref('')
 
 // --- Filtering, Sorting, and Pagination State ---
-const filters = ref({
-  query: '',
-  circuits: [],
-  sections: [],
-  stations: [],
-  supervisors: [],
-  statuses: [],
-  sortKey: 'reported_at',
-  sortDir: 'desc',
-  page: 1,
-  rowsPerPage: 20,
-});
+const query = ref('')
+const selectedCircuits = ref([])
+const selectedSections = ref([])
+const selectedStations = ref([])
+const selectedSupervisors = ref([])
+const selectedStatuses = ref([])
+const sortKey = ref('reported_at')
+const sortDir = ref('desc')
+const currentPage = ref(1)
+const rowsPerPage = ref(20)
 
 // --- Data Fetching ---
 onMounted(() => {
-  fetchData(); // Initial data load
-  // Fetch data for filter dropdowns
-  infrastructureStore.fetchCircuits();
-  infrastructureStore.fetchSections();
-  infrastructureStore.fetchStations();
-  infrastructureStore.fetchSupervisors();
-});
-
-const fetchData = useDebounce(() => {
-    // Construct params object for the API call
-    const params = {
-        query: filters.value.query,
-        'circuits[]': filters.value.circuits,
-        'sections[]': filters.value.sections,
-        'stations[]': filters.value.stations,
-        'supervisors[]': filters.value.supervisors,
-        'statuses[]': filters.value.statuses,
-        sortKey: filters.value.sortKey,
-        sortDir: filters.value.sortDir,
-        page: filters.value.page,
-        rowsPerPage: filters.value.rowsPerPage,
-    };
-    logbookStore.fetchLogbookData(params);
-}, 300); // Debounce API calls
-
-watch(filters, fetchData, { deep: true });
+  failureStore.fetchFailures()
+  // Fetch data for filter dropdowns if not already loaded
+  if (infrastructureStore.circuits.length === 0) infrastructureStore.fetchCircuits()
+  if (infrastructureStore.sections.length === 0) infrastructureStore.fetchSections()
+  if (infrastructureStore.stations.length === 0) infrastructureStore.fetchStations()
+  if (infrastructureStore.supervisors.length === 0) infrastructureStore.fetchSupervisors()
+})
 
 // --- Computed Data for UI ---
-const loading = computed(() => logbookStore.loading);
-const error = computed(() => logbookStore.error);
-const paginatedRows = computed(() => logbookStore.failures);
-const totalPages = computed(() => logbookStore.num_pages);
-const currentPage = computed({
-    get: () => filters.value.page,
-    set: (val) => { filters.value.page = val; }
-});
+const loading = computed(() => failureStore.loading)
+const error = computed(() => failureStore.error)
 
 // --- Options for Filter Dropdowns ---
-const circuitOptions = computed(() => infrastructureStore.circuits.map(c => ({ label: `${c.circuit_id} (${c.name})`, value: c.id })));
-const sectionOptions = computed(() => infrastructureStore.sections.map(s => ({ label: s.name, value: s.id })));
-const stationOptions = computed(() => infrastructureStore.stations.map(s => ({ label: s.name, value: s.id })));
-const supervisorOptions = computed(() => infrastructureStore.supervisors.map(s => ({ label: s.name, value: s.id })));
+const circuitOptions = computed(() => infrastructureStore.circuits.map(c => ({ label: `${c.circuit_id} (${c.name})`, value: c.id })))
+const sectionOptions = computed(() => infrastructureStore.sections.map(s => ({ label: s.name, value: s.id })))
+const stationOptions = computed(() => infrastructureStore.stations.map(s => ({ label: s.name, value: s.id })))
+const supervisorOptions = computed(() => infrastructureStore.supervisors.map(s => ({ label: s.name, value: s.id })))
 const statusOptions = computed(() => ([
     { label: 'Active', value: 'Active' }, { label: 'In Progress', value: 'In Progress' },
     { label: 'Resolved', value: 'Resolved' }, { label: 'On Hold', value: 'On Hold' },
-]));
+]))
+
+// --- Filtering & Sorting Logic ---
+const filteredRows = computed(() => {
+  const q = query.value.trim().toLowerCase()
+  return failureStore.failures.filter(row => {
+    if (!row) return false;
+    // Check against text query
+    const inQuery = q ? JSON.stringify(row).toLowerCase().includes(q) : true
+    // Check against dropdown filters (IDs)
+    const inCircuits = selectedCircuits.value.length ? selectedCircuits.value.includes(row.circuit?.id) : true
+    const inSections = selectedSections.value.length ? selectedSections.value.includes(row.section?.id) : true
+    const inStations = selectedStations.value.length ? selectedStations.value.includes(row.station?.id) : true
+    const inSupervisors = selectedSupervisors.value.length ? selectedSupervisors.value.includes(row.assigned_to?.id) : true
+    const inStatuses = selectedStatuses.value.length ? selectedStatuses.value.includes(row.current_status) : true
+    
+    return inQuery && inCircuits && inSections && inStations && inSupervisors && inStatuses
+  })
+})
+
+const sortedRows = computed(() => {
+    const data = [...filteredRows.value];
+    if (!sortKey.value) return data;
+
+    return data.sort((a, b) => {
+        let valA, valB;
+
+        // Handle nested properties for sorting
+        switch (sortKey.value) {
+            case 'circuit':
+                valA = a.circuit?.name;
+                valB = b.circuit?.name;
+                break;
+            case 'station':
+                valA = a.station?.name;
+                valB = b.station?.name;
+                break;
+            case 'section':
+                valA = a.section?.name;
+                valB = b.section?.name;
+                break;
+            case 'assigned_to':
+                valA = a.assigned_to?.name;
+                valB = b.assigned_to?.name;
+                break;
+            default:
+                valA = a[sortKey.value];
+                valB = b[sortKey.value];
+        }
+          
+        const dir = sortDir.value === 'asc' ? 1 : -1;
+        
+        // Handle nulls by sorting them to the bottom
+        if (valA == null) return 1 * dir;
+        if (valB == null) return -1 * dir;
+        if (valA < valB) return -1 * dir;
+        if (valA > valB) return 1 * dir;
+        return 0;
+    });
+});
+
+
+const totalPages = computed(() => Math.ceil(sortedRows.value.length / rowsPerPage.value))
+const paginatedRows = computed(() => {
+  const start = (currentPage.value - 1) * rowsPerPage.value
+  const end = start + rowsPerPage.value
+  return sortedRows.value.slice(start, end)
+})
+
+// --- Methods ---
+function toggleSort(key) {
+  if (sortKey.value === key) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortKey.value = key
+    sortDir.value = 'desc' // Default to descending for new sort keys
+  }
+}
+
+function openDetails(row) {
+  activeItem.value = row
+  drawerOpen.value = true
+}
+
+function editFailure(row) {
+  router.push(`/failures/edit/${row.id}`)
+}
+
+function openArchiveModal(row) {
+  failureToArchive.value = row
+  isArchiveModalOpen.value = true
+  archiveReason.value = ''
+}
+
+async function confirmArchive() {
+  if (failureToArchive.value) {
+    await failureStore.archiveFailure(failureToArchive.value.id, archiveReason.value)
+    failureToArchive.value = null
+    isArchiveModalOpen.value = false
+  }
+}
+
+function formatDuration(start, end) {
+  if (!start || !end) return '–'
+  const diff = new Date(end) - new Date(start)
+  if (diff < 0) return '–'
+  const minutes = Math.floor(diff / 60000)
+  if (minutes < 60) return `${minutes}m`
+  const hours = Math.floor(minutes / 60)
+  const mins = minutes % 60
+  return `${hours}h ${mins}m`
+}
 
 const columns = [
   { key: 'reported_at', label: 'Reported', sortable: true },
@@ -102,52 +179,21 @@ const columns = [
   { key: 'assigned_to', label: 'Assigned', sortable: true },
   { key: 'current_status', label: 'Status', sortable: true },
   { key: 'actions',     label: 'Actions', sortable: false, align: 'text-center', width: '120px' },
-];
+]
 
-// --- Methods ---
-function toggleSort(key) {
-  if (filters.value.sortKey === key) {
-    filters.value.sortDir = filters.value.sortDir === 'asc' ? 'desc' : 'asc';
-  } else {
-    filters.value.sortKey = key;
-    filters.value.sortDir = 'desc';
-  }
-}
-
-function goToFirstPage() { filters.value.page = 1; }
-function goToLastPage() { filters.value.page = totalPages.value; }
-function goToNextPage() { if (filters.value.page < totalPages.value) filters.value.page++; }
-function goToPreviousPage() { if (filters.value.page > 1) filters.value.page--; }
-
-function openDetails(row) { activeItem.value = row; drawerOpen.value = true; }
-function editFailure(row) { router.push(`/failures/edit/${row.id}`); }
-function openArchiveModal(row) { failureToArchive.value = row; isArchiveModalOpen.value = true; archiveReason.value = ''; }
-async function confirmArchive() {
-  if (failureToArchive.value) {
-    await failureStore.archiveFailure(failureToArchive.value.id, archiveReason.value);
-    failureToArchive.value = null;
-    isArchiveModalOpen.value = false;
-    fetchData(); // Re-fetch data after archiving
-  }
-}
-function formatDuration(start, end) {
-  if (!start || !end) return '—';
-  const diff = new Date(end) - new Date(start);
-  if (diff < 0) return '—';
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return `${hours}h ${mins}m`;
-}
 function badgeClasses(status) {
-    if (status === 'Resolved') return 'badge-success';
-    if (status === 'Active') return 'badge-danger';
-    if (status === 'In Progress') return 'badge-warning';
-    if (status === 'On Hold') return 'badge-hold';
-    if (status === 'Information') return 'badge-neutral';
-    return 'badge-neutral';
+    if (status === 'Resolved') return 'badge-success'
+    if (status === 'Active') return 'badge-danger'
+    if (status === 'In Progress') return 'badge-warning'
+    if (status === 'On Hold') return 'badge-hold'
+    return 'badge-neutral'
 }
+
+// --- Pagination Methods ---
+function goToFirstPage() { currentPage.value = 1 }
+function goToLastPage() { currentPage.value = totalPages.value }
+function goToNextPage() { if (currentPage.value < totalPages.value) currentPage.value++ }
+function goToPreviousPage() { if (currentPage.value > 1) currentPage.value-- }
 </script>
 
 <template>
@@ -156,14 +202,15 @@ function badgeClasses(status) {
       <h2 class="text-2xl font-semibold">Logbook</h2>
     </div>
 
+    <!-- Filter Bar -->
     <div class="sticky top-0 z-10 bg-app py-4 card">
        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        <input v-model="filters.query" type="search" placeholder="Search anything..." class="h-11 w-full rounded-lg border-app bg-card text-app px-3 text-sm" />
-        <SearchSelect v-model="filters.circuits" :options="circuitOptions" placeholder="Filter by Circuit" multiple />
-        <SearchSelect v-model="filters.sections" :options="sectionOptions" placeholder="Filter by Section" multiple />
-        <SearchSelect v-model="filters.stations" :options="stationOptions" placeholder="Filter by Station" multiple />
-        <SearchSelect v-model="filters.supervisors" :options="supervisorOptions" placeholder="Filter by Supervisor" multiple />
-        <SearchSelect v-model="filters.statuses" :options="statusOptions" placeholder="Filter by Status" multiple />
+        <input v-model="query" type="search" placeholder="Search anything..." class="h-11 w-full rounded-lg border-app bg-card text-app px-3 text-sm" />
+        <SearchSelect v-model="selectedCircuits" :options="circuitOptions" placeholder="Filter by Circuit" multiple />
+        <SearchSelect v-model="selectedSections" :options="sectionOptions" placeholder="Filter by Section" multiple />
+        <SearchSelect v-model="selectedStations" :options="stationOptions" placeholder="Filter by Station" multiple />
+        <SearchSelect v-model="selectedSupervisors" :options="supervisorOptions" placeholder="Filter by Supervisor" multiple />
+        <SearchSelect v-model="selectedStatuses" :options="statusOptions" placeholder="Filter by Status" multiple />
       </div>
     </div>
 
@@ -175,8 +222,8 @@ function badgeClasses(status) {
         <DataTable
           :columns="columns"
           :rows="paginatedRows"
-          :sort-key="filters.sortKey"
-          :sort-dir="filters.sortDir"
+          :sort-key="sortKey"
+          :sort-dir="sortDir"
           @sort="toggleSort"
           @rowclick="openDetails"
         >
@@ -203,23 +250,25 @@ function badgeClasses(status) {
         </DataTable>
       </div>
         
+      <!-- Pagination Controls -->
       <div class="mt-4 flex items-center justify-between">
         <div class="flex items-center justify-center gap-2 p-2 rounded-lg">
           <button class="btn btn-outline btn-sm gap-2"><FileDown class="w-4 h-4" /><span>Export CSV</span></button>
           <button class="btn btn-outline btn-sm gap-2"><FileText class="w-4 h-4" /><span>Export PDF</span></button>
         </div>
         <div class="flex items-center justify-end gap-2 p-2 rounded-lg">
-          <button @click="goToFirstPage" :disabled="filters.page === 1" class="btn-ghost p-2" title="First"><ChevronsLeft class="w-4 h-4" /></button>
-          <button @click="goToPreviousPage" :disabled="filters.page === 1" class="btn-ghost p-2" title="Previous"><ChevronLeft class="w-4 h-4" /></button>
-          <span class="text-sm text-muted">Page {{ filters.page }} of {{ totalPages }}</span>
-          <button @click="goToNextPage" :disabled="filters.page >= totalPages" class="btn-ghost p-2" title="Next"><ChevronRight class="w-4 h-4" /></button>
-          <button @click="goToLastPage" :disabled="filters.page >= totalPages" class="btn-ghost p-2" title="Last"><ChevronsRight class="w-4 h-4" /></button>
+          <button @click="goToFirstPage" :disabled="currentPage === 1" class="btn-ghost p-2" title="First"><ChevronsLeft class="w-4 h-4" /></button>
+          <button @click="goToPreviousPage" :disabled="currentPage === 1" class="btn-ghost p-2" title="Previous"><ChevronLeft class="w-4 h-4" /></button>
+          <span class="text-sm text-muted">Page {{ currentPage }} of {{ totalPages }}</span>
+          <button @click="goToNextPage" :disabled="currentPage >= totalPages" class="btn-ghost p-2" title="Next"><ChevronRight class="w-4 h-4" /></button>
+          <button @click="goToLastPage" :disabled="currentPage >= totalPages" class="btn-ghost p-2" title="Last"><ChevronsRight class="w-4 h-4" /></button>
         </div>
       </div>
     </div>
 
     <FailureDetailsDrawer v-model="drawerOpen" :item="activeItem" />
 
+    <!-- Archive Confirmation Modal -->
     <div v-if="isArchiveModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div class="bg-card rounded-lg p-6 shadow-xl w-full max-w-md">
         <h3 class="text-lg font-bold">Confirm Archival</h3>

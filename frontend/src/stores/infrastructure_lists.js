@@ -26,7 +26,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       this.loading.depots = true
       this.error = null
       try {
-        const response = await http.get('/infrastructure/depots/')
+        const response = await http.get('/depots/')
         this.depots = response.data.results || response.data
       } catch (err) {
         this.error = 'Failed to fetch depots.'
@@ -39,7 +39,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       this.loading.stations = true
       this.error = null
       try {
-        const response = await http.get('/infrastructure/stations/')
+        const response = await http.get('/stations/')
         this.stations = response.data.results || response.data
       } catch (err) {
         this.error = 'Failed to fetch stations.'
@@ -52,7 +52,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       this.loading.supervisors = true
       this.error = null
       try {
-        const response = await http.get('/infrastructure/supervisors/')
+        const response = await http.get('/supervisors/')
         this.supervisors = response.data.results || response.data
       } catch (err) {
         this.error = 'Failed to fetch supervisors.'
@@ -65,7 +65,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       this.loading.sections = true
       this.error = null
       try {
-        const response = await http.get('/infrastructure/sections/')
+        const response = await http.get('/sections/')
         this.sections = response.data.results || response.data
       } catch (err) {
         this.error = 'Failed to fetch sections.'
@@ -78,7 +78,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       this.loading.sections = true; // Can share loading state with sections
       this.error = null;
       try {
-        const response = await http.get('/infrastructure/subsections/');
+        const response = await http.get('/subsections/');
         this.subSections = response.data.results || response.data;
       } catch (err) {
         this.error = 'Failed to fetch sub-sections.';
@@ -91,7 +91,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       this.loading.circuits = true
       this.error = null
       try {
-        const response = await http.get('/infrastructure/circuits/')
+        const response = await http.get('/circuits/')
         this.circuits = response.data.results || response.data
       } catch (err) {
         this.error = 'Failed to fetch circuits.'
@@ -105,7 +105,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       this.error = null;
       const uiStore = useUIStore();
       try {
-        await http.post('/infrastructure/depots/', payload);
+        await http.post('/depots/', payload);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Depot added.' });
         await this.fetchDepots();
       } catch (err) {
@@ -121,7 +121,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       this.error = null;
       const uiStore = useUIStore();
       try {
-        await http.patch(`/infrastructure/depots/${depotId}/`, payload);
+        await http.patch(`/depots/${depotId}/`, payload);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Depot updated.' });
         await this.fetchDepots();
       } catch (err) {
@@ -137,7 +137,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       this.error = null;
       const uiStore = useUIStore();
       try {
-        await http.delete(`/infrastructure/depots/${depotId}/`);
+        await http.delete(`/depots/${depotId}/`);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Depot removed.' });
         await this.fetchDepots();
       } catch (err) {
@@ -157,7 +157,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       formData.append('file', file);
 
       try {
-        const response = await http.post('/infrastructure/depots/import/', formData, {
+        const response = await http.post('/depots/import/', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
 
@@ -181,7 +181,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
      async addEquipment(payload) {
       const uiStore = useUIStore();
       try {
-        await http.post('/infrastructure/equipments/', payload);
+        await http.post('/equipments/', payload);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Equipment added.' });
       } catch (err) {
         console.error("Failed to add equipment:", err);
@@ -191,7 +191,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
     async updateEquipment(equipmentId, payload) {
        const uiStore = useUIStore();
       try {
-        await http.patch(`/infrastructure/equipments/${equipmentId}/`, payload);
+        await http.patch(`/equipments/${equipmentId}/`, payload);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Equipment updated.' });
       } catch (err) {
         console.error("Failed to update equipment:", err);
@@ -201,7 +201,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
     async removeEquipment(equipmentId) {
        const uiStore = useUIStore();
       try {
-        await http.delete(`/infrastructure/equipments/${equipmentId}/`);
+        await http.delete(`/equipments/${equipmentId}/`);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Equipment removed.' });
       } catch (err) {
         console.error("Failed to remove equipment:", err);
@@ -213,7 +213,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       this.error = null;
       const uiStore = useUIStore();
       try {
-        await http.post('/infrastructure/sections/', payload);
+        await http.post('/sections/', payload);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Section added.' });
         await this.fetchSections(); // Refresh the list
       } catch (err) {
@@ -229,7 +229,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       this.error = null;
       const uiStore = useUIStore();
       try {
-        await http.patch(`/infrastructure/sections/${sectionId}/`, payload);
+        await http.patch(`/sections/${sectionId}/`, payload);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Section updated.' });
         await this.fetchSections();
       } catch (err) {
@@ -245,7 +245,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       this.error = null;
       const uiStore = useUIStore();
       try {
-        await http.delete(`/infrastructure/sections/${sectionId}/`);
+        await http.delete(`/sections/${sectionId}/`);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Section removed.' });
         await this.fetchSections(); // Refresh the list
       } catch (err) {
@@ -264,7 +264,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       formData.append('file', file);
 
       try {
-        const response = await http.post('/infrastructure/sections/import/', formData, {
+        const response = await http.post('/sections/import/', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
         uiStore.pushToast({ type: 'success', title: 'Import Complete', message: response.data.message });
@@ -287,7 +287,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       this.error = null;
       const uiStore = useUIStore();
       try {
-        await http.post('/infrastructure/stations/', payload);
+        await http.post('/stations/', payload);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Station added.' });
         await this.fetchStations(); 
       } catch (err) {
@@ -303,7 +303,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       this.error = null;
       const uiStore = useUIStore();
       try {
-        await http.patch(`/infrastructure/stations/${stationId}/`, payload);
+        await http.patch(`/stations/${stationId}/`, payload);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Station updated.' });
         await this.fetchStations();
       } catch (err) {
@@ -319,7 +319,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       this.error = null;
       const uiStore = useUIStore();
       try {
-        await http.delete(`/infrastructure/stations/${stationId}/`);
+        await http.delete(`/stations/${stationId}/`);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Station removed.' });
         await this.fetchStations();
       } catch (err) {
@@ -338,7 +338,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       formData.append('file', file);
 
       try {
-        const response = await http.post('/infrastructure/stations/import/', formData, {
+        const response = await http.post('/stations/import/', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
         uiStore.pushToast({ type: 'success', title: 'Import Complete', message: response.data.message });
@@ -367,7 +367,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
     async addStationEquipment(payload) {
       const uiStore = useUIStore();
       try {
-        await http.post('/infrastructure/station-equipments/', payload);
+        await http.post('/station-equipments/', payload);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Equipment added.' });
       } catch (err) {
         console.error("Failed to add station equipment:", err);
@@ -377,7 +377,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
     async updateStationEquipment(equipmentId, payload) {
        const uiStore = useUIStore();
       try {
-        await http.patch(`/infrastructure/station-equipments/${equipmentId}/`, payload);
+        await http.patch(`/station-equipments/${equipmentId}/`, payload);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Equipment updated.' });
       } catch (err) {
         console.error("Failed to update station equipment:", err);
@@ -387,7 +387,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
     async removeStationEquipment(equipmentId) {
        const uiStore = useUIStore();
       try {
-        await http.delete(`/infrastructure/station-equipments/${equipmentId}/`);
+        await http.delete(`/station-equipments/${equipmentId}/`);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Equipment removed.' });
       } catch (err) {
         console.error("Failed to remove station equipment:", err);
@@ -397,7 +397,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
     async addSubSection(payload) {
       const uiStore = useUIStore();
       try {
-        const response = await http.post('/infrastructure/subsections/', payload);
+        const response = await http.post('/subsections/', payload);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Sub-section added.' });
         return response.data;
       } catch (err) {
@@ -408,7 +408,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
     async updateSubSection(subSectionId, payload) {
       const uiStore = useUIStore();
       try {
-        await http.patch(`/infrastructure/subsections/${subSectionId}/`, payload);
+        await http.patch(`/subsections/${subSectionId}/`, payload);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Sub-section updated.' });
       } catch (err) {
         console.error("Failed to update sub-section:", err);
@@ -418,7 +418,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
     async removeSubSection(subSectionId) {
       const uiStore = useUIStore();
       try {
-        await http.delete(`/infrastructure/subsections/${subSectionId}/`);
+        await http.delete(`/subsections/${subSectionId}/`);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Sub-section removed.' });
       } catch (err) {
         console.error("Failed to remove sub-section:", err);
@@ -428,7 +428,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
     async addAsset(payload) {
       const uiStore = useUIStore();
       try {
-        await http.post('/infrastructure/assets/', payload);
+        await http.post('/assets/', payload);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Asset added.' });
       } catch (err) {
         console.error("Failed to add asset:", err);
@@ -438,7 +438,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
     async updateAsset(assetId, payload) {
       const uiStore = useUIStore();
       try {
-        await http.patch(`/infrastructure/assets/${assetId}/`, payload);
+        await http.patch(`/assets/${assetId}/`, payload);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Asset updated.' });
       } catch (err) {
         console.error("Failed to update asset:", err);
@@ -448,7 +448,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
     async removeAsset(assetId) {
       const uiStore = useUIStore();
       try {
-        await http.delete(`/infrastructure/assets/${assetId}/`);
+        await http.delete(`/assets/${assetId}/`);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Asset removed.' });
       } catch (err) {
         console.error("Failed to remove asset:", err);
@@ -460,7 +460,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       this.error = null;
       const uiStore = useUIStore();
       try {
-        await http.post('/infrastructure/supervisors/', payload);
+        await http.post('/supervisors/', payload);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Supervisor added.' });
         await this.fetchSupervisors();
       } catch (err) {
@@ -476,7 +476,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       this.error = null;
       const uiStore = useUIStore();
       try {
-        await http.delete(`/infrastructure/supervisors/${supervisorId}/`);
+        await http.delete(`/supervisors/${supervisorId}/`);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Supervisor removed.' });
         await this.fetchSupervisors();
       } catch (err) {
@@ -492,7 +492,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       this.error = null;
       const uiStore = useUIStore();
       try {
-        await http.patch(`/infrastructure/supervisors/${supervisorId}/`, payload);
+        await http.patch(`/supervisors/${supervisorId}/`, payload);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Supervisor updated.' });
         await this.fetchSupervisors();
       } catch (err) {
@@ -509,7 +509,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       this.error = null;
       const uiStore = useUIStore();
       try {
-        await http.post('/infrastructure/circuits/', payload);
+        await http.post('/circuits/', payload);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Circuit added.' });
         await this.fetchCircuits();
       } catch (err) {
@@ -525,7 +525,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       this.error = null;
       const uiStore = useUIStore();
       try {
-        await http.patch(`/infrastructure/circuits/${circuitId}/`, payload);
+        await http.patch(`/circuits/${circuitId}/`, payload);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Circuit updated.' });
         await this.fetchCircuits();
       } catch (err) {
@@ -544,7 +544,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       formData.append('file', file);
 
       try {
-        const response = await http.post('/infrastructure/circuits/import/', formData, {
+        const response = await http.post('/circuits/import/', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
         const { created, updated, errors } = response.data;
@@ -568,7 +568,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       this.error = null;
       const uiStore = useUIStore();
       try {
-        await http.delete(`/infrastructure/circuits/${circuitId}/`);
+        await http.delete(`/circuits/${circuitId}/`);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Circuit removed.' });
         await this.fetchCircuits();
       } catch (err) {
@@ -581,4 +581,3 @@ export const useInfrastructureStore = defineStore('infrastructure', {
     },
   },
 })
-

@@ -28,28 +28,26 @@ export const useAttachmentStore = defineStore('attachments', {
     },
 
     async uploadAttachment(failureId, file, description) {
-  const uiStore = useUIStore();
-  const formData = new FormData();
-  formData.append('failure', failureId);
-  formData.append('file', file);
-  formData.append('description', description);
+      const uiStore = useUIStore();
+      const formData = new FormData();
+      formData.append('failure', failureId);
+      formData.append('file', file);
+      formData.append('description', description);
 
-  this.loading = true;
-  try {
-    const response = await http.post('/failures/attachments/', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    uiStore.pushToast({ type: 'success', title: 'Success', message: 'File uploaded.' });
-    await this.fetchAttachments(failureId);
-    return response.data;
-  } catch (err) {
-    uiStore.pushToast({ type: 'error', title: 'Upload Failed', message: 'Could not upload file.' });
-    console.error(err);
-    return null;
-  } finally {
-    this.loading = false;
-  }
-},
+      this.loading = true;
+      try {
+        await http.post('/failures/attachments/', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        uiStore.pushToast({ type: 'success', title: 'Success', message: 'File uploaded.' });
+        await this.fetchAttachments(failureId); // Refresh the list
+      } catch (err) {
+        uiStore.pushToast({ type: 'error', title: 'Upload Failed', message: 'Could not upload file.' });
+        console.error(err);
+      } finally {
+        this.loading = false;
+      }
+    },
 
     async deleteAttachment(attachmentId, failureId) {
       const uiStore = useUIStore();

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, onMounted } from 'vue';
 import { useAttachmentStore } from '@/stores/attachments';
 import { Trash2 } from 'lucide-vue-next';
 
@@ -32,7 +32,6 @@ async function handleUpload() {
     return;
   }
   await attachmentStore.uploadAttachment(props.failureId, selectedFile.value, description.value);
-
   // Reset form
   selectedFile.value = null;
   description.value = '';
@@ -48,10 +47,13 @@ async function handleDelete(attachmentId) {
 }
 
 function getFileUrl(fileUrl) {
+    // In development, the backend serves media files from a different port
+    // This prepends the backend URL if the file path is relative.
     if (fileUrl && !fileUrl.startsWith('http')) {
-        // Assumes Vite dev server proxy is at /api
-        const rootUrl = '/'; // Go to the root of the Django server
-        return `${rootUrl}${fileUrl.startsWith('/') ? fileUrl.substring(1) : fileUrl}`;
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+        // Remove '/api' from the base URL if it exists, to get to the root
+        const rootUrl = baseUrl.replace('/api', '');
+        return `${rootUrl}${fileUrl}`;
     }
     return fileUrl;
 }
@@ -62,31 +64,26 @@ function getFileUrl(fileUrl) {
     <hr class="border-app/30 my-2" />
     <div>
       <h3 class="text-sm font-medium text-app mb-2">Attachments</h3>
-
-      <div class="p-3 border border-dashed border-app/50 rounded-lg space-y-3">
-        <div class="flex items-center justify-between gap-4">
-            <div>
-              <label class="block text-sm font-medium mb-1">Upload New File</label>
-              <input type="file" ref="fileInput" @change="handleFileSelect" class="text-sm" />
-            </div>
-            <div class="self-end">
-              <button @click="handleUpload" :disabled="!selectedFile || attachmentStore.loading" class="btn btn-secondary">
-                {{ attachmentStore.loading ? 'Uploading...' : 'Upload' }}
-              </button>
-            </div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 p-3 border border-dashed border-app/50 rounded-lg">
+        <div class="md:col-span-1">
+          <label class="block text-sm font-medium mb-1">Upload New File</label>
+          <input type="file" ref="fileInput" @change="handleFileSelect" class="text-sm" />
         </div>
-        <div>
+        <div class="md:col-span-1">
           <label class="block text-sm font-medium mb-1">Description (Optional)</label>
-          <input type="text" v-model="description" placeholder="e.g., 'Photo of damaged cable'" class="input w-full text-sm">
+          <input v-model="description" class="field h-9" placeholder="e.g., Photo of damaged cable" />
+        </div>
+        <div class="self-end">
+          <button @click="handleUpload" :disabled="!selectedFile || attachmentStore.loading" class="btn btn-secondary w-full">
+            {{ attachmentStore.loading ? 'Uploading...' : 'Upload' }}
+          </button>
         </div>
       </div>
 
       <div class="mt-4 space-y-2">
-        <div v-if="attachments.length === 0 && !attachmentStore.loading" class="text-xs text-app/60">
+        <div v-if="attachments.length === 0" class="text-xs text-app/60">
           No attachments for this entry.
-        </div>
-         <div v-if="attachmentStore.loading" class="text-xs text-app/60">
-            Loading attachments...
         </div>
         <div v-for="att in attachments" :key="att.id" class="flex items-center justify-between p-2 rounded-lg bg-gray-100">
           <div class="flex-grow min-w-0">

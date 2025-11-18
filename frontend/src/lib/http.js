@@ -1,17 +1,15 @@
-import axios from 'axios';
+import axios from 'axios'
 
-// This creates an Axios instance that will correctly use the Vite proxy
-// and handle Django's CSRF tokens automatically.
+// Read from env; fallback to same-origin /api
+const baseURL = import.meta.env.VITE_API_BASE_URL || '/api'
+
 export const http = axios.create({
-  baseURL: '/api/v1',
-  timeout: 35000,
-  withCredentials: true,
-  xsrfCookieName: 'csrftoken',
-  xsrfHeaderName: 'X-CSRFToken',
-});
+  baseURL,
+  timeout: 15000,
+})
 
 // Optional interceptor placeholders
 http.interceptors.response.use(
   (r) => r,
   (err) => Promise.reject(err)
-);
+)
