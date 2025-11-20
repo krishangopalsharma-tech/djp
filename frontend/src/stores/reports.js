@@ -13,7 +13,7 @@
           this.loading = true;
           this.error = null;
           try {
-            const response = await http.get('/reports/schedules/');
+            const response = await http.get('/reports/');
             this.schedules = response.data.results || response.data;
           } catch (err) {
             this.error = 'Failed to fetch report schedules.';
@@ -25,7 +25,7 @@
         async addSchedule(payload) {
           const uiStore = useUIStore();
           try {
-            await http.post('/reports/schedules/', payload);
+            await http.post('/reports/', payload);
             uiStore.pushToast({ type: 'success', title: 'Success', message: 'Report schedule added.' });
             await this.fetchSchedules();
           } catch (err) {
@@ -40,7 +40,7 @@
           delete apiPayload.id; // Don't send the ID in the body of a PATCH request
 
           try {
-            await http.patch(`/reports/schedules/${scheduleId}/`, apiPayload);
+            await http.patch(`/reports/${scheduleId}/`, apiPayload);
             uiStore.pushToast({ type: 'success', title: 'Saved', message: 'Report schedule updated.' });
             await this.fetchSchedules(); // Refresh list to get latest state
           } catch (err) {
@@ -51,7 +51,7 @@
         async removeSchedule(scheduleId) {
           const uiStore = useUIStore();
           try {
-            await http.delete(`/reports/schedules/${scheduleId}/`);
+            await http.delete(`/reports/${scheduleId}/`);
             uiStore.pushToast({ type: 'success', title: 'Deleted', message: 'Report schedule removed.' });
             await this.fetchSchedules();
           } catch (err) {
@@ -65,7 +65,7 @@
           formData.append('template', file);
           this.loading = true;
           try {
-            await http.post(`/reports/schedules/${scheduleId}/upload_template/`, formData, {
+            await http.post(`/reports/${scheduleId}/upload_template/`, formData, {
               headers: { 'Content-Type': 'multipart/form-data' },
             });
             uiStore.pushToast({ type: 'success', title: 'Success', message: 'Template uploaded.' });

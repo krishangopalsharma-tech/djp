@@ -1,11 +1,11 @@
 <script setup>
 import { onMounted, computed, ref } from 'vue'
-import { useInfrastructureStore } from '@/stores/infrastructure.js'
+import { useCircuitsStore } from '@/stores/circuits';
 import { Trash2 } from 'lucide-vue-next'
 
-const infrastructureStore = useInfrastructureStore()
+const circuitsStore = useCircuitsStore()
 
-const rows = computed(() => infrastructureStore.circuits)
+const rows = computed(() => circuitsStore.circuits)
 
 // --- Sorting State ---
 const sortKey = ref('circuit_id');
@@ -34,7 +34,7 @@ function toggleSort(key) {
 }
 
 onMounted(() => {
-  infrastructureStore.fetchCircuits()
+  circuitsStore.fetchCircuits()
 })
 
 const severityOptions = ['Minor', 'Major', 'Critical']
@@ -65,7 +65,7 @@ async function handleFileUpload() {
     alert('Please select a file to upload.');
     return;
   }
-  await infrastructureStore.uploadCircuitsFile(selectedFile.value);
+  await circuitsStore.uploadCircuitsFile(selectedFile.value);
   selectedFile.value = null;
   if(fileInput.value) fileInput.value.value = '';
 }
@@ -91,10 +91,10 @@ async function saveChanges() {
   if (!currentCircuit.value) return;
   if (currentCircuit.value.id) {
     // Update existing
-    await infrastructureStore.updateCircuit(currentCircuit.value.id, currentCircuit.value);
+    await circuitsStore.updateCircuit(currentCircuit.value.id, currentCircuit.value);
   } else {
     // Create new
-    await infrastructureStore.addCircuit(currentCircuit.value);
+    await circuitsStore.addCircuit(currentCircuit.value);
   }
   isModalOpen.value = false;
 }
@@ -106,7 +106,7 @@ function openDeleteModal(circuit) {
 
 async function confirmDelete() {
   if (!circuitToDelete.value) return;
-  await infrastructureStore.removeCircuit(circuitToDelete.value.id);
+  await circuitsStore.removeCircuit(circuitToDelete.value.id);
   isDeleteModalOpen.value = false;
 }
 
@@ -134,11 +134,11 @@ async function confirmDelete() {
             </tr>
           </thead>
           <tbody>
-            <tr v-if="infrastructureStore.loading.circuits && sortedRows.length === 0">
+            <tr v-if="circuitsStore.loading.circuits && sortedRows.length === 0">
               <td colspan="6" class="py-6 px-3 text-center text-muted">Loading circuits...</td>
             </tr>
-            <tr v-else-if="infrastructureStore.error">
-              <td colspan="6" class="py-6 px-3 text-center text-red-500">{{ infrastructureStore.error }}</td>
+            <tr v-else-if="circuitsStore.error">
+              <td colspan="6" class="py-6 px-3 text-center text-red-500">{{ circuitsStore.error }}</td>
             </tr>
              <tr v-else-if="sortedRows.length === 0">
               <td colspan="6" class="py-6 px-3 text-center text-app/60">No circuits defined. Add one above.</td>
@@ -173,8 +173,8 @@ async function confirmDelete() {
             <input type="file" ref="fileInput" @change="handleFileSelect" class="hidden" accept=".xlsx, .xls, .csv" />
             <button class="btn" @click="triggerFileInput">Choose File</button>
             <span v-if="selectedFile" class="text-sm text-muted truncate max-w-xs">{{ selectedFile.name }}</span>
-            <button v-if="selectedFile" class="btn btn-primary" @click="handleFileUpload" :disabled="infrastructureStore.loading.circuits">
-                {{ infrastructureStore.loading.circuits ? 'Uploading...' : 'Upload' }}
+            <button v-if="selectedFile" class="btn btn-primary" @click="handleFileUpload" :disabled="circuitsStore.loading.circuits">
+                {{ circuitsStore.loading.circuits ? 'Uploading...' : 'Upload' }}
             </button>
         </div>
     </div>

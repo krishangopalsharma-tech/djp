@@ -16,7 +16,7 @@ export const useCoreSettingsStore = defineStore('coreSettings', () => {
     const uiStore = useUIStore()
     try {
       // The backend list view for the singleton returns the object directly.
-      const response = await http.get('/core/failure-id-settings/')
+      const response = await http.get('/failure-id-settings/')
       // The response for a list is often nested, but our custom view returns the object directly.
       // However, a standard ViewSet list view would return { results: [...] }
       // So we handle both cases.
@@ -43,7 +43,7 @@ export const useCoreSettingsStore = defineStore('coreSettings', () => {
     const uiStore = useUIStore()
     try {
       // The singleton is always at pk=1, so we update it there.
-      const response = await http.patch('/core/failure-id-settings/1/', payload)
+      const response = await http.patch('/failure-id-settings/1/', payload)
       failureIdSettings.value = response.data
       uiStore.pushToast({ type: 'success', title: 'Success', message: 'Failure ID settings saved.' })
     } catch (err) {

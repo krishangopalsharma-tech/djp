@@ -27,7 +27,7 @@ export const useEmailStore = defineStore('email', {
       this.error = null;
       const uiStore = useUIStore();
       try {
-        const response = await http.get('/notifications/settings/email/');
+        const response = await http.get('/email/settings/email/');
         const recipients = response.data.recipients || {};
         // Ensure recipients object and its arrays exist
         this.settings = {
@@ -57,7 +57,7 @@ export const useEmailStore = defineStore('email', {
           delete payload.password;
         }
         
-        const response = await http.put('/notifications/settings/email/', payload);
+        const response = await http.put('/email/settings/email/', payload);
         const recipients = response.data.recipients || {};
         this.settings = {
           ...response.data,
@@ -84,7 +84,7 @@ export const useEmailStore = defineStore('email', {
       this.loading = true;
       const uiStore = useUIStore();
       try {
-        const response = await http.post('/notifications/settings/email/test/', { to_email: toEmail });
+        const response = await http.post('/email/settings/email/test/', { to_email: toEmail });
         uiStore.pushToast({ type: 'success', title: 'Success', message: response.data.message });
       } catch (err) {
         const message = err.response?.data?.error || 'An unknown error occurred.';

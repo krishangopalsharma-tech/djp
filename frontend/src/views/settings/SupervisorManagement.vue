@@ -2,8 +2,10 @@
 import { ref, onMounted, computed, reactive, watch } from 'vue'
 import { useSupervisorsStore } from '@/stores/supervisors';
 import { useDepotsStore } from '@/stores/depots';
-import { useInfrastructureStore } from '@/stores/infrastructure.js'
-import { Trash2, Wrench } from 'lucide-vue-next'
+import { useInfrastructureStore } from '@/stores/infrastructure_tree';
+import { useUIStore } from '@/stores/ui';
+import { Trash2, Wrench, ChevronRight } from 'lucide-vue-next'; // Add ChevronRight
+import Spinner from '@/components/ui/Spinner.vue'; // Import Spinner
 
 const infrastructureStore = useInfrastructureStore()
 const supervisorsStore = useSupervisorsStore();

@@ -1,6 +1,6 @@
 <script setup>
 import { reactive, ref, computed, onMounted } from 'vue'
-import { useInfrastructureStore } from '@/stores/infrastructure.js'
+import { useInfrastructureStore } from '@/stores/infrastructure_lists';
 import { useUIStore } from '@/stores/ui'
 import { Wrench, Trash2 } from 'lucide-vue-next'
 

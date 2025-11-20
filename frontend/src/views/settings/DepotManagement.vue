@@ -1,12 +1,12 @@
 <script setup>
 import { reactive, ref, onMounted, computed } from 'vue'
-import { useInfrastructureStore } from '@/stores/infrastructure.js'
+import { useDepotsStore } from '@/stores/depots.js'
 import { Trash2 } from 'lucide-vue-next'
 
 const clone = (o) => JSON.parse(JSON.stringify(o))
 
 // Store state
-const depotStore = useInfrastructureStore()
+const depotStore = useDepotsStore()
 
 // --- Sorting State ---
 const sortKey = ref('name');
