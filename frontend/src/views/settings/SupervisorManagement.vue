@@ -94,7 +94,9 @@ function handleStationCheckboxChange(station) {
 }
 
 
-const depotOptions = computed(() => (depotsStore.depots || []).map(d => ({ label: d.name, value: d.id })));
+const depotOptions = computed(() => 
+  (depotsStore.depots || []).map(d => ({ label: d.name + (d.code ? ` (${d.code})` : ''), value: d.id }))
+);
 
 // --- Sorting State ---
 const sortKey = ref('name');
@@ -107,9 +109,9 @@ const sortedRows = computed(() => {
     let valB = b[sortKey.value];
     const modifier = sortDir.value === 'asc' ? 1 : -1;
     
-    if (sortKey.value === 'depot_name') {
-        valA = a.depot_name || '';
-        valB = b.depot_name || '';
+    if (sortKey.value === 'depot_code') {
+        valA = (a.depot_code || '').toLowerCase();
+        valB = (b.depot_code || '').toLowerCase();
     }
 
     if (valA < valB) return -1 * modifier;
@@ -274,7 +276,7 @@ async function confirmDelete() {
                     <tr class="text-left border-b border-app/40">
                         <th @click="toggleSort('name')" class="py-2.5 px-3 whitespace-nowrap cursor-pointer select-none text-left">Supervisor <span v-if="sortKey === 'name'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
                         <th @click="toggleSort('designation')" class="py-2.5 px-3 whitespace-nowrap cursor-pointer select-none text-center">Designation <span v-if="sortKey === 'designation'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
-                        <th @click="toggleSort('depot_name')" class="py-2.5 px-3 whitespace-nowrap cursor-pointer select-none text-center">Depot <span v-if="sortKey === 'depot_name'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
+                        <th @click="toggleSort('depot_code')" class="py-2.5 px-3 whitespace-nowrap cursor-pointer select-none text-center">Depot <span v-if="sortKey === 'depot_code'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
                         <th @click="toggleSort('mobile')" class="py-2.5 px-3 whitespace-nowrap cursor-pointer select-none text-center">Mobile <span v-if="sortKey === 'mobile'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
                         <th @click="toggleSort('email')" class="py-2.5 px-3 whitespace-nowrap cursor-pointer select-none text-center">Email <span v-if="sortKey === 'email'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
                         <th class="py-2.5 px-3 w-40 text-center">Actions</th>
@@ -290,7 +292,7 @@ async function confirmDelete() {
                     <tr v-for="r in sortedRows" :key="r.id">
                         <td class="py-2 px-3 align-middle text-left">{{ r.name }}</td>
                         <td class="py-2 px-3 align-middle text-center">{{ r.designation }}</td>
-                        <td class="py-2 px-3 align-middle text-center">{{ r.depot_name || 'N/A' }}</td>
+                        <td class="py-2 px-3 align-middle text-center">{{ r.depot_code || 'N/A' }}</td>
                         <td class="py-2 px-3 align-middle text-center">{{ r.mobile || 'N/A' }}</td>
                         <td class="py-2 px-3 align-middle text-center">{{ r.email || 'N/A' }}</td>
                         <td class="py-2 px-3 align-middle text-center">

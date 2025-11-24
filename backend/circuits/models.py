@@ -10,8 +10,16 @@ class Circuit(TimestampedModel):
         ('Critical', 'Critical'),
     )
     
+    TYPE_CHOICES = (
+        ('station', 'Station (Local)'),
+        ('subsection', 'Sub-section (Outdoor)'),
+    )
+    
     circuit_id = models.CharField(max_length=50, unique=True)
     name = models.CharField(max_length=100)
+    
+    circuit_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='station')
+    
     related_equipment = models.CharField(max_length=200, blank=True)
     severity = models.CharField(max_length=10, choices=SEVERITY_CHOICES, default='Minor')
     details = models.TextField(blank=True)

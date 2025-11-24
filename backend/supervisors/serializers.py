@@ -8,6 +8,8 @@ from stations.models import Station, StationEquipment # Import StationEquipment
 
 class SupervisorSerializer(serializers.ModelSerializer):
     depot_display = serializers.CharField(source='depot.name', read_only=True)
+    depot_code = serializers.CharField(source='depot.code', read_only=True)
+    
     depot = serializers.PrimaryKeyRelatedField(queryset=Depot.objects.all(), allow_null=True, required=False)
     
     # Add fields for managing assignments
@@ -20,11 +22,13 @@ class SupervisorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Supervisor
         fields = [
-            'id', 'name', 'designation', 'mobile', 'email', 'depot', 'depot_display', 'user', 
-            'stations', 'sections', 'subsections', 'assets', 'station_equipments', # Add new fields
+            'id', 'name', 'designation', 'mobile', 'email', 
+            'depot', 'depot_display', 'depot_code',
+            'user', 
+            'stations', 'sections', 'subsections', 'assets', 'station_equipments',
             'created_at', 'updated_at'
         ]
-        read_only_fields = ['depot_display']
+        read_only_fields = ['depot_display', 'depot_code']
 
     def update(self, instance, validated_data):
         # M2M fields must be set after the instance is saved

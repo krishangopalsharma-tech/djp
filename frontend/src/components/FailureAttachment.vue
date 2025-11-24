@@ -31,12 +31,15 @@ async function handleUpload() {
   if (!selectedFile.value || !props.failureId) {
     return;
   }
-  await attachmentStore.uploadAttachment(props.failureId, selectedFile.value, description.value);
-  // Reset form
-  selectedFile.value = null;
-  description.value = '';
-  if (fileInput.value) {
-    fileInput.value.value = '';
+  const success = await attachmentStore.uploadAttachment(props.failureId, selectedFile.value, description.value);
+  
+  if (success) {
+    // Reset form
+    selectedFile.value = null;
+    description.value = '';
+    if (fileInput.value) {
+      fileInput.value.value = '';
+    }
   }
 }
 
@@ -87,9 +90,12 @@ function getFileUrl(fileUrl) {
         </div>
         <div v-for="att in attachments" :key="att.id" class="flex items-center justify-between p-2 rounded-lg bg-gray-100">
           <div class="flex-grow min-w-0">
-            <a :href="getFileUrl(att.file)" target="_blank" class="text-sm font-medium text-blue-600 hover:underline truncate block">
+            <a v-if="att.file" :href="getFileUrl(att.file)" target="_blank" class="text-sm font-medium text-blue-600 hover:underline truncate block">
               {{ att.file.split('/').pop() }}
             </a>
+            <span v-else class="text-sm font-medium text-blue-600 truncate block">
+              Telegram Attachment (See Operations Group)
+            </span>
             <p class="text-xs text-gray-600 truncate">{{ att.description }}</p>
           </div>
           <button @click="handleDelete(att.id)" class="ml-4 p-2 text-red-500 hover:bg-red-100 rounded-full">

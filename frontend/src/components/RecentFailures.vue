@@ -1,21 +1,32 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { Bell, Pencil, Trash2, ChevronLeft, ChevronRight, History, FileSpreadsheet, FileText } from 'lucide-vue-next'
-import NotificationModal from '@/components/NotificationModal.vue'
+// import NotificationModal from '@/components/NotificationModal.vue' // Removed
 import { useTelegramStore } from '@/stores/telegram'
+import { useFailureStore } from '@/stores/failures'
+import FailureDetailsDrawer from '@/components/FailureDetailsDrawer.vue'
 
 const telegramStore = useTelegramStore()
+const failureStore = useFailureStore()
 
 onMounted(() => {
   telegramStore.fetchTelegramGroups()
 })
 
-const isNotifyModalOpen = ref(false)
-const failureToNotify = ref(null)
+const drawerOpen = ref(false)
+const activeItem = ref(null)
 
-function openNotifyModal(row) {
-  failureToNotify.value = row
-  isNotifyModalOpen.value = true
+function openDetails(row) {
+  activeItem.value = row
+  drawerOpen.value = true
+}
+
+// const isNotifyModalOpen = ref(false) // Removed
+// const failureToNotify = ref(null)    // Removed
+
+async function onNotify(row) {
+  // Hardcoded to 'alerts' group as requested
+  await failureStore.sendFailureNotification(row.id, ['alerts'])
 }
 
 
@@ -42,7 +53,7 @@ const emit = defineEmits(['view', 'edit', 'delete'])
 /* -------- Local UI state -------- */
 const q = ref('')
 const status = ref('all') // 'all' | 'Active' | 'In Progress' | 'Resolved' | 'On Hold'
-const statusTabs = ['all', 'Active', 'In Progress', 'Resolved', 'On Hold']
+const statusTabs = ['all', 'Active', 'In Progress', 'Resolved', 'On Hold', 'Information']
 
 function statusTabVariant(tab) {
   if (tab === 'all') return 'chip-variant-all'
@@ -50,6 +61,7 @@ function statusTabVariant(tab) {
   if (tab === 'In Progress') return 'chip-variant-inprog'
   if (tab === 'Resolved') return 'chip-variant-resolved'
   if (tab === 'On Hold') return 'chip-variant-onhold'
+  if (tab === 'Information') return 'chip-variant-info' // You might need to define this class or use a default
   return ''
 }
 
@@ -82,11 +94,7 @@ const fallbackRows = [
 ]
 // Filter out UI-only 'message' entries from the dashboard list
 const sourceRows = computed(() => {
-  const base = (props.items?.length ? props.items : fallbackRows)
-  return base.filter(i => {
-    const t = i?.entry_type ?? i?.entryType ?? i?.type ?? i?.kind ?? i?.severity ?? ''
-    return String(t).toLowerCase() !== 'message'
-  })
+  return (props.items?.length ? props.items : fallbackRows)
 })
 
 /* -------- Time helpers (robust: numbers or ISO strings) -------- */
@@ -117,7 +125,7 @@ function fmt(ts) {
 const filteredSorted = computed(() => {
   const base = status.value !== 'all'
     ? sourceRows.value.filter(r => (r.current_status ?? r.status) === status.value)
-    : sourceRows.value
+    : sourceRows.value.filter(r => (r.current_status ?? r.status) !== 'Information')
 
   const term = q.value.trim().toLowerCase()
   const filtered = term
@@ -221,15 +229,150 @@ function rowBg(s, hovered = false) {
   )
 }
 
+import ExcelJS from 'exceljs'
+
+async function downloadExcel() {
+  const data = pagedRows.value
+  if (!data.length) return
+
+  const workbook = new ExcelJS.Workbook()
+  const worksheet = workbook.addWorksheet('Recent Failures')
+
+  // Define columns
+  worksheet.columns = [
+    { header: 'ID', key: 'id', width: 15 },
+    { header: 'Circuit', key: 'circuit', width: 15 },
+    { header: 'Station', key: 'station', width: 15 },
+    { header: 'Section', key: 'section', width: 20 },
+    { header: 'Status', key: 'status', width: 15 },
+    { header: 'Reported At', key: 'reported', width: 25 }
+  ]
+
+  // Style header row
+  worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } }
+  worksheet.getRow(1).fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FF2980B9' } // Blue header
+  }
+
+  // Color mapping (ARGB)
+  const statusColors = {
+    'Active': 'FFFFC8C8',      // Light Red
+    'In Progress': 'FFFFF0C8', // Light Yellow/Orange
+    'Resolved': 'FFC8FFC8',    // Light Green
+    'On Hold': 'FFF0F0F0',     // Light Grey
+    'Information': 'FFC8F0FF'  // Light Blue
+  }
+
+  // Add rows
+  data.forEach(r => {
+    const row = worksheet.addRow({
+      id: r.fail_id,
+      circuit: r.circuit?.circuit_id || r.circuit || '',
+      station: r.station?.code || r.station || '',
+      section: r.section?.name || r.section || '',
+      status: r.current_status || r.status || '',
+      reported: new Date(r.reported_at || r.reportedAt).toLocaleString()
+    })
+
+    // Apply color to the status cell (or whole row if preferred, user asked for "colour in csv" implying the row/cell concept)
+    // Only color the filled cells, not the entire infinite row
+    const status = r.current_status || r.status
+    const color = statusColors[status]
+    if (color) {
+      row.eachCell({ includeEmpty: true }, (cell) => {
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: color }
+        }
+        // Add border for better look
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        }
+      })
+    }
+  })
+
+  // Generate buffer
+  const buffer = await workbook.xlsx.writeBuffer()
+  
+  // Trigger download
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(blob)
+  link.download = `failures_export_${new Date().toISOString().slice(0, 10)}.xlsx`
+  link.click()
+}
+
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
+
+function downloadPDF() {
+  const data = pagedRows.value // Changed from filteredSorted.value to pagedRows.value
+  if (!data.length) return
+
+  const doc = new jsPDF()
+  
+  // Title
+  doc.setFontSize(16)
+  doc.text('Recent Failure Logs', 14, 15)
+  doc.setFontSize(10)
+  doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 22)
+
+  const headers = [['ID', 'Circuit', 'Station', 'Section', 'Status', 'Reported At']]
+  const rows = data.map(r => [
+    r.fail_id,
+    r.circuit?.circuit_id || r.circuit || '',
+    r.station?.code || r.station || '',
+    r.section?.name || r.section || '',
+    r.current_status || r.status || '',
+    new Date(r.reported_at || r.reportedAt).toLocaleString()
+  ])
+
+  // Color mapping based on status (RGB values)
+  const statusColors = {
+    'Active': [255, 200, 200],      // Light Red
+    'In Progress': [255, 240, 200], // Light Yellow/Orange
+    'Resolved': [200, 255, 200],    // Light Green
+    'On Hold': [240, 240, 240],     // Light Grey
+    'Information': [200, 240, 255]  // Light Blue
+  }
+
+  autoTable(doc, {
+    head: headers,
+    body: rows,
+    startY: 25,
+    theme: 'grid',
+    styles: { fontSize: 8, textColor: 20 }, // Dark text for readability
+    headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+    didParseCell: (data) => {
+      if (data.section === 'body') {
+        const status = data.row.raw[4] // Status is at index 4
+        const color = statusColors[status]
+        if (color) {
+          data.cell.styles.fillColor = color
+        }
+      }
+    }
+  })
+
+  doc.save(`failures_export_${new Date().toISOString().slice(0, 10)}.pdf`)
+}
+
 </script>
 
 <template>
   <div class="space-y-4">
-    <div class="text-center" v-if="showHeader">
-      <h2 class="text-2xl font-semibold leading-tight">Recent Failure Logs</h2>
-    </div>
+    <div class="rounded-2xl border-app bg-card text-app p-4 shadow-lg">
+      <div class="pb-3 mb-3 border-b border-app" v-if="showHeader">
+         <h2 class="text-xl font-semibold leading-tight text-center">Recent Logs</h2>
+      </div>
 
-    <div class="rounded-2xl border-app bg-card text-app p-4">
       <!-- Toolbar -->
       <div v-if="showToolbar" class="p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between flex-wrap gap-2">
         <div class="chip-group">
@@ -310,8 +453,8 @@ function rowBg(s, hovered = false) {
               class="cursor-pointer"
               role="button"
               tabindex="0"
-              @click="emit('view', r)"
-              @keydown.enter.space="emit('view', r)"
+              @click="openDetails(r)"
+              @keydown.enter.space="openDetails(r)"
               @mouseenter="hoveredIndex = i"
               @mouseleave="hoveredIndex = -1"
               :style="{ backgroundColor: rowBg(r.current_status ?? r.status, hoveredIndex === i) }"
@@ -336,7 +479,7 @@ function rowBg(s, hovered = false) {
               <div class="inline-flex items-center justify-center gap-2">
                 <button
                   class="btn-ghost border-app rounded-md hover-primary p-2"
-                  aria-label="Notify" title="Notify" @click.stop="openNotifyModal(r)" disabled>
+                  aria-label="Notify" title="Notify" @click.stop="onNotify(r)">
                   <Bell class="w-4 h-4" />
                 </button>
                 <button
@@ -401,17 +544,12 @@ function rowBg(s, hovered = false) {
 
       <!-- Bottom actions (Dashboard hides via prop) -->
       <div v-if="showBottomActions" class="flex justify-center gap-3 px-3 py-5">
+
         <button
           class="btn-ghost border-app rounded-md hover-primary p-2"
-          aria-label="Retrieve Drafts"
-          title="Retrieve Drafts"
-        >
-          <History class="w-4 h-4" />
-        </button>
-        <button
-          class="btn-ghost border-app rounded-md hover-primary p-2"
-          aria-label="Export CSV"
-          title="Export CSV"
+          aria-label="Export Excel"
+          title="Export Excel"
+          @click="downloadExcel"
         >
           <FileSpreadsheet class="w-4 h-4" />
         </button>
@@ -419,12 +557,14 @@ function rowBg(s, hovered = false) {
           class="btn-ghost border-app rounded-md hover-primary p-2"
           aria-label="Export PDF"
           title="Export PDF"
+          @click="downloadPDF"
         >
           <FileText class="w-4 h-4" />
         </button>
       </div>
     </div>
-    <NotificationModal v-model="isNotifyModalOpen" :failure="failureToNotify" />
+    <!-- NotificationModal removed -->
+    <FailureDetailsDrawer v-model="drawerOpen" :item="activeItem" />
   </div>
 </template>
   

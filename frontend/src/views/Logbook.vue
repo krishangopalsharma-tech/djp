@@ -89,8 +89,8 @@ const sortedRows = computed(() => {
                 valB = b.circuit?.name;
                 break;
             case 'station':
-                valA = a.station?.name;
-                valB = b.station?.name;
+                valA = a.station?.code;
+                valB = b.station?.code;
                 break;
             case 'section':
                 valA = a.section?.name;
@@ -161,11 +161,14 @@ function formatDuration(start, end) {
   if (!start || !end) return '–'
   const diff = new Date(end) - new Date(start)
   if (diff < 0) return '–'
-  const minutes = Math.floor(diff / 60000)
-  if (minutes < 60) return `${minutes}m`
-  const hours = Math.floor(minutes / 60)
-  const mins = minutes % 60
-  return `${hours}h ${mins}m`
+  
+  const days = Math.floor(diff / 86400000)
+  const hours = Math.floor((diff % 86400000) / 3600000)
+  const minutes = Math.round((diff % 3600000) / 60000)
+
+  if (days > 0) return `${days}d ${hours}h ${minutes}m`
+  if (hours > 0) return `${hours}h ${minutes}m`
+  return `${minutes}m`
 }
 
 const columns = [
@@ -198,8 +201,9 @@ function goToPreviousPage() { if (currentPage.value > 1) currentPage.value-- }
 
 <template>
   <div class="space-y-4">
-    <div class="text-center">
+    <div class="flex justify-between items-center">
       <h2 class="text-2xl font-semibold">Logbook</h2>
+      <router-link to="/logbook/new" class="btn btn-primary">New Log Entry</router-link>
     </div>
 
     <!-- Filter Bar -->
@@ -236,7 +240,7 @@ function goToPreviousPage() { if (currentPage.value > 1) currentPage.value-- }
           <template #resolved_at="{ row }">{{ row.resolved_at ? new Date(row.resolved_at).toLocaleString() : '–' }}</template>
           <template #duration="{ row }">{{ formatDuration(row.reported_at, row.resolved_at) }}</template>
           <template #circuit="{ row }">{{ row.circuit?.name || '–' }}</template>
-          <template #station="{ row }">{{ row.station?.name || '–' }}</template>
+          <template #station="{ row }">{{ row.station?.code || '–' }}</template>
           <template #section="{ row }">{{ row.section?.name || '–' }}</template>
           <template #assigned_to="{ row }">{{ row.assigned_to?.name || '–' }}</template>
           <template #current_status="{ row }"><span class="badge" :class="badgeClasses(row.current_status)">{{ row.current_status }}</span></template>

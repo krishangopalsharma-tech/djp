@@ -69,9 +69,9 @@ function onDragEnd() {
   window.removeEventListener('mouseup', onDragEnd)
 }
 
-// --- Dropdown Options (Smart Filtering) ---
-// If a parent is selected, filter by it. Otherwise, show all to allow global search.
-const depotOptions = computed(() => infrastructureStore.depots.map(d => ({ label: d.name, value: d.id })))
+// --- Dropdown Options ---
+
+const depotOptions = computed(() => infrastructureStore.depots.map(d => ({ label: d.code || d.name, value: d.id })))
 const circuitOptions = computed(() => infrastructureStore.circuits.map(c => ({ label: c.circuit_id, value: c.id })))
 
 const stationOptions = computed(() => {
@@ -92,13 +92,10 @@ const sectionOptions = computed(() => {
 
 const subSectionOptions = computed(() => {
   let sub = infrastructureStore.subSections;
-  // Filter by Section if selected
   if (form.section) {
     sub = sub.filter(s => s.section === form.section);
   }
-  // If no Section but Depot is selected, filter by Depot via Section
   else if (form.depot) {
-     // We need to find sections belonging to this depot first
      const depotSectionIds = infrastructureStore.sections
         .filter(sec => sec.depot === form.depot)
         .map(sec => sec.id);
@@ -107,16 +104,40 @@ const subSectionOptions = computed(() => {
   return sub.map(s => ({ label: s.name, value: s.id }));
 })
 
-const supervisorOptions = computed(() => 
-  infrastructureStore.supervisors
-    .filter(s => s.user) 
-    .map(s => ({ label: s.name, value: s.user }))
-)
+// Supervisor Logic: Use Supervisor ID (Unique) instead of User ID
+const supervisorOptions = computed(() => {
+  let sups = infrastructureStore.supervisors;
+  
+  if (form.station) {
+    const assigned = sups.filter(s => s.stations && s.stations.includes(form.station));
+    if (assigned.length > 0) sups = assigned;
+    else if (form.depot) sups = sups.filter(s => s.depot === form.depot);
+  } 
+  else if (form.section) {
+    const assigned = sups.filter(s => s.sections && s.sections.includes(form.section));
+    if (assigned.length > 0) sups = assigned;
+    else if (form.depot) sups = sups.filter(s => s.depot === form.depot);
+  }
+  else if (form.depot) {
+    sups = sups.filter(s => s.depot === form.depot);
+  }
+
+  return sups.map(s => ({
+      label: s.name, 
+      value: s.id // Use Supervisor ID. This is always unique.
+  }));
+})
 
 const selectedCircuitSeverity = computed(() => {
   if (!form.circuit) return ''
   const circuit = infrastructureStore.circuits.find(c => c.id === form.circuit)
   return circuit ? circuit.severity : ''
+})
+
+const selectedCircuitName = computed(() => {
+  if (!form.circuit) return ''
+  const circuit = infrastructureStore.circuits.find(c => c.id === form.circuit)
+  return circuit ? circuit.name : ''
 })
 
 const statusOptions = [
@@ -127,10 +148,10 @@ const statusOptions = [
   { label: 'On Hold', value: 'On Hold' },
 ]
 
-function getLocalNowString() {
-  const now = new Date();
-  const offsetMs = now.getTimezoneOffset() * 60000;
-  return new Date(now.getTime() - offsetMs).toISOString().slice(0, 16);
+function toLocalISOString(date) {
+  const d = date ? new Date(date) : new Date();
+  const offsetMs = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - offsetMs).toISOString().slice(0, 16);
 }
 
 const initialFormState = {
@@ -141,8 +162,8 @@ const initialFormState = {
   station: null,
   section: null,
   sub_section: null,
-  reported_at: getLocalNowString(),
-  assigned_to: null,
+  reported_at: toLocalISOString(new Date()),
+  assigned_to: null, // This holds Supervisor ID in frontend
   current_status: 'Active',
   remark_fail: '',
   resolved_at: '',
@@ -154,75 +175,67 @@ const form = reactive({ ...initialFormState })
 const errors = reactive({})
 const userTags = ref([])
 
-// --- Auto Tags ---
 const autoTags = computed(() => {
   const t = []
-  if (form.depot) { const d = infrastructureStore.depots.find(i => i.id === form.depot); if (d) t.push(`#${d.name}`) }
+  if (form.depot) { const d = infrastructureStore.depots.find(i => i.id === form.depot); if (d) t.push(`#${d.code || d.name}`) }
   if (form.circuit) { const c = infrastructureStore.circuits.find(i => i.id === form.circuit); if (c) t.push(`#${c.circuit_id}`) }
   if (form.station) { const s = infrastructureStore.stations.find(i => i.id === form.station); if (s) t.push(`#${s.code}`) }
   if (form.section) { const s = infrastructureStore.sections.find(i => i.id === form.section); if (s) t.push(`#${s.name}`) }
   return t
 })
 
-// --- Validation ---
 function validate() {
-  errors.circuit = form.circuit ? '' : 'Required'
+  if (form.entry_type === 'message') {
+    errors.circuit = ''
+  } else {
+    errors.circuit = form.circuit ? '' : 'Required'
+  }
   return Object.values(errors).every(v => !v)
 }
 
-// --- Smart Watchers (Dependency Logic) ---
-
-// 1. If Depot changes, only clear children if they don't match the new depot
+// --- Smart Watchers ---
 watch(() => form.depot, (newDepot) => {
-  if (!newDepot) return; // Don't auto-clear if user just cleared depot, let them search
-  
+  if (!newDepot) return;
   if (form.station) {
     const s = infrastructureStore.stations.find(x => x.id === form.station);
     if (s && s.depot !== newDepot) form.station = null;
   }
   if (form.section) {
     const s = infrastructureStore.sections.find(x => x.id === form.section);
-    if (s && s.depot !== newDepot) {
-        form.section = null;
-        form.sub_section = null;
-    }
+    if (s && s.depot !== newDepot) { form.section = null; form.sub_section = null; }
   }
 });
 
-// 2. If Station selected -> Auto-select Depot
 watch(() => form.station, (newStationId) => {
   if (!newStationId) return;
   const station = infrastructureStore.stations.find(s => s.id === newStationId);
-  if (station && station.depot) {
-      // Only update if different to avoid loop
-      if (form.depot !== station.depot) form.depot = station.depot;
-  }
+  if (station && station.depot && form.depot !== station.depot) form.depot = station.depot;
 });
 
-// 3. If Section selected -> Auto-select Depot
 watch(() => form.section, (newSectionId) => {
-  if (!newSectionId) {
-      form.sub_section = null; // Clear child
-      return;
-  }
+  if (!newSectionId) { form.sub_section = null; return; }
   const section = infrastructureStore.sections.find(s => s.id === newSectionId);
-  if (section && section.depot) {
-      if (form.depot !== section.depot) form.depot = section.depot;
-  }
+  if (section && section.depot && form.depot !== section.depot) form.depot = section.depot;
 });
 
-// 4. If Sub-Section selected -> Auto-select Section (which triggers Depot)
 watch(() => form.sub_section, (newSubId) => {
   if (!newSubId) return;
   const sub = infrastructureStore.subSections.find(s => s.id === newSubId);
-  if (sub && sub.section) {
-      if (form.section !== sub.section) form.section = sub.section;
-  }
+  if (sub && sub.section && form.section !== sub.section) form.section = sub.section;
 });
 
+watch(() => form.entry_type, (newType) => {
+  if (newType === 'message') {
+    form.current_status = 'Information'
+    form.circuit = null
+    errors.circuit = ''
+  } else {
+    form.current_status = 'Active'
+  }
+})
 
 watch(() => form.current_status, v => {
-  if (v === 'Resolved' && !form.resolved_at) form.resolved_at = getLocalNowString()
+  if (v === 'Resolved' && !form.resolved_at) form.resolved_at = toLocalISOString(new Date())
 })
 watch(() => [form.reported_at, form.resolved_at], ([rep, res]) => {
   if (!rep || !res) { form.duration_minutes = ''; return }
@@ -230,12 +243,15 @@ watch(() => [form.reported_at, form.resolved_at], ([rep, res]) => {
   form.duration_minutes = (isNaN(ms) || ms < 0) ? '' : Math.round(ms / 60000)
 })
 
-// --- Submit ---
 async function submit() {
   if (!validate()) {
     ui.pushToast({ type: 'error', title: 'Missing fields', message: 'Circuit is required.' })
     return
   }
+  
+  // --- START OF FIX: Send Supervisor ID Directly ---
+  // We removed the logic that looked up 'finalAssignedToUserId'
+  // Now we just send form.assigned_to (which is the Supervisor ID) directly.
   const payload = {
     entry_type: form.entry_type,
     current_status: form.current_status,
@@ -243,57 +259,50 @@ async function submit() {
     station_id: form.station,
     section_id: form.section,
     sub_section_id: form.sub_section,
-    assigned_to_id: form.assigned_to,
+    assigned_to_id: form.assigned_to, // <-- Direct Supervisor ID
     reported_at: form.reported_at,
     resolved_at: form.resolved_at || null,
     remark_fail: form.remark_fail,
     remark_right: form.remark_right,
   }
+  // --- END OF FIX ---
 
   let savedFailure
   if (editingFailureId.value) {
     savedFailure = await failureStore.updateFailure(editingFailureId.value, payload)
-    if (savedFailure) {
-      ui.pushToast({ type: 'success', title: 'Success', message: 'Logbook entry updated.' })
-      recentFailuresStore.fetchRecentFailures()
-      if (savedFailure.current_status !== 'Information') {
-           await failureStore.sendFailureNotification(savedFailure.id, ['alerts'])
-           ui.pushToast({ type: 'info', title: 'Notified', message: 'Alert notification sent.' })
+      if (savedFailure) {
+        ui.pushToast({ type: 'success', title: 'Success', message: 'Logbook entry updated.' })
+        recentFailuresStore.fetchRecentFailures()
+        await failureStore.sendFailureNotification(savedFailure.id, ['alerts'])
+        ui.pushToast({ type: 'info', title: 'Notified', message: 'Alert notification sent.' })
+        resetForm()
       }
-      resetForm()
-    }
-  } else {
-    savedFailure = await failureStore.addFailure(payload)
-    if (savedFailure) {
-      ui.pushToast({ type: 'success', title: 'Success', message: 'Entry saved.' })
-      recentFailuresStore.fetchRecentFailures()
-      resetForm()
-      if (savedFailure.current_status !== 'Information') {
-           await failureStore.sendFailureNotification(savedFailure.id, ['alerts'])
-           ui.pushToast({ type: 'info', title: 'Notified', message: 'Alert notification sent.' })
+    } else {
+      savedFailure = await failureStore.addFailure(payload)
+      if (savedFailure) {
+        ui.pushToast({ type: 'success', title: 'Success', message: 'Entry saved.' })
+        recentFailuresStore.fetchRecentFailures()
+        resetForm()
+        await failureStore.sendFailureNotification(savedFailure.id, ['alerts'])
+        ui.pushToast({ type: 'info', title: 'Notified', message: 'Alert notification sent.' })
       }
     }
-  }
 }
 
 function resetForm() {
   Object.assign(form, initialFormState)
-  form.reported_at = getLocalNowString()
+  form.reported_at = toLocalISOString(new Date())
   userTags.value = []
   editingFailureId.value = null
 }
 
-function saveAsDraft() {
-  form.current_status = 'Draft'
-  submit()
-}
+
 
 function handleEditRequest(id) {
   editingFailureId.value = id
   failureStore.fetchFailure(id)
 }
 
-// Populate form when editing
 watch(() => failureStore.currentFailure, (failure) => {
   if (failure) {
     form.fail_id = failure.fail_id
@@ -303,17 +312,19 @@ watch(() => failureStore.currentFailure, (failure) => {
     form.station = failure.station?.id
     form.section = failure.section?.id
     form.sub_section = failure.sub_section?.id
-    form.reported_at = failure.reported_at ? new Date(failure.reported_at).toISOString().slice(0, 16) : ''
-    form.assigned_to = failure.assigned_to?.id
+    form.reported_at = failure.reported_at ? toLocalISOString(failure.reported_at) : ''
+    
+    // Direct Supervisor ID from backend response
+    form.assigned_to = failure.assigned_to?.id || failure.assigned_to;
+    
     form.current_status = failure.current_status
     form.remark_fail = failure.remark_fail
-    form.resolved_at = failure.resolved_at ? new Date(failure.resolved_at).toISOString().slice(0, 16) : ''
+    form.resolved_at = failure.resolved_at ? toLocalISOString(failure.resolved_at) : ''
     form.duration_minutes = failure.duration_minutes
     form.remark_right = failure.remark_right
   }
 })
 
-// --- Archive ---
 function openArchiveModal(failure) {
   failureToArchive.value = failure
   isArchiveModalOpen.value = true
@@ -335,9 +346,9 @@ const recentFailures = computed(() => recentFailuresStore.items)
     
     <div ref="splitWrap" class="flex-1 flex gap-4" :class="dragging ? 'cursor-col-resize select-none' : ''">
       <div class="flex flex-col" :style="{ width: split + '%' }">
-        <div class="rounded-2xl border-app bg-card text-app p-4">
+        <div class="rounded-2xl border-app bg-card text-app p-4 shadow-lg"> <!-- Added shadow-lg -->
           <div class="pb-3 mb-3 border-b border-app">
-             <h2 class="text-xl font-semibold leading-tight">
+             <h2 class="text-xl font-semibold leading-tight text-center">
                {{ editingFailureId ? `Editing Entry #${form.fail_id}` : 'New Logbook Entry' }}
              </h2>
           </div>
@@ -359,8 +370,9 @@ const recentFailures = computed(() => recentFailuresStore.items)
               </div>
               <div>
                 <label class="block space-y-1">
-                  <span class="text-sm text-app">Circuit</span>
+                  <span class="text-sm text-app">Circuit <span v-if="form.entry_type !== 'message'" class="text-red-500">*</span></span>
                   <SearchSelect v-model="form.circuit" :options="circuitOptions" placeholder="Select circuit..." />
+                  <p v-if="selectedCircuitName" class="text-xs text-blue-600 mt-1">{{ selectedCircuitName }}</p>
                   <p v-if="errors.circuit" class="text-xs text-red-600">{{ errors.circuit }}</p>
                 </label>
               </div>
@@ -409,13 +421,13 @@ const recentFailures = computed(() => recentFailuresStore.items)
 
             <div class="sm:col-span-2 grid gap-4 grid-cols-1 md:grid-cols-3">
               <DateTime label="Reported At" v-model="form.reported_at" />
-              <div>
+              <div class="w-full">
                 <label class="block space-y-1">
                   <span class="text-sm text-app">Assigned To</span>
                   <SearchSelect v-model="form.assigned_to" :options="supervisorOptions" placeholder="Select assignee..." />
                 </label>
               </div>
-              <div>
+              <div class="w-full">
                 <label class="block space-y-1">
                   <span class="text-sm text-app">Current Status</span>
                   <SearchSelect v-model="form.current_status" :options="statusOptions" placeholder="Select status..." :disabled="form.entry_type === 'message'" />
@@ -428,15 +440,16 @@ const recentFailures = computed(() => recentFailuresStore.items)
             </div>
 
             <template v-if="form.current_status === 'Resolved'">
-              <DateTime label="Resolve At" v-model="form.resolved_at" />
-              <InputText label="Duration (minutes)" v-model="form.duration_minutes" />
+              <div class="sm:col-span-2 grid gap-4 grid-cols-1 md:grid-cols-3">
+                <DateTime label="Resolve At" v-model="form.resolved_at" />
+                <InputText label="Duration (minutes)" v-model="form.duration_minutes" />
+              </div>
               <textarea v-model="form.remark_right" rows="2" class="sm:col-span-2 field-textarea" placeholder="Notes on resolution..."></textarea>
             </template>
 
             <FailureAttachment v-if="editingFailureId" :failure-id="editingFailureId" />
 
-            <div class="sm:col-span-2 flex items-center justify-between pt-4 mt-4 border-t border-app">
-              <button type="button" class="btn btn-solid" @click="saveAsDraft">Save as Draft</button>
+              <div class="sm:col-span-2 flex items-center justify-end pt-4 mt-4 border-t border-app">
               <div class="flex gap-3">
                 <button type="button" class="btn btn-outline" @click="resetForm">{{ editingFailureId ? 'Cancel Edit' : 'Reset' }}</button>
                 <button type="button" class="btn btn-primary" @click="submit">{{ editingFailureId ? 'Save Changes' : 'Submit' }}</button>

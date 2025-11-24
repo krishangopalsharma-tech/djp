@@ -10,11 +10,15 @@ const emit = defineEmits(['update:modelValue', 'notify', 'edit', 'delete'])
 function close() { emit('update:modelValue', false) }
 
 const duration = computed(() => {
-  const r = props.item?.reportedAt, x = props.item?.resolvedAt
+  const r = props.item?.reported_at || props.item?.reportedAt
+  const x = props.item?.resolved_at || props.item?.resolvedAt
   if (!r || !x) return '—'
-  const ms = x - r
-  const h = Math.floor(ms / 3600000)
+  const ms = new Date(x) - new Date(r)
+  const d = Math.floor(ms / 86400000)
+  const h = Math.floor((ms % 86400000) / 3600000)
   const m = Math.round((ms % 3600000) / 60000)
+  
+  if (d > 0) return `${d}d ${h}h ${m}m`
   return `${h}h ${m}m`
 })
 function fmt(ts) { return ts ? new Date(ts).toLocaleString() : '—' }
@@ -51,34 +55,42 @@ function badgeClasses(s) {
       <!-- Body -->
       <div class="p-4 space-y-4 overflow-auto">
         <div class="flex items-center justify-between">
-          <div class="text-lg font-semibold">{{ item?.id ?? '—' }}</div>
-          <span class="badge" :class="badgeClasses(item?.status)">{{ item?.status ?? '—' }}</span>
+          <div class="text-lg font-semibold">{{ item?.fail_id || item?.id || '—' }}</div>
+          <span class="badge" :class="badgeClasses(item?.current_status || item?.status)">{{ item?.current_status || item?.status || '—' }}</span>
         </div>
 
         <div class="grid grid-cols-2 gap-3 text-sm">
           <div>
             <div class="text-muted">Section</div>
-            <div class="font-medium">{{ item?.section ?? '—' }}</div>
+            <div class="font-medium">{{ item?.section?.name || item?.section || '—' }}</div>
+          </div>
+          <div>
+            <div class="text-muted">Sub-Section</div>
+            <div class="font-medium">{{ item?.sub_section?.name || item?.sub_section || '—' }}</div>
+          </div>
+          <div>
+            <div class="text-muted">Depot</div>
+            <div class="font-medium">{{ item?.station?.depot_display || item?.section?.depot_display || '—' }}</div>
           </div>
           <div>
             <div class="text-muted">Severity</div>
-            <div class="font-medium">{{ item?.severity ?? '—' }}</div>
+            <div class="font-medium">{{ item?.severity || '—' }}</div>
           </div>
           <div>
             <div class="text-muted">Station</div>
-            <div class="font-medium">{{ item?.station ?? '—' }}</div>
+            <div class="font-medium">{{ item?.station?.code || item?.station?.name || item?.station || '—' }}</div>
           </div>
           <div>
             <div class="text-muted">Circuit</div>
-            <div class="font-medium">{{ item?.circuit ?? '—' }}</div>
+            <div class="font-medium">{{ item?.circuit?.circuit_id || item?.circuit?.name || item?.circuit || '—' }}</div>
           </div>
           <div>
             <div class="text-muted">Reported</div>
-            <div class="font-medium">{{ fmt(item?.reportedAt) }}</div>
+            <div class="font-medium">{{ fmt(item?.reported_at || item?.reportedAt) }}</div>
           </div>
           <div>
             <div class="text-muted">Resolved</div>
-            <div class="font-medium">{{ fmt(item?.resolvedAt) }}</div>
+            <div class="font-medium">{{ fmt(item?.resolved_at || item?.resolvedAt) }}</div>
           </div>
           <div>
             <div class="text-muted">Resolution Time</div>
@@ -87,21 +99,23 @@ function badgeClasses(s) {
         </div>
 
         <div>
-          <div class="text-muted text-sm mb-1">Notes</div>
+          <div class="text-muted text-sm mb-1">Failure Remarks</div>
           <div class="rounded-lg border-app bg-card text-app p-3 min-h-[72px] text-sm">
-            {{ item?.notes ?? '—' }}
+            {{ item?.remark_fail || item?.notes || '—' }}
+          </div>
+        </div>
+
+        <div v-if="item?.remark_right">
+          <div class="text-muted text-sm mb-1">Resolution Remarks</div>
+          <div class="rounded-lg border-app bg-card text-app p-3 min-h-[72px] text-sm">
+            {{ item?.remark_right }}
           </div>
         </div>
       </div>
 
       <!-- Footer -->
-      <div class="px-4 py-3 border-t border-app flex items-center justify-between">
+      <div class="px-4 py-3 border-t border-app flex items-center justify-end">
         <button class="text-sm px-3 py-2 rounded-lg border-app bg-card hover:bg-card" @click="close">Close</button>
-        <div class="flex items-center gap-2">
-          <button class="text-sm px-3 py-2 rounded-lg border-app bg-card hover:bg-card" @click="$emit('notify', item)">Notify</button>
-          <button class="text-sm px-3 py-2 rounded-lg border-app bg-card hover:bg-card" @click="$emit('edit', item)">Edit</button>
-          <button class="text-sm px-3 py-2 rounded-lg border text-red-600 hover:bg-red-50 border-red-200" @click="$emit('delete', item)">Delete</button>
-        </div>
       </div>
     </div>
   </div>

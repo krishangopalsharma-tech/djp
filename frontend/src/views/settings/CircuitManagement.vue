@@ -38,6 +38,10 @@ onMounted(() => {
 })
 
 const severityOptions = ['Minor', 'Major', 'Critical']
+const typeOptions = [
+  { label: 'Station (Local)', value: 'station' },
+  { label: 'Sub-section (Outdoor)', value: 'subsection' }
+]
 
 // --- Modal State ---
 const isModalOpen = ref(false)
@@ -75,6 +79,7 @@ function openAddModal() {
   currentCircuit.value = {
     circuit_id: '',
     name: '',
+    circuit_type: 'station',
     related_equipment: '',
     severity: 'Minor',
     details: ''
@@ -123,10 +128,13 @@ async function confirmDelete() {
     <div class="rounded-2xl border-app bg-card text-app overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
+          <colgroup>
+            <col class="w-[10%]"> <col class="w-[20%]"> <col class="w-[10%]"> <col class="w-[20%]"> <col class="w-[10%]"> <col class="w-[20%]"> <col class="w-[10%]"> </colgroup>
           <thead>
             <tr class="text-left border-b border-app/40">
               <th @click="toggleSort('circuit_id')" class="py-2.5 px-3 whitespace-nowrap cursor-pointer select-none">Circuit ID <span v-if="sortKey === 'circuit_id'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
               <th @click="toggleSort('name')" class="py-2.5 px-3 whitespace-nowrap cursor-pointer select-none">Circuit Name <span v-if="sortKey === 'name'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
+              <th @click="toggleSort('circuit_type')" class="py-2.5 px-3 whitespace-nowrap cursor-pointer select-none">Type <span v-if="sortKey === 'circuit_type'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
               <th @click="toggleSort('related_equipment')" class="py-2.5 px-3 whitespace-nowrap cursor-pointer select-none">Related Equipment <span v-if="sortKey === 'related_equipment'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
               <th @click="toggleSort('severity')" class="py-2.5 px-3 whitespace-nowrap cursor-pointer select-none">Severity <span v-if="sortKey === 'severity'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
               <th class="py-2.5 px-3 whitespace-nowrap">Details</th>
@@ -146,6 +154,9 @@ async function confirmDelete() {
             <tr v-for="r in sortedRows" :key="r.id" class="border-t border-app/30">
               <td class="py-2 px-3 align-top">{{ r.circuit_id }}</td>
               <td class="py-2 px-3 align-top">{{ r.name }}</td>
+              <td class="py-2 px-3 align-top capitalize">
+                {{ r.circuit_type === 'subsection' ? 'Sub-section' : 'Station' }}
+              </td>
               <td class="py-2 px-3 align-top">{{ r.related_equipment }}</td>
               <td class="py-2 px-3 align-top">{{ r.severity }}</td>
               <td class="py-2 px-3 align-top">{{ r.details }}</td>
@@ -191,6 +202,13 @@ async function confirmDelete() {
            <div>
             <label class="block text-sm font-medium mb-1">Circuit Name</label>
             <input v-model="currentCircuit.name" class="field h-9" placeholder="e.g., Feeder Line A" />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-1">Circuit Type</label>
+            <select v-model="currentCircuit.circuit_type" class="field h-9">
+                <option v-for="t in typeOptions" :key="t.value" :value="t.value">{{ t.label }}</option>
+            </select>
           </div>
            <div class="md:col-span-2">
             <label class="block text-sm font-medium mb-1">Related Equipment</label>

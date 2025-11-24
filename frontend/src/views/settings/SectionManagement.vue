@@ -23,9 +23,10 @@ const sortedSections = computed(() => {
     let valB = b[sortKey.value];
     const modifier = sortDir.value === 'asc' ? 1 : -1;
 
-    if (sortKey.value === 'depot_name') {
-        valA = a.depot_name || '';
-        valB = b.depot_name || '';
+    // Use 'depot_code' for sorting
+    if (sortKey.value === 'depot_code') {
+        valA = (a.depot_code || '').toLowerCase();
+        valB = (b.depot_code || '').toLowerCase();
     }
 
     if (valA < valB) return -1 * modifier;
@@ -279,7 +280,7 @@ function removeAssetRow(subSection, assetIndex) {
         <table class="w-full text-sm">
           <thead>
             <tr class="text-left border-b border-app/40">
-              <th @click="toggleSort('depot_name')" class="py-2.5 px-3 text-left cursor-pointer select-none">Depot <span v-if="sortKey === 'depot_name'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
+              <th @click="toggleSort('depot_code')" class="py-2.5 px-3 text-left cursor-pointer select-none">Depot <span v-if="sortKey === 'depot_code'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
               <th @click="toggleSort('name')" class="py-2.5 px-3 text-center cursor-pointer select-none">Section <span v-if="sortKey === 'name'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
               <th class="py-2.5 px-3 text-center">Sub-sections</th>
               <th class="py-2.5 px-3 text-center">Actions</th>
@@ -296,7 +297,7 @@ function removeAssetRow(subSection, assetIndex) {
               <td colspan="4" class="px-3 py-6 text-app/60 text-center">No sections yet — add one above.</td>
             </tr>
             <tr v-for="s in sortedSections" :key="s.id" class="border-t border-app/30">
-              <td class="py-2 px-3 align-middle text-left">{{ s.depot_name }}</td>
+              <td class="py-2 px-3 align-middle text-left">{{ s.depot_code || 'N/A' }}</td>
               <td class="py-2 px-3 align-middle text-center">{{ s.name }}</td>
               <td class="py-2 px-3 align-middle text-center">{{ s.subsections?.length || 0 }}</td>
               <td class="py-2 px-3 align-middle">

@@ -1,12 +1,12 @@
 # Path: backend/failures/views.py
-from rest_framework import viewsets, permissions, response, status
+from rest_framework import viewsets, permissions, response, status, parsers
 from rest_framework.decorators import action
 from django.utils import timezone
 from .models import Failure, FailureAttachment
 from .serializers import FailureSerializer, FailureAttachmentSerializer
 
 # --- START OF FIX: Add imports for Telegram ---
-from telegram_notifications.bot import send_telegram_message
+from telegram_notifications.bot import send_telegram_message, send_telegram_document
 from telegram_notifications.models import TelegramGroup
 # --- END OF FIX ---
 
@@ -15,11 +15,19 @@ class FailureViewSet(viewsets.ModelViewSet):
     """
     API endpoint for Failure logs.
     """
-    queryset = Failure.objects.filter(is_archived=False).order_by('-reported_at')
     serializer_class = FailureSerializer
     permission_classes = [permissions.AllowAny]  # Use AllowAny for dev
     filterset_fields = ['current_status', 'severity', 'circuit', 'station', 'section', 'assigned_to']
     search_fields = ['fail_id', 'circuit__name', 'station__name', 'remark_fail']
+
+    def get_queryset(self):
+        """
+        Filter archived failures only for the list action.
+        Detail actions (retrieve, update, archive, etc.) should access all failures.
+        """
+        if self.action == 'list':
+            return Failure.objects.filter(is_archived=False).order_by('-reported_at')
+        return Failure.objects.all().order_by('-reported_at')
 
     # This action is for the "ArchiveManagement.vue" component
     @action(detail=False, methods=['get'], url_path='archived')
@@ -67,12 +75,8 @@ class FailureViewSet(viewsets.ModelViewSet):
         except Failure.DoesNotExist:
             return response.Response({'error': 'Failure not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-    # --- START OF FIX: Add the missing 'notify' action ---
     @action(detail=True, methods=['post'])
     def notify(self, request, pk=None):
-        """
-        Sends a Telegram notification for a specific failure.
-        """
         try:
             failure = self.get_object()
         except Failure.DoesNotExist:
@@ -80,9 +84,8 @@ class FailureViewSet(viewsets.ModelViewSet):
 
         group_keys = request.data.get('groups', [])
         if not group_keys:
-            return response.Response({'error': 'No notification groups provided.'}, status=status.HTTP_400_BAD_REQUEST)
+            group_keys = ['alerts']
 
-        # Build the notification message
         try:
             # 1. Define status emojis
             status_emoji_map = {
@@ -96,54 +99,60 @@ class FailureViewSet(viewsets.ModelViewSet):
             status_text = failure.current_status
             emoji = status_emoji_map.get(status_text, '')
             
-            # --- START OF FIX: Add Tags ---
+            # 2. Prepare Hashtags
             tags = []
-            if failure.circuit:
-                tags.append(f"#{failure.circuit.circuit_id.replace(' ', '_')}")
-            if failure.station:
-                tags.append(f"#{failure.station.code.replace(' ', '_')}")
-            if failure.section:
-                tags.append(f"#{failure.section.name.replace(' ', '_')}")
-            # --- END OF FIX ---
-
-            # 2. Build message lines
-            message_lines = [
-                f"<b>ID:</b> {failure.fail_id}",
-                "", # Blank line
-            ]
-
-            if failure.circuit:
-                # Use circuit_id (e.g., "BPAC01") as requested
-                message_lines.append(f"<b>Circuit:</b> {failure.circuit.circuit_id}") 
+            if failure.entry_type == 'message':
+                tags.append("#GeneralMessage")
+            else:
+                if failure.circuit: tags.append(f"#{failure.circuit.circuit_id.replace(' ', '_')}")
+                if failure.station: tags.append(f"#{failure.station.code.replace(' ', '_')}")
+                if failure.section: tags.append(f"#{failure.section.name.replace(' ', '_')}")
             
-            message_lines.append(f"<b>Status:</b> {status_text} {emoji}")
-            message_lines.append("") # Blank line
+            # 3. Build Message
+            lines = []
+            lines.append(f"<b>ID:</b> {failure.fail_id}")
+            lines.append("") # Blank line
 
-            if failure.station:
-                # Use station.code (e.g., "DBO") as requested
-                message_lines.append(f"<b>Station:</b> {failure.station.code}") 
-            if failure.section:
-                message_lines.append(f"<b>Section:</b> {failure.section.name}")
-            if failure.sub_section:
-                message_lines.append(f"<b>Sub-Section:</b> {failure.sub_section.name}")
+            if failure.entry_type == 'message':
+                lines.append(f"<b>Circuit:</b> Info")
+            elif failure.circuit:
+                lines.append(f"<b>Circuit:</b> {failure.circuit.circuit_id}")
+            
+            lines.append(f"<b>Status:</b> {status_text} {emoji}")
+            lines.append("") # Blank line
 
-            # 3. Add Fail Remarks
+            if failure.entry_type != 'message':
+                if failure.station:
+                    lines.append(f"<b>Station:</b> {failure.station.code}")
+                if failure.section:
+                    lines.append(f"<b>Section:</b> {failure.section.name}")
+                if failure.sub_section:
+                    lines.append(f"<b>Sub-Section:</b> {failure.sub_section.name}")
+
+            if failure.assigned_to:
+                lines.append("")
+                lines.append(f"<b>Assigned To:</b> {failure.assigned_to.name}")
+
             if failure.remark_fail:
-                message_lines.append("\n<b>❗️ Fail Remarks:</b>")
-                message_lines.append(failure.remark_fail)
+                lines.append("")
+                if failure.entry_type == 'message':
+                    lines.append("<b>Information:</b>")
+                else:
+                    lines.append("<b>❗️ Fail Remarks:</b>")
+                lines.append(failure.remark_fail)
 
-            # 4. Add Resolved Remarks (only if status is Resolved)
             if failure.current_status == 'Resolved' and failure.remark_right:
-                message_lines.append("\n<b>✅ Resolved Remark:</b>")
-                message_lines.append(failure.remark_right)
-
-            # --- START OF FIX: Add tags to the end ---
-            if tags:
-                message_lines.append("\n" + " ".join(tags))
-            # --- END OF FIX ---
+                lines.append("")
+                lines.append("<b>✅ Resolved Remark:</b>")
+                lines.append(failure.remark_right)
             
-            message = "\n".join(message_lines)
+            if tags:
+                lines.append("")
+                lines.append(" ".join(tags))
 
+            message = "\n".join(lines)
+
+            # 4. Send Logic
             sent_to = []
             failed_to = []
 
@@ -156,21 +165,20 @@ class FailureViewSet(viewsets.ModelViewSet):
                     else:
                         failed_to.append(f"{key} (no Chat ID)")
                 except TelegramGroup.DoesNotExist:
-                    failed_to.append(f"{key} (group not configured)")
+                     failed_to.append(f"{key} (group not configured)")
                 except Exception as e:
                     failed_to.append(f"{key} ({str(e)})")
 
             if not sent_to:
-                return response.Response({'error': f"Failed to send to all groups: {', '.join(failed_to)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                return response.Response({'error': f"Failed to send: {', '.join(failed_to)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-            # Mark the failure as notified
             failure.was_notified = True
             failure.save(update_fields=['was_notified'])
 
             return response.Response({'message': f"Notification sent to: {', '.join(sent_to)}."})
         
         except Exception as e:
-            return response.Response({'error': f'Failed to build or send message: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return response.Response({'error': f'Failed to send message: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     # --- END OF FIX ---
 
 
@@ -181,4 +189,53 @@ class FailureAttachmentViewSet(viewsets.ModelViewSet):
     queryset = FailureAttachment.objects.all()
     serializer_class = FailureAttachmentSerializer
     permission_classes = [permissions.AllowAny]  # Use AllowAny for dev
+    parser_classes = [parsers.MultiPartParser, parsers.FormParser]
     filterset_fields = ['failure']
+
+    def create(self, request, *args, **kwargs):
+        file_obj = request.FILES.get('file')
+        failure_id = request.data.get('failure')
+        description = request.data.get('description', '')
+        
+        if not file_obj:
+            return response.Response({'error': 'No file provided.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            failure = Failure.objects.get(pk=failure_id)
+        except Failure.DoesNotExist:
+            return response.Response({'error': 'Failure not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Get Telegram Group
+        try:
+            group = TelegramGroup.objects.get(key='operations')
+            if not group.chat_id:
+                 return response.Response({'error': 'Operations group has no Chat ID.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except TelegramGroup.DoesNotExist:
+             return response.Response({'error': 'Operations group not configured.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # Send to Telegram
+        try:
+            caption = f"<b>Attachment for Failure:</b> {failure.fail_id}\n<b>Description:</b> {description}"
+            
+            # Stream directly to Telegram
+            telegram_msg = send_telegram_document(
+                chat_id=group.chat_id,
+                document=file_obj,
+                caption=caption
+            )
+            
+            # Save record
+            attachment = FailureAttachment.objects.create(
+                failure=failure,
+                file=None, # No local file
+                telegram_file_id=telegram_msg.document.file_id,
+                telegram_message_id=telegram_msg.message_id,
+                description=description,
+                uploaded_by=request.user if request.user.is_authenticated else None
+            )
+            
+            serializer = self.get_serializer(attachment)
+            return response.Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return response.Response({'error': f'Failed to upload to Telegram: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

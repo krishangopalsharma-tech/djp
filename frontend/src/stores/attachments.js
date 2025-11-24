@@ -41,9 +41,11 @@ export const useAttachmentStore = defineStore('attachments', {
         });
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'File uploaded.' });
         await this.fetchAttachments(failureId); // Refresh the list
+        return true;
       } catch (err) {
         uiStore.pushToast({ type: 'error', title: 'Upload Failed', message: 'Could not upload file.' });
         console.error(err);
+        return false;
       } finally {
         this.loading = false;
       }

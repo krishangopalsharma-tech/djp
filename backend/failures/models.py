@@ -25,7 +25,9 @@ class Failure(TimestampedModel):
     station = models.ForeignKey('stations.Station', on_delete=models.CASCADE, null=True, blank=True)
     section = models.ForeignKey('sections.Section', on_delete=models.CASCADE, null=True, blank=True)
     sub_section = models.ForeignKey('sections.SubSection', on_delete=models.CASCADE, null=True, blank=True)
-    assigned_to = models.ForeignKey('users.User', on_delete=models.SET_NULL, null=True, blank=True)
+    # --- START OF FIX: Link to Supervisor instead of User ---
+    assigned_to = models.ForeignKey('supervisors.Supervisor', on_delete=models.SET_NULL, null=True, blank=True)
+    # --- END OF FIX ---
 
     def save(self, *args, **kwargs):
         if not self.fail_id: # Only generate an ID if it's a new record
@@ -63,6 +65,8 @@ class Failure(TimestampedModel):
 
 class FailureAttachment(TimestampedModel):
     failure = models.ForeignKey(Failure, on_delete=models.CASCADE, related_name='attachments')
-    file = models.FileField(upload_to=attachment_upload_path)
+    file = models.FileField(upload_to=attachment_upload_path, null=True, blank=True)
+    telegram_file_id = models.CharField(max_length=255, blank=True, null=True)
+    telegram_message_id = models.CharField(max_length=255, blank=True, null=True)
     description = models.CharField(max_length=255, blank=True)
     uploaded_by = models.ForeignKey('users.User', on_delete=models.SET_NULL, null=True, blank=True)

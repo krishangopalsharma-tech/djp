@@ -6,6 +6,7 @@ import { useUIStore } from './ui';
 export const useSectionsStore = defineStore('sections', {
   state: () => ({
     sections: [],
+    subSections: [],
     sectionSubsections: [], // Store fetched subsections for the modal
     loading: false,
     error: null,
@@ -90,6 +91,16 @@ export const useSectionsStore = defineStore('sections', {
     },
 
     // --- SubSection Actions ---
+    async fetchSubSections() {
+      this.loading = true; this.error = null;
+      try {
+        const response = await http.get('/subsections/');
+        this.subSections = response.data.results || response.data;
+      } catch (err) {
+        this.error = 'Failed to fetch sub-sections.';
+        useUIStore().pushToast({ type: 'error', title: 'Error', message: this.error });
+      } finally { this.loading = false; }
+    },
     async fetchSubsectionsForSection(sectionId) {
         this.loading = true; this.error = null;
         try {

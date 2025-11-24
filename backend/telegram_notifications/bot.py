@@ -1,7 +1,17 @@
-# Path: backend/telegram_notifications/bot.py
 import telegram
-from .models import TelegramSettings
 import asyncio
+from .models import TelegramSettings
+
+# --- Try to import ParseMode from different locations based on version ---
+try:
+    from telegram.constants import ParseMode
+except ImportError:
+    try:
+        from telegram import ParseMode
+    except ImportError:
+        # Fallback class if import fails entirely
+        class ParseMode:
+            HTML = 'HTML'
 
 def get_bot_token():
     """
@@ -14,9 +24,10 @@ def get_bot_token():
         print("Telegram settings not found. Cannot send message.")
         return None
 
-def send_telegram_message(chat_id, text, parse_mode='HTML'):
+def send_telegram_message(chat_id, text, parse_mode=ParseMode.HTML):
     """
     Sends a text message to a specific Telegram chat.
+    Uses the ParseMode constant to ensure HTML is rendered.
     """
     token = get_bot_token()
     if not token:
@@ -53,13 +64,14 @@ def send_telegram_document(chat_id, document, caption):
 
     try:
         bot = telegram.Bot(token=token)
-        asyncio.run(bot.send_document(
+        # Use asyncio.run() to execute the async function from your sync code
+        message = asyncio.run(bot.send_document(
             chat_id=chat_id,
             document=document,
             caption=caption,
-            parse_mode='HTML'
+            parse_mode=ParseMode.HTML
         ))
-        return True
+        return message
     except telegram.error.BadRequest as e:
         print(f"Telegram BadRequest Error: {e}")
         raise Exception(f"Telegram Error: {e.message}")
