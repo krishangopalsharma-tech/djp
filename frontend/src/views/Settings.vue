@@ -4,6 +4,7 @@ import SelectBox from '@/components/form/SelectBox.vue'
 import { reactive } from 'vue'
 import { useAppStore } from '@/stores/app'
 import { useUIStore } from '@/stores/ui'
+import ArchiveManagement from '@/views/settings/ArchiveManagement.vue'
 
 const app = useAppStore()
 const ui = useUIStore()
@@ -46,6 +47,11 @@ function save() {
       <section class="space-y-3">
         <h3 class="text-sm font-semibold text-gray-700">Event ID</h3>
         <InputText label="Separator" v-model="form.failIdSeparator" placeholder="-" />
+      </section>
+
+      <section class="space-y-3 pt-4 border-t border-gray-100">
+        <h3 class="text-sm font-semibold text-gray-700">Archive Management</h3>
+        <ArchiveManagement />
       </section>
 
       <div class="flex gap-2">

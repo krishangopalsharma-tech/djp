@@ -34,7 +34,8 @@ class DashboardDataView(APIView):
         # 3. Base Queryset
         base_qs = Failure.objects.filter(is_archived=False, reported_at__gte=start_date)
         if section_ids:
-            base_qs = base_qs.filter(section__id__in=section_ids)
+            # Frontend sends section names (e.g. "CLDY-VG"), so filter by name
+            base_qs = base_qs.filter(section__name__in=section_ids)
 
         # 4. Calculate KPIs
         active_failures = base_qs.filter(current_status__in=['Active', 'In Progress', 'On Hold']).count()
@@ -63,6 +64,7 @@ class DashboardDataView(APIView):
         # 5. Chart: Status by Section
         status_by_section = base_qs.values('section__name').annotate(
             active=Count('id', filter=models.Q(current_status='Active')),
+            in_progress=Count('id', filter=models.Q(current_status='In Progress')),
             resolved=Count('id', filter=models.Q(current_status='Resolved')),
         ).order_by('-active')
 

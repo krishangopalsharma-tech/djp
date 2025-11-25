@@ -43,6 +43,8 @@ const props = defineProps({
   // allow hiding the component's own title when embedded in dashboards
   showHeader: { type: Boolean, default: true },
   editingId: { type: [String, Number], default: null },
+  // allow removing card styling
+  flat: { type: Boolean, default: false },
 
 })
 
@@ -143,6 +145,7 @@ const filteredSorted = computed(() => {
       case 'circuit': return row.circuit?.name ?? row.circuit
       case 'station': return row.station?.name ?? row.station
       case 'section': return row.section?.name ?? row.section
+      case 'sub_section': return row.sub_section?.name ?? row.sub_section
       case 'status': return row.current_status ?? row.status
       default: return ''
     }
@@ -368,7 +371,7 @@ function downloadPDF() {
 
 <template>
   <div class="space-y-4">
-    <div class="rounded-2xl border-app bg-card text-app p-4 shadow-lg">
+    <div :class="flat ? '' : 'rounded-2xl border-app bg-card text-app p-4 shadow-lg'">
       <div class="pb-3 mb-3 border-b border-app" v-if="showHeader">
          <h2 class="text-xl font-semibold leading-tight text-center">Recent Logs</h2>
       </div>
@@ -402,33 +405,44 @@ function downloadPDF() {
           <thead class="bg-card">
             <tr>
               <th class="text-center font-semibold text-app px-3 py-1.5 cursor-pointer select-none"
+                  :class="showRowActions ? 'w-[10%]' : 'w-[16%]'"
                   :aria-sort="sortKey==='id' ? (sortDir==='asc'?'ascending':'descending') : 'none'"                  @click="setSort('id')">
                 <div class="inline-flex items-center gap-1">EV ID <span v-if="sortKey==='id'">{{ sortDir==='asc' ? '▲' : '▼' }}</span></div>
               </th>
               <th class="text-center font-semibold text-app px-3 py-1.5 cursor-pointer select-none"
+                  :class="showRowActions ? 'w-[12%]' : 'w-[16%]'"
                   :aria-sort="sortKey==='circuit' ? (sortDir==='asc'?'ascending':'descending') : 'none'"
                   @click="setSort('circuit')">
                 <div class="inline-flex items-center gap-1">Circuit <span v-if="sortKey==='circuit'">{{ sortDir==='asc' ? '▲' : '▼' }}</span></div>
               </th>
               <th class="text-center font-semibold text-app px-3 py-1.5 cursor-pointer select-none"
+                  :class="showRowActions ? 'w-[10%]' : 'w-[16%]'"
                   :aria-sort="sortKey==='station' ? (sortDir==='asc'?'ascending':'descending') : 'none'"
                   @click="setSort('station')">
                 <div class="inline-flex items-center gap-1">Station <span v-if="sortKey==='station'">{{ sortDir==='asc' ? '▲' : '▼' }}</span></div>
               </th>
               <th class="text-center font-semibold text-app px-3 py-1.5 cursor-pointer select-none"
+                  :class="showRowActions ? 'w-[15%]' : 'w-[17%]'"
                   :aria-sort="sortKey==='section' ? (sortDir==='asc'?'ascending':'descending') : 'none'"
                   @click="setSort('section')">
                 <div class="inline-flex items-center gap-1">Section <span v-if="sortKey==='section'">{{ sortDir==='asc' ? '▲' : '▼' }}</span></div>
               </th>
+              <th class="text-center font-semibold text-app px-3 py-1.5 cursor-pointer select-none"
+                  :class="showRowActions ? 'w-[15%]' : 'w-[17%]'"
+                  :aria-sort="sortKey==='sub_section' ? (sortDir==='asc'?'ascending':'descending') : 'none'"
+                  @click="setSort('sub_section')">
+                <div class="inline-flex items-center gap-1">Sub-Section <span v-if="sortKey==='sub_section'">{{ sortDir==='asc' ? '▲' : '▼' }}</span></div>
+              </th>
 
               <!-- NEW: Reported (sortable) -->
               <th class="text-center font-semibold text-app px-3 py-1.5 cursor-pointer select-none"
+                  :class="showRowActions ? 'w-[23%]' : 'w-[18%]'"
                   :aria-sort="sortKey==='reported_at' ? (sortDir==='asc'?'ascending':'descending') : 'none'"
                   @click="setSort('reported_at')">
                 <div class="inline-flex items-center gap-1">Reported <span v-if="sortKey==='reported_at'">{{ sortDir==='asc' ? '▲' : '▼' }}</span></div>
               </th>
 
-              <th v-if="showRowActions" class="text-center font-semibold text-app px-3 py-1.5">Actions</th>
+              <th v-if="showRowActions" class="text-center font-semibold text-app px-3 py-1.5 w-[15%]">Actions</th>
             </tr>
           </thead>
 
@@ -463,6 +477,7 @@ function downloadPDF() {
               <td class="px-3 py-1.5 text-center"><div class="truncate">{{ r.circuit?.circuit_id ?? r.circuit ?? '—' }}</div></td>
               <td class="px-3 py-1.5 text-center"><div class="truncate">{{ r.station?.code ?? r.station ?? '—' }}</div></td>
               <td class="px-3 py-1.5 text-center"><div class="truncate">{{ r.section?.name ?? r.section ?? '—' }}</div></td>
+              <td class="px-3 py-1.5 text-center"><div class="truncate">{{ r.sub_section?.name ?? r.sub_section ?? '—' }}</div></td>
 
               <!-- NEW: Reported cell (relative text + PrimeVue tooltip + native title) -->
               <td class="px-3 py-1.5 text-center">

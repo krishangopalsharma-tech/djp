@@ -2,9 +2,9 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
 import { useFailureStore } from '@/stores/failures';
-import { useInfrastructureStore } from '@/stores/infrastructure';
+import { useSectionsStore } from '@/stores/sections';
 import { useDashboardStore } from '@/stores/dashboard'; // Import dashboard store
-import SplitPane from '@/components/SplitPane.vue';
+import SplitPane from '@/components/SplitPane.vue'; // Re-imported
 import KpiCard from '@/components/KpiCard.vue';
 import BarChart from '@/components/BarChart.vue';
 import LineChart from '@/components/LineChart.vue';
@@ -17,7 +17,7 @@ import { withAlpha } from '@/lib/theme';
 
 // --- Store and Router setup ---
 const failureStore = useFailureStore();
-const infrastructureStore = useInfrastructureStore();
+const sectionsStore = useSectionsStore();
 const dashboardStore = useDashboardStore(); // Use dashboard store
 const router = useRouter();
 
@@ -26,7 +26,8 @@ const topNMode = ref(true);
 const topN = ref(10);
 const autoRefresh = ref(false);
 const intervalMs = ref(30000);
-const chartsSplit = ref(60);
+const verticalSplit = ref(40); // Default 40% height for top chart
+const horizontalSplit = ref(40); // Default 40% width for left chart
 const cumulativeMode = ref(true);
 const lastUpdated = ref(Date.now());
 const isLoading = ref(false);
@@ -38,7 +39,7 @@ const filters = ref({
   status: ['Active', 'In Progress', 'Resolved', 'On Hold', 'Draft'],
   sections: [],
 });
-const split = ref(Number(localStorage.getItem('dashSplit') || 66));
+// const split = ref(Number(localStorage.getItem('dashSplit') || 66)); // Removed
 
 // --- Data Fetching ---
 onMounted(() => {
@@ -65,7 +66,7 @@ function timeAgo(ts) {
 
 // --- Computed Properties ---
 const allSectionsMaster = computed(() =>
-  (infrastructureStore.sections || []).map(s => s.name).sort()
+  (sectionsStore.sections || []).map(s => s.name).sort()
 );
 
 // Use data from dashboardStore
@@ -155,7 +156,7 @@ function refresh() {
   isLoading.value = true;
   Promise.all([
     failureStore.fetchRecentFailures(), // Fetch recent failures
-    infrastructureStore.fetchSections(),
+    sectionsStore.fetchSections(),
     dashboardStore.fetchDashboardData(filters.value), // Fetch aggregated data
   ]).finally(() => {
     setTimeout(() => {
@@ -190,7 +191,7 @@ function resetFilters() {
 
 // --- Watchers ---
 watch([autoRefresh, intervalMs], startTimer);
-watch(split, v => localStorage.setItem('dashSplit', String(v)));
+// watch(split, v => localStorage.setItem('dashSplit', String(v))); // Removed
 // Watch filters to auto-refresh dashboard data
 watch(filters, () => {
     dashboardStore.fetchDashboardData(filters.value);
@@ -200,10 +201,12 @@ watch(filters, () => {
 
 <template>
   <div class="space-y-6">
-    <div class="mt-3 mb-3 flex flex-wrap items-center justify-between gap-3">
-      <div class="flex flex-wrap items-center gap-2">
+    <div class="mt-3 mb-3 flex flex-wrap items-start justify-between gap-3">
+      <div class="flex flex-wrap items-start gap-2">
           <DashboardFilterBar v-model="filters" :show-statuses="false" />
           <SectionPicker v-model="filters.sections" :sections="allSectionsMaster" :max-inline="1" placeholder="Search sections…" />
+          <!-- Status Filters Moved Here -->
+          <DashboardFilterBar v-model="filters" :show-ranges="false" />
       </div>
       <div class="flex flex-wrap items-center gap-2 shrink-0">
         <select v-model="intervalMs" class="h-10 rounded-lg border-app bg-card text-app px-2 text-sm" title="Auto-refresh interval">
@@ -227,74 +230,82 @@ watch(filters, () => {
       </div>
     </div>
       
-    <DashboardFilterBar v-model="filters" :show-ranges="false" />
+    <!-- Removed separate DashboardFilterBar for statuses -->
 
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard v-for="(kpi, index) in kpis" :key="index" :label="kpi.label" :value="kpi.value" :sublabel="kpi.sublabel" />
     </div>
  
-    <SplitPane v-model="split">
-      <template #left>
-        <SplitPane v-model="chartsSplit" :min-left="35" :max-left="80" class="widget-eq">
-          <template #left>
-            <div class="rounded-2xl border-app bg-card text-app p-4 relative overflow-hidden shadow-card mr-2 widget-eq-body">
-              <div class="mb-2 text-sm font-semibold text-app flex items-center justify-between">
-                <span>Status by Section</span>
-                <div class="flex items-center gap-2 text-xs font-normal">
-                  <label class="inline-flex items-center gap-1">
-                    <input type="checkbox" v-model="topNMode" class="h-3.5 w-3.5 rounded border-app" />
-                    Top-N
+    <!-- Resizable Layout Container -->
+    <div class="h-[800px] mt-4">
+      <SplitPane v-model="verticalSplit" layout="vertical" :min="20" :max="80">
+        <template #one>
+          <!-- Middle Row: Status by Section (Full Width) -->
+          <div class="rounded-2xl border-app bg-card text-app p-4 relative overflow-hidden shadow-card h-full flex flex-col">
+            <div class="mb-2 text-sm font-semibold text-app flex items-center justify-between shrink-0">
+              <span>Status by Section</span>
+              <div class="flex items-center gap-2 text-xs font-normal">
+                <label class="inline-flex items-center gap-1">
+                  <input type="checkbox" v-model="topNMode" class="h-3.5 w-3.5 rounded border-app" />
+                  Top-N
+                </label>
+                <select v-model="topN" :disabled="!topNMode" class="rounded border-app bg-card text-app px-1.5 py-1 disabled:opacity-50" title="How many sections to show">
+                  <option :value="5">5</option><option :value="10">10</option><option :value="15">15</option><option :value="20">20</option>
+                </select>
+              </div>
+            </div>
+            <div v-if="!hasBarData && !isLoading" class="flex-1 flex items-center justify-center text-sm text-muted">No data for current filters</div>
+            <div v-else class="relative flex-1 w-full"><div class="absolute inset-0"><BarChart :data="statusBySection" /></div></div>
+            <div class="mt-2 text-xs text-muted shrink-0">Last updated: {{ timeAgo(lastUpdated) }}</div>
+            <div v-if="isLoading" class="absolute inset-0 bg-card/70 flex items-center justify-center rounded-2xl">
+              <svg class="animate-spin h-6 w-6 text-app" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"/></svg>
+            </div>
+          </div>
+        </template>
+        
+        <template #two>
+          <!-- Bottom Row: Resolved over Time + Recent Logs -->
+          <SplitPane v-model="horizontalSplit" layout="horizontal" :min="20" :max="80">
+            <template #one>
+              <div class="rounded-2xl border-app bg-card text-app p-4 relative overflow-hidden shadow-card flex flex-col h-full">
+                <div class="mb-2 text-sm font-semibold text-app flex items-center justify-between shrink-0">
+                  <span>Resolved over Time ({{ rangeLabel }})</span>
+                  <label class="inline-flex items-center gap-1 text-xs font-normal">
+                    <input type="checkbox" v-model="cumulativeMode" class="h-3.5 w-3.5 rounded border-app" />
+                    Cumulative
                   </label>
-                  <select v-model="topN" :disabled="!topNMode" class="rounded border-app bg-card text-app px-1.5 py-1 disabled:opacity-50" title="How many sections to show">
-                    <option :value="5">5</option><option :value="10">10</option><option :value="15">15</option><option :value="20">20</option>
-                  </select>
+                </div>
+                <div v-if="!hasLineData && !isLoading" class="flex-1 flex items-center justify-center text-sm text-muted">No data for current filters</div>
+                <div v-else class="relative flex-1 w-full"><div class="absolute inset-0"><LineChart :data="resolvedOverTime" /></div></div>
+                <div v-if="isLoading" class="absolute inset-0 bg-card/70 flex items-center justify-center rounded-2xl">
+                  <svg class="animate-spin h-6 w-6 text-app" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"/></svg>
                 </div>
               </div>
-              <div v-if="!hasBarData && !isLoading" class="h-64 md:h-80 flex items-center justify-center text-sm text-muted">No data for current filters</div>
-              <div v-else class="relative h-[300px]"><div class="absolute inset-0"><BarChart :data="statusBySection" /></div></div>
-              <div class="mt-2 text-xs text-muted">Last updated: {{ timeAgo(lastUpdated) }}</div>
-              <div v-if="isLoading" class="absolute inset-0 bg-card/70 flex items-center justify-center rounded-2xl">
-                <svg class="animate-spin h-6 w-6 text-app" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"/></svg>
+            </template>
+            
+            <template #two>
+              <div class="rounded-2xl border-app bg-card text-app overflow-hidden shadow-card flex flex-col h-full">
+                <div class="px-4 py-3 border-b border-app text-sm font-semibold shrink-0">Recent Logs</div>
+                <div class="p-2 flex-1 overflow-y-auto">
+                  <RecentFailures 
+                      :items="recent" 
+                      :show-toolbar="false" 
+                      :show-bottom-actions="false" 
+                      :show-row-actions="false" 
+                      :loading="isLoading" 
+                      :show-header="false" 
+                      :flat="true"
+                      storage-key="rf-dashboard" 
+                      @view="openDetails" 
+                      @edit="handleEdit" 
+                  />
+                  <FailureDetailsDrawer v-model="drawerOpen" :item="activeItem" />
+                </div>
               </div>
-            </div>
-          </template>
-          <template #right>
-            <div class="rounded-2xl border-app bg-card text-app p-4 relative overflow-hidden shadow-card ml-2 widget-eq-body">
-              <div class="mb-2 text-sm font-semibold text-app flex items-center justify-between">
-                <span>Resolved over Time ({{ rangeLabel }})</span>
-                <label class="inline-flex items-center gap-1 text-xs font-normal">
-                  <input type="checkbox" v-model="cumulativeMode" class="h-3.5 w-3.5 rounded border-app" />
-                  Cumulative
-                </label>
-              </div>
-              <div v-if="!hasLineData && !isLoading" class="h-64 md:h-80 flex items-center justify-center text-sm text-muted">No data for current filters</div>
-              <div v-else class="relative h-[320px]"><div class="absolute inset-0"><LineChart :data="resolvedOverTime" /></div></div>
-              <div v-if="isLoading" class="absolute inset-0 bg-card/70 flex items-center justify-center rounded-2xl">
-                <svg class="animate-spin h-6 w-6 text-app" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"/></svg>
-              </div>
-            </div>
-          </template>
-        </SplitPane>
-      </template>
-      <template #right>
-        <div class="rounded-2xl border-app bg-card text-app overflow-hidden shadow-card widget-eq">
-          <div class="px-4 py-3 border-b border-app text-sm font-semibold">Recent Failures</div>
-          <div class="p-2">
-            <RecentFailures 
-                :items="recent" 
-                :show-toolbar="false" 
-                :show-bottom-actions="false" 
-                :show-row-actions="false" 
-                :loading="isLoading" 
-                :show-header="false" 
-                storage-key="rf-dashboard" 
-                @view="openDetails" 
-                @edit="handleEdit" 
-            />
-            <FailureDetailsDrawer v-model="drawerOpen" :item="activeItem" />
-          </div>
-        </div>
-      </template>
-    </SplitPane>
+            </template>
+          </SplitPane>
+        </template>
+      </SplitPane>
+    </div>
   </div>
 </template>

@@ -2,13 +2,14 @@
 import { ref, watch, computed, onMounted, onBeforeUnmount } from 'vue'
 
 const props = defineProps({
-  modelValue: [String, Number, Object, null],
+  modelValue: [String, Number, Object, Array, null],
   options: { type: Array, default: () => [] },
   placeholder: { type: String, default: 'Select…' },
   disabled: { type: Boolean, default: false },
   clearable: { type: Boolean, default: true },
   labelKey: { type: String, default: 'label' },
   valueKey: { type: String, default: 'value' },
+  multiple: { type: Boolean, default: false },
 })
 const emit = defineEmits(['update:modelValue'])
 
@@ -24,7 +25,17 @@ let justClosed = false;
 
 const selectedLabel = computed(() => {
   const val = props.modelValue
-  if (val == null || val === '') return ''
+  if (val == null || val === '' || (Array.isArray(val) && val.length === 0)) return ''
+  
+  if (props.multiple) {
+      if (!Array.isArray(val)) return '';
+      if (val.length === 1) {
+          const found = props.options.find(o => (o[props.valueKey] === val[0]) || (o === val[0]))
+          return found ? (found[props.labelKey] ?? String(found)) : String(val[0])
+      }
+      return `${val.length} selected`
+  }
+
   const found = props.options.find(o => (o[props.valueKey] === val) || (o === val))
   return found ? (found[props.labelKey] ?? String(found)) : String(val)
 })
@@ -59,23 +70,45 @@ function closeMenu() {
 
 function selectOption(opt) {
   const val = opt?.[props.valueKey] ?? opt
-  emit('update:modelValue', val)
-  closeMenu()
-  controlButton.value?.blur()
-
-  // --- SET FLAG AND CLEAR IT AFTER A SHORT DELAY ---
-  justClosed = true;
-  setTimeout(() => {
-    justClosed = false;
-  }, 150); // 150ms cooldown period
+  
+  if (props.multiple) {
+      const current = Array.isArray(props.modelValue) ? [...props.modelValue] : []
+      const idx = current.indexOf(val)
+      if (idx > -1) {
+          current.splice(idx, 1)
+      } else {
+          current.push(val)
+      }
+      emit('update:modelValue', current)
+      // Keep menu open for multiple selection
+      requestAnimationFrame(() => inputEl.value?.focus())
+  } else {
+      emit('update:modelValue', val)
+      closeMenu()
+      controlButton.value?.blur()
+      
+      // --- SET FLAG AND CLEAR IT AFTER A SHORT DELAY ---
+      justClosed = true;
+      setTimeout(() => {
+        justClosed = false;
+      }, 150); // 150ms cooldown period
+  }
 }
 
 function clearSelection(e) {
   e?.stopPropagation()
   if (!props.clearable) return
-  emit('update:modelValue', null)
+  emit('update:modelValue', props.multiple ? [] : null)
   query.value = ''
-  openMenu()
+  if (!props.multiple) openMenu()
+}
+
+function isSelected(opt) {
+    const val = opt?.[props.valueKey] ?? opt
+    if (props.multiple) {
+        return Array.isArray(props.modelValue) && props.modelValue.includes(val)
+    }
+    return val === props.modelValue
 }
 
 function onKeydown(e) {
@@ -99,7 +132,7 @@ onMounted(() => document.addEventListener('mousedown', onClickOutside))
 onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside))
 
 watch(() => props.modelValue, (v) => {
-  if (!open.value) query.value = ''
+  if (!open.value && !props.multiple) query.value = ''
 })
 </script>
 
@@ -128,7 +161,7 @@ watch(() => props.modelValue, (v) => {
       />
       <span class="flex items-center gap-2 shrink-0">
         <button
-          v-if="clearable && modelValue != null && modelValue !== ''"
+          v-if="clearable && ((!multiple && modelValue != null && modelValue !== '') || (multiple && modelValue?.length > 0))"
           class="text-muted hover:text-app"
           title="Clear"
           @click.stop="clearSelection"
@@ -147,14 +180,17 @@ watch(() => props.modelValue, (v) => {
         class="px-3 py-2 text-sm cursor-pointer flex items-center justify-between hover-primary"
         :class="[
           i === hoverIndex ? 'bg-primary-tint' : '',
-          (opt[valueKey] ?? opt) === modelValue ? 'selected-primary' : ''
+          isSelected(opt) ? 'selected-primary' : ''
         ]"
         @mouseenter="hoverIndex = i"
         @mouseleave="hoverIndex = -1"
         @click.stop="selectOption(opt)"
       >
-        <span class="truncate">{{ opt[labelKey] ?? String(opt) }}</span>
-        <span v-if="(opt[valueKey] ?? opt) === modelValue" class="text-xs text-muted">✓</span>
+        <span class="truncate flex items-center gap-2">
+            <input v-if="multiple" type="checkbox" :checked="isSelected(opt)" class="pointer-events-none" />
+            {{ opt[labelKey] ?? String(opt) }}
+        </span>
+        <span v-if="isSelected(opt) && !multiple" class="text-xs text-muted">✓</span>
       </div>
       <div v-if="filtered.length === 0" class="px-3 py-2 text-sm text-muted">No results</div>
     </div>

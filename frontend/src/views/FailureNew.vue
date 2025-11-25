@@ -14,6 +14,10 @@ import { useTelegramStore } from '@/stores/telegram';
 import { useAttachmentStore } from '@/stores/attachments';
 import FailureAttachment from '@/components/FailureAttachment.vue'
 
+import { useRoute, useRouter } from 'vue-router'
+
+const route = useRoute()
+const router = useRouter()
 const ui = useUIStore()
 const infrastructureStore = useInfrastructureStore()
 const failureStore = useFailureStore()
@@ -28,8 +32,8 @@ const archiveReason = ref('')
 const isNotifyModalOpen = ref(false)
 const failureToNotify = ref(null)
 
-onMounted(() => {
-  Promise.all([
+onMounted(async () => {
+  await Promise.all([
     infrastructureStore.fetchDepots(),
     infrastructureStore.fetchCircuits(),
     infrastructureStore.fetchStations(),
@@ -39,6 +43,11 @@ onMounted(() => {
     recentFailuresStore.fetchRecentFailures(),
     telegramStore.fetchTelegramGroups(),
   ])
+
+  // Check for edit query param
+  if (route.query.edit) {
+    handleEditRequest(route.query.edit)
+  }
 })
 
 function openNotifyModal(row) {

@@ -73,19 +73,22 @@ function statusStyle(key) {
 <template>
   <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
     <!-- Range pills -->
-    <div v-if="showRanges" class="chip-group">
-      <button
-        v-for="r in ranges"
-        :key="r.key"
-        class="chip"
-        :class="selectedRange === r.key ? 'selected-primary' : 'text-app hover-primary'"
-        :aria-pressed="String(selectedRange === r.key)"
-        @click="setRange(r.key)"
-      >
-        {{ r.label }}
-      </button>
-      <!-- Custom range inputs -->
-      <span v-if="selectedRange==='custom'" class="inline-flex items-center gap-2 ml-2 align-middle">
+    <div v-if="showRanges" class="flex flex-col gap-2">
+      <div class="flex flex-wrap gap-2">
+        <button
+          v-for="r in ranges"
+          :key="r.key"
+          class="chip"
+          :class="selectedRange === r.key ? 'selected-primary' : 'text-app hover-primary'"
+          :aria-pressed="String(selectedRange === r.key)"
+          @click="setRange(r.key)"
+        >
+          {{ r.label }}
+        </button>
+      </div>
+      
+      <!-- Custom range inputs (New Line) -->
+      <div v-if="selectedRange==='custom'" class="flex items-center gap-2 mt-1">
         <input
           type="date"
           :value="props.modelValue.from || ''"
@@ -99,7 +102,7 @@ function statusStyle(key) {
           @input="setTo($event.target.value)"
           class="rounded-lg border-app bg-card text-app px-2 py-1 text-sm"
         />
-      </span>
+      </div>
     </div>
 
     <!-- Status toggles (colored by status; no hover change when active) -->
