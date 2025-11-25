@@ -1,37 +1,31 @@
-// Path: frontend/src/stores/dashboard.js
-import { defineStore } from 'pinia';
-import { http } from '@/lib/http';
-import { useUIStore } from './ui';
+import { defineStore } from 'pinia'
+import { http } from '@/lib/http'
 
 export const useDashboardStore = defineStore('dashboard', {
   state: () => ({
-    data: null,
+    kpis: null,
+    charts: null,
     loading: false,
     error: null,
   }),
   actions: {
     async fetchDashboardData(filters = {}) {
-      this.loading = true;
-      this.error = null;
-      const uiStore = useUIStore();
+      this.loading = true
+      this.error = null
       try {
-        // Convert filter object to query parameters
-        const params = new URLSearchParams();
-        if (filters.range) params.append('range', filters.range);
-        if (filters.sections && filters.sections.length) {
-            filters.sections.forEach(id => params.append('sections[]', id));
+        const params = {
+          range: filters.range,
+          'sections[]': filters.sections,
         }
-        // Add other filters like status if needed in the future
-
-        const response = await http.get('/dashboard/data/', { params });
-        this.data = response.data;
+        const response = await http.get('/dashboard/data/', { params })
+        this.kpis = response.data.kpis
+        this.charts = response.data.charts
       } catch (err) {
-        this.error = 'Failed to fetch dashboard data.';
-        uiStore.pushToast({ type: 'error', title: 'Error', message: this.error });
-        console.error(err);
+        this.error = 'Failed to fetch dashboard data.'
+        console.error(err)
       } finally {
-        this.loading = false;
+        this.loading = false
       }
     },
   },
-});
+})

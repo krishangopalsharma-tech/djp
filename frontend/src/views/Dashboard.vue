@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
 import { useFailureStore } from '@/stores/failures';
 import { useInfrastructureStore } from '@/stores/infrastructure';
+import { useDashboardStore } from '@/stores/dashboard'; // Import dashboard store
 import SplitPane from '@/components/SplitPane.vue';
 import KpiCard from '@/components/KpiCard.vue';
 import BarChart from '@/components/BarChart.vue';
@@ -17,6 +18,7 @@ import { withAlpha } from '@/lib/theme';
 // --- Store and Router setup ---
 const failureStore = useFailureStore();
 const infrastructureStore = useInfrastructureStore();
+const dashboardStore = useDashboardStore(); // Use dashboard store
 const router = useRouter();
 
 // --- UI Controls & State ---
@@ -49,28 +51,9 @@ onBeforeUnmount(() => {
 });
 
 // --- Helper Functions ---
-function toMs(ts) {
-  if (ts == null) return null;
-  if (typeof ts === 'number') return ts;
-  const ms = new Date(ts).getTime();
-  return Number.isNaN(ms) ? null : ms;
-}
-
-function rangeStart(key) {
-  const now = new Date();
-  if (key === 'today') return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  if (key === '7d') { const d = new Date(now); d.setDate(d.getDate() - 6); d.setHours(0,0,0,0); return d.getTime(); }
-  if (key === '30d'){ const d = new Date(now); d.setDate(d.getDate() - 29); d.setHours(0,0,0,0); return d.getTime(); }
-  return 0;
-}
-
-const nf = new Intl.NumberFormat('en-IN');
-const formatInt = n => (typeof n === 'number' ? nf.format(n) : n);
-
 function timeAgo(ts) {
-  const ms = toMs(ts);
-  if (ms == null) return '—';
-  const diff = Date.now() - ms;
+  if (!ts) return '—';
+  const diff = Date.now() - ts;
   const m = Math.floor(diff / 60000);
   if (m < 1) return 'just now';
   if (m < 60) return `${m}m ago`;
@@ -80,72 +63,30 @@ function timeAgo(ts) {
   return `${d}d ago`;
 }
 
-function fmtDuration(ms) {
-  if (!ms || ms < 0) return '—';
-  const h = Math.floor(ms / 3600000);
-  const m = Math.round((ms % 3600000) / 60000);
-  return `${h}h ${m}m`;
-}
-
 // --- Computed Properties ---
 const allSectionsMaster = computed(() =>
   (infrastructureStore.sections || []).map(s => s.name).sort()
 );
 
-const startTs = computed(() => rangeStart(filters.value.range));
-
-const filtered = computed(() => {
-  const allowedStatus = new Set(filters.value.status);
-  const allowedSections = new Set(filters.value.sections || []);
-  const ts0 = startTs.value;
-  
-  return failureStore.failures.filter(f => {
-    if (!f) return false;
-    if (allowedSections.size && !allowedSections.has(f.section?.name)) return false;
-    if (!allowedStatus.has(f.current_status)) return false;
-    
-    const ts = f.current_status === 'Resolved' ? (toMs(f.resolved_at) ?? toMs(f.reported_at)) : toMs(f.reported_at);
-    if (!ts) return false;
-    return ts >= ts0;
-  });
-});
-
-// KPIs
-const kpiActive = computed(() => filtered.value.filter(f => f.current_status === 'Active').length);
-const kpiResolved = computed(() => filtered.value.filter(f => f.current_status === 'Resolved').length);
-const kpiCritical = computed(() => filtered.value.filter(f => f.severity === 'Critical').length);
-
-const avgResolution = computed(() => {
-  const res = filtered.value.filter(f => f.current_status === 'Resolved' && f.resolved_at && f.reported_at);
-  if (!res.length) return '—';
-  const avgMs = res.reduce((sum, f) => sum + (toMs(f.resolved_at) - toMs(f.reported_at)), 0) / res.length;
-  return fmtDuration(avgMs);
-});
-
+// Use data from dashboardStore
 const kpis = computed(() => ([
-  { label: 'Active Failures', value: formatInt(kpiActive.value), sublabel: 'in range' },
-  { label: 'Resolved', value: formatInt(kpiResolved.value), sublabel: 'in range' },
-  { label: 'Avg Resolution Time', value: avgResolution.value, sublabel: 'for range' },
-  { label: 'Critical Alerts', value: formatInt(kpiCritical.value), sublabel: 'filtered' },
+  { label: 'Active Failures', value: dashboardStore.kpis?.active_failures ?? '—', sublabel: 'in range' },
+  { label: 'Resolved', value: dashboardStore.kpis?.resolved_in_range ?? '—', sublabel: 'in range' },
+  { label: 'Avg Resolution Time', value: dashboardStore.kpis?.avg_resolution_time ?? '—', sublabel: 'for range' },
+  { label: 'Critical Alerts', value: dashboardStore.kpis?.critical_alerts ?? '—', sublabel: 'filtered' },
 ]));
 
-const recent = computed(() =>
-  [...failureStore.failures]
-    .sort((a,b) => (toMs(b.reported_at) ?? 0) - (toMs(a.reported_at) ?? 0))
-    .slice(0, 8)
-);
+const recent = computed(() => failureStore.recentFailures);
 
 // --- Chart Specific Computeds ---
-const allSectionsInFiltered = computed(() => Array.from(new Set(filtered.value.map(f => f.section?.name))).filter(name => name).sort());
-
-function countBy(sectionName, status) {
-  return filtered.value.filter(f => f.section?.name === sectionName && f.current_status === status).length;
-}
-
 const statusBySection = computed(() => {
-  const labels = allSectionsInFiltered.value;
-  const active = labels.map(s => countBy(s, 'Active'));
-  const resolved = labels.map(s => countBy(s, 'Resolved'));
+  const rawData = dashboardStore.charts?.status_by_section || [];
+  // Limit to top N if enabled
+  const data = topNMode.value ? rawData.slice(0, topN.value) : rawData;
+  
+  const labels = data.map(d => d.section__name);
+  const active = data.map(d => d.active);
+  const resolved = data.map(d => d.resolved);
 
   return {
     labels,
@@ -156,59 +97,28 @@ const statusBySection = computed(() => {
   };
 });
 
-function buildBuckets() {
-  const now = new Date();
-  const start = new Date(startTs.value);
-  const ends = [];
-  const labels = [];
-  if (filters.value.range === 'today') {
-    for (const h of [0, 4, 8, 12, 16, 20, 23]) {
-      const t = new Date(start);
-      t.setHours(h, 59, 59, 999);
-      if (t.getTime() <= now.getTime() + 3 * 3600 * 1000) {
-        ends.push(t.getTime());
-        labels.push(new Date(t).toLocaleTimeString([], { hour: '2-digit' }));
-      }
-    }
-  } else {
-    const d = new Date(start);
-    while (d.getTime() <= now.getTime()) {
-      const end = new Date(d);
-      end.setHours(23, 59, 59, 999);
-      ends.push(end.getTime());
-      labels.push(d.toLocaleDateString([], { month: 'short', day: '2-digit' }));
-      d.setDate(d.getDate() + 1);
-    }
-  }
-  return { ends, labels };
-}
-
 const resolvedOverTime = computed(() => {
-  if (!filters.value.status.includes('Resolved')) {
-    return { labels: [''], datasets: [{ label: 'Resolved', data: [0] }] };
-  }
-  const { ends, labels } = buildBuckets();
-  const times = filtered.value
-    .filter(f => f.current_status === 'Resolved' && f.resolved_at)
-    .map(f => toMs(f.resolved_at))
-    .filter(ts => ts && ts >= startTs.value)
-    .sort((a, b) => a - b);
+  const rawData = dashboardStore.charts?.resolved_over_time || [];
+  const labels = rawData.map(d => new Date(d.date).toLocaleDateString([], { month: 'short', day: '2-digit' }));
+  const counts = rawData.map(d => d.count);
 
-  const cum = [];
-  let i = 0;
-  for (const end of ends) {
-    while (i < times.length && times[i] <= end) i++;
-    cum.push(i);
+  // Calculate cumulative if needed
+  let series = counts;
+  if (cumulativeMode.value) {
+    series = [];
+    let sum = 0;
+    for (const c of counts) {
+      sum += c;
+      series.push(sum);
+    }
   }
 
-  const per = cum.map((v, idx) => (idx === 0 ? v : v - cum[idx - 1]));
-  const series = cumulativeMode.value ? cum : per;
   const primary = borderColor('Resolved');
 
   return {
     labels,
     datasets: [{
-      label: cumulativeMode.value ? 'Resolved (cumulative)' : 'Resolved (per interval)',
+      label: cumulativeMode.value ? 'Resolved (cumulative)' : 'Resolved (daily)',
       data: series,
       tension: 0.3,
       fill: true,
@@ -219,13 +129,11 @@ const resolvedOverTime = computed(() => {
 });
 
 const hasBarData = computed(() => {
-  const ds = statusBySection.value?.datasets || [];
-  return ds.some(d => Array.isArray(d.data) && d.data.some(v => Number(v) > 0));
+    return statusBySection.value.labels && statusBySection.value.labels.length > 0;
 });
 
 const hasLineData = computed(() => {
-  const ds = resolvedOverTime.value?.datasets || [];
-  return ds.some(d => Array.isArray(d.data) && d.data.some(v => Number(v) > 0));
+    return resolvedOverTime.value.labels && resolvedOverTime.value.labels.length > 0;
 });
 
 const rangeLabel = computed(() =>
@@ -246,8 +154,9 @@ function handleEdit(id) {
 function refresh() {
   isLoading.value = true;
   Promise.all([
-    failureStore.fetchFailures(),
+    failureStore.fetchRecentFailures(), // Fetch recent failures
     infrastructureStore.fetchSections(),
+    dashboardStore.fetchDashboardData(filters.value), // Fetch aggregated data
   ]).finally(() => {
     setTimeout(() => {
       lastUpdated.value = Date.now();
@@ -276,12 +185,16 @@ function resetFilters() {
         status: ['Active','In Progress','Resolved','On Hold', 'Draft'], 
         sections: [] 
     };
-    lastUpdated.value = Date.now();
+    // Watcher will trigger refresh
 }
 
 // --- Watchers ---
 watch([autoRefresh, intervalMs], startTimer);
 watch(split, v => localStorage.setItem('dashSplit', String(v)));
+// Watch filters to auto-refresh dashboard data
+watch(filters, () => {
+    dashboardStore.fetchDashboardData(filters.value);
+}, { deep: true });
 
 </script>
 
@@ -371,7 +284,7 @@ watch(split, v => localStorage.setItem('dashSplit', String(v)));
                 :items="recent" 
                 :show-toolbar="false" 
                 :show-bottom-actions="false" 
-                :show-row-actions="true" 
+                :show-row-actions="false" 
                 :loading="isLoading" 
                 :show-header="false" 
                 storage-key="rf-dashboard" 

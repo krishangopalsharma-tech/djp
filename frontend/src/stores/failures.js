@@ -6,6 +6,7 @@ import { useUIStore } from './ui';
 export const useFailureStore = defineStore('failure', {
   state: () => ({
     failures: [],
+    recentFailures: [], // Add this
     currentFailure: null,
     loading: false,
     error: null,
@@ -20,6 +21,20 @@ export const useFailureStore = defineStore('failure', {
         this.failures = response.data.results || response.data;
       } catch (err) {
         this.error = 'Failed to fetch failure logs.';
+        console.error(err);
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async fetchRecentFailures() {
+      this.loading = true;
+      this.error = null;
+      try {
+        const response = await http.get('/recent-failures/');
+        this.recentFailures = response.data.results || response.data;
+      } catch (err) {
+        this.error = 'Failed to fetch recent failures.';
         console.error(err);
       } finally {
         this.loading = false;
