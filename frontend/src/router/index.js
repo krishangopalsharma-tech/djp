@@ -51,6 +51,10 @@ const routes = [
       { path: 'stations', name: 'SettingsStations', component: StationManagement, meta: { title: 'Station Management' } },
       // 9) Section Management
       { path: 'sections', name: 'SettingsSections', component: SectionManagement, meta: { title: 'Section Management' } },
+      // 10) Archive Management
+      { path: 'archive', name: 'SettingsArchive', component: () => import('@/views/settings/ArchiveManagement.vue'), meta: { title: 'Archive Management' } },
+      // 11) Shift Management
+      { path: 'shifts', name: 'SettingsShifts', component: () => import('@/views/settings/ShiftManagement.vue'), meta: { title: 'Shift Management' } },
       { path: 'stations-sections', redirect: '/settings/stations' },
     ],
   },

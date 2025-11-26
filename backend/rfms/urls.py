@@ -28,7 +28,7 @@ router.register(r'stations', StationViewSet, basename='station')
 router.register(r'station-equipments', StationEquipmentViewSet, basename='stationequipment')
 router.register(r'supervisors', SupervisorViewSet, basename='supervisor')
 router.register(r'circuits', CircuitViewSet, basename='circuit')
-router.register(r'reports', ScheduledReportViewSet, basename='report')
+# router.register(r'reports', ScheduledReportViewSet, basename='report') # Moved to reports/urls.py
 router.register(r'telegram-settings', TelegramSettingsViewSet, basename='telegram-settings')
 router.register(r'telegram-groups', TelegramGroupViewSet, basename='telegram-group')
 router.register(r'failure-id-settings', FailureIDSettingsViewSet, basename='failureid-settings')
@@ -53,6 +53,8 @@ urlpatterns = [
     path("api/v1/analytics/", include("analytics.urls")),
     path("api/v1/operations/", include("operations.urls")),
     path("api/v1/archive/", include("archive.urls")),
+    path("api/v1/shifts/", include("shifts.urls")),
+    path("api/v1/reports/", include("reports.urls")),
 ]
 
 if settings.DEBUG:

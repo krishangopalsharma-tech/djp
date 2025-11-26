@@ -136,7 +136,7 @@ class FailureViewSet(viewsets.ModelViewSet):
             if failure.remark_fail:
                 lines.append("")
                 if failure.entry_type == 'message':
-                    lines.append("<b>Information:</b>")
+                    lines.append("<b>Info:</b>")
                 else:
                     lines.append("<b>❗️ Fail Remarks:</b>")
                 lines.append(failure.remark_fail)

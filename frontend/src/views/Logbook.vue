@@ -1,16 +1,17 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import DataTable from '@/components/DataTable.vue'
 import FailureDetailsDrawer from '@/components/FailureDetailsDrawer.vue'
 import Spinner from '@/components/ui/Spinner.vue'
 import SearchSelect from '@/components/form/SearchSelect.vue'
-import { Bell, Pencil, Trash2, FileDown, FileText, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RotateCcw } from 'lucide-vue-next'
+import { Bell, Pencil, Trash2, FileDown, FileText, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RotateCcw, Send } from 'lucide-vue-next'
 import { useFailureStore } from '@/stores/failures'
 import { useCircuitsStore } from '@/stores/circuits'
 import { useSectionsStore } from '@/stores/sections'
 import { useStationsStore } from '@/stores/stations'
 import { useSupervisorsStore } from '@/stores/supervisors'
+import { useShiftStore } from '@/stores/shifts'
 import { useUIStore } from '@/stores/ui'
 
 // --- Store setup ---
@@ -19,6 +20,7 @@ const circuitsStore = useCircuitsStore()
 const sectionsStore = useSectionsStore()
 const stationsStore = useStationsStore()
 const supervisorsStore = useSupervisorsStore()
+const shiftStore = useShiftStore()
 const ui = useUIStore()
 const router = useRouter()
 
@@ -28,6 +30,15 @@ const activeItem = ref(null)
 const isArchiveModalOpen = ref(false)
 const failureToArchive = ref(null)
 const archiveReason = ref('')
+
+// --- Export Modal State ---
+const showExportModal = ref(false)
+const pendingExportAction = ref(null) // 'download' or 'send'
+const exportOptions = ref({
+    includeInfo: true,
+    handedOverBy: '',
+    takenOverBy: ''
+})
 
 function onNotify(row) {
   failureStore.sendFailureNotification(row.id, ['alerts'])
@@ -63,7 +74,9 @@ const selectedSections = ref([])
 const selectedStations = ref([])
 const selectedSupervisors = ref([])
 const selectedStatuses = ref([])
+
 const selectedShifts = ref([])
+const selectedDate = ref('') // Default empty, auto-set to Today when shift selected
 const sortKey = ref('reported_at')
 const sortDir = ref('desc')
 const currentPage = ref(1)
@@ -77,6 +90,7 @@ onMounted(() => {
   if (sectionsStore.sections.length === 0) sectionsStore.fetchSections()
   if (stationsStore.stations.length === 0) stationsStore.fetchStations()
   if (supervisorsStore.supervisors.length === 0) supervisorsStore.fetchSupervisors()
+  if (shiftStore.shifts.length === 0) shiftStore.fetchShifts()
 })
 
 // --- Computed Data for UI ---
@@ -92,11 +106,12 @@ const statusOptions = computed(() => ([
     { label: 'Active', value: 'Active' }, { label: 'In Progress', value: 'In Progress' },
     { label: 'Resolved', value: 'Resolved' }, { label: 'On Hold', value: 'On Hold' },
 ]))
-const shiftOptions = computed(() => ([
-    { label: 'Morning (06:00 - 14:00)', value: 'Morning' },
-    { label: 'Evening (14:00 - 20:00)', value: 'Evening' },
-    { label: 'Night (20:00 - 02:00)', value: 'Night' },
-]))
+const shiftOptions = computed(() => {
+    return shiftStore.shifts.map(s => ({
+        label: `${s.name} (${s.start_time.slice(0, 5)} - ${s.end_time.slice(0, 5)})`,
+        value: s.name
+    }))
+})
 
 // --- Filtering & Sorting Logic ---
 function resetFilters() {
@@ -106,9 +121,32 @@ function resetFilters() {
     selectedStations.value = []
     selectedSupervisors.value = []
     selectedStatuses.value = []
+
     selectedShifts.value = []
+    selectedDate.value = ''
     currentPage.value = 1
 }
+
+// Watch selectedShifts to disable other filters
+watch(selectedShifts, (newVal) => {
+    if (newVal.length > 0) {
+        // Disable other filters (UI handled by :disabled prop)
+        // We also clear them to avoid confusion, as requested "disable all other filter"
+        selectedCircuits.value = []
+        selectedSections.value = []
+        selectedStations.value = []
+        selectedSupervisors.value = []
+        selectedStatuses.value = []
+
+        query.value = ''
+        
+        // Auto-set Date to Today if not set
+        if (!selectedDate.value) {
+            selectedDate.value = new Date().toISOString().slice(0, 10)
+        }
+    }
+}
+)
 
 const filteredRows = computed(() => {
   const q = query.value.trim().toLowerCase()
@@ -123,17 +161,54 @@ const filteredRows = computed(() => {
     const inSupervisors = selectedSupervisors.value.length ? selectedSupervisors.value.includes(row.assigned_to?.id) : true
     const inStatuses = selectedStatuses.value.length ? selectedStatuses.value.includes(row.current_status) : true
     
-    // Check against Shift filter
+    // Check against Shift filter (and Date)
     let inShifts = true
     if (selectedShifts.value.length > 0) {
-        const date = new Date(row.reported_at)
-        const hour = date.getHours()
-        inShifts = selectedShifts.value.some(shift => {
-            if (shift === 'Morning') return hour >= 6 && hour < 14
-            if (shift === 'Evening') return hour >= 14 && hour < 20
-            if (shift === 'Night') return hour >= 20 || hour < 2
-            return false
+        const rowDate = new Date(row.reported_at)
+        const rowTime = rowDate.getTime()
+
+        // Use selectedDate or default to Today
+        const filterDateStr = selectedDate.value || new Date().toISOString().slice(0, 10)
+        const filterDate = new Date(filterDateStr)
+
+        inShifts = selectedShifts.value.some(shiftName => {
+            const shift = shiftStore.shifts.find(s => s.name === shiftName)
+            if (!shift) return false
+
+            const [startH, startM] = shift.start_time.split(':').map(Number)
+            const [endH, endM] = shift.end_time.split(':').map(Number)
+            
+            // Construct Start and End DateTimes
+            let startDateTime = new Date(filterDate)
+            startDateTime.setHours(startH, startM, 0, 0)
+            
+            let endDateTime = new Date(filterDate)
+            endDateTime.setHours(endH, endM, 0, 0)
+
+            // Night Shift Logic (Start > End)
+            // Example: 22:00 - 06:00.
+            // If filtering for "Today" (e.g. 26th), Night Shift is 25th 22:00 to 26th 06:00.
+            if (startDateTime > endDateTime) {
+                startDateTime.setDate(startDateTime.getDate() - 1)
+            }
+
+            // Boundary Logic: > Start AND <= End
+            // Note: User specified "22.01 to 06.00".
+            // Standard JS Date comparison works.
+            return rowTime > startDateTime.getTime() && rowTime <= endDateTime.getTime()
         })
+    } else if (selectedDate.value) {
+        // If no shift selected but Date is selected, filter by Date (00:00 - 23:59)
+        const rowDate = new Date(row.reported_at)
+        const filterDate = new Date(selectedDate.value)
+        
+        const startOfDay = new Date(filterDate)
+        startOfDay.setHours(0, 0, 0, 0)
+        
+        const endOfDay = new Date(filterDate)
+        endOfDay.setHours(23, 59, 59, 999)
+        
+        return rowDate >= startOfDay && rowDate <= endOfDay
     }
     
     return inQuery && inCircuits && inSections && inStations && inSupervisors && inStatuses && inShifts
@@ -248,10 +323,10 @@ function goToPreviousPage() { if (currentPage.value > 1) currentPage.value-- }
 
 // --- Export Methods ---
 import jsPDF from 'jspdf'
-import 'jspdf-autotable'
+import autoTable from 'jspdf-autotable'
 import ExcelJS from 'exceljs'
 
-async function exportExcel() {
+async function generateExcelBlob(options = {}) {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Logbook');
 
@@ -267,10 +342,15 @@ async function exportExcel() {
         { header: 'Status', key: 'status', width: 15 },
     ];
 
-    // Conditional Logic: If Shift filter is active, export ALL filtered rows. Otherwise, export only current page.
     const rowsToExport = selectedShifts.value.length > 0 ? filteredRows.value : paginatedRows.value;
 
-    rowsToExport.forEach(row => {
+    // Filter out Information messages if requested
+    const finalRows = (options.includeInfo === false) 
+        ? rowsToExport.filter(r => r.current_status !== 'Information') 
+        : rowsToExport;
+
+    finalRows.forEach(row => {
+        // 1. Add Main Row
         const rowData = {
             reported: new Date(row.reported_at).toLocaleString(),
             resolved: row.resolved_at ? new Date(row.resolved_at).toLocaleString() : '–',
@@ -284,73 +364,224 @@ async function exportExcel() {
         };
         const excelRow = worksheet.addRow(rowData);
 
-        // Color coding based on status
+        // Color coding for main row
         let argb = null;
-        if (row.current_status === 'Resolved') argb = 'FFD1E7DD'; // Green-ish
-        else if (row.current_status === 'Active') argb = 'FFF8D7DA'; // Red-ish
-        else if (row.current_status === 'In Progress') argb = 'FFFFF3CD'; // Yellow-ish
-        else if (row.current_status === 'On Hold') argb = 'FFE2E3E5'; // Grey-ish
+        if (row.current_status === 'Resolved') argb = 'FFD1E7DD';
+        else if (row.current_status === 'Active') argb = 'FFF8D7DA';
+        else if (row.current_status === 'In Progress') argb = 'FFFFF3CD';
+        else if (row.current_status === 'On Hold') argb = 'FFE2E3E5';
 
         if (argb) {
             excelRow.eachCell((cell) => {
-                cell.fill = {
-                    type: 'pattern',
-                    pattern: 'solid',
-                    fgColor: { argb: argb }
-                };
-                cell.border = {
-                    top: { style: 'thin' },
-                    left: { style: 'thin' },
-                    bottom: { style: 'thin' },
-                    right: { style: 'thin' }
-                };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb } };
+                cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
             });
+        }
+
+        // 2. Add Failure Remarks Row (if exists)
+        if (row.remark_fail) {
+            const label = row.current_status === 'Information' ? 'Info' : 'Failure Remark';
+            const remarkRow = worksheet.addRow([null, `${label}: ${row.remark_fail}`]);
+            worksheet.mergeCells(`B${remarkRow.number}:I${remarkRow.number}`);
+            remarkRow.getCell(2).font = { italic: true, color: { argb: 'FF555555' } };
+        }
+
+        // 3. Add Resolution Remarks Row (if exists and resolved)
+        if (row.remark_right && row.current_status === 'Resolved') {
+             const resolutionRow = worksheet.addRow([null, `Resolution Remark: ${row.remark_right}`]);
+             worksheet.mergeCells(`B${resolutionRow.number}:I${resolutionRow.number}`);
+             resolutionRow.getCell(2).font = { italic: true, color: { argb: 'FF555555' } };
         }
     });
 
+    // Add Footer for Shift Handover
+    if (options.handedOverBy || options.takenOverBy) {
+        worksheet.addRow([]); // Spacer
+        worksheet.addRow([]); // Spacer
+        
+        const footerRow = worksheet.addRow([
+            null, 
+            `Charge Handed Over By: ${options.handedOverBy || '__________'}`, 
+            null, null, null, null, 
+            `Charge Taken Over By: ${options.takenOverBy || '__________'}`
+        ]);
+        footerRow.font = { bold: true };
+    }
+
     const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `logbook_export_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    link.click();
+    return new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }
 
-function exportPDF() {
-    const doc = new jsPDF();
-    
-    // Conditional Logic: If Shift filter is active, export ALL filtered rows. Otherwise, export only current page.
+function generatePDFBlob(options = {}) {
+    // Landscape orientation
+    const doc = new jsPDF('l', 'mm', 'a4');
     const rowsToExport = selectedShifts.value.length > 0 ? filteredRows.value : paginatedRows.value;
 
-    const tableBody = rowsToExport.map(row => [
-        new Date(row.reported_at).toLocaleString(),
-        row.resolved_at ? new Date(row.resolved_at).toLocaleString() : '–',
-        formatDuration(row.reported_at, row.resolved_at),
-        row.fail_id,
-        row.circuit?.name || '–',
-        row.station?.code || '–',
-        row.sub_section?.name || '–',
-        row.assigned_to?.name || '–',
-        row.current_status
-    ]);
+    // Filter out Information messages if requested
+    const finalRows = (options.includeInfo === false) 
+        ? rowsToExport.filter(r => r.current_status !== 'Information') 
+        : rowsToExport;
 
-    doc.autoTable({
+    const tableBody = [];
+
+    finalRows.forEach(row => {
+        // 1. Main Row
+        tableBody.push([
+            new Date(row.reported_at).toLocaleString(),
+            row.resolved_at ? new Date(row.resolved_at).toLocaleString() : '–',
+            formatDuration(row.reported_at, row.resolved_at),
+            row.fail_id,
+            row.circuit?.name || '–',
+            row.station?.code || '–',
+            row.sub_section?.name || '–',
+            row.assigned_to?.name || '–',
+            row.current_status
+        ]);
+
+        // 2. Failure Remarks Row
+        if (row.remark_fail) {
+            const label = row.current_status === 'Information' ? 'Info' : 'Failure Remark';
+            tableBody.push([{ 
+                content: `${label}: ${row.remark_fail}`, 
+                colSpan: 9, 
+                styles: { fontStyle: 'italic', textColor: [80, 80, 80], fillColor: [250, 250, 250] } 
+            }]);
+        }
+
+        // 3. Resolution Remarks Row
+        if (row.remark_right && row.current_status === 'Resolved') {
+            tableBody.push([{ 
+                content: `Resolution Remark: ${row.remark_right}`, 
+                colSpan: 9, 
+                styles: { fontStyle: 'italic', textColor: [80, 80, 80], fillColor: [250, 250, 250] } 
+            }]);
+        }
+    });
+
+    autoTable(doc, {
         head: [['Reported', 'Resolved', 'Duration', 'Event ID', 'Circuit', 'Station', 'Sub-Section', 'Assigned', 'Status']],
         body: tableBody,
         styles: { fontSize: 8 },
         headStyles: { fillColor: [41, 128, 185] },
         didParseCell: function(data) {
-            if (data.section === 'body') {
-                const status = data.row.raw[8]; // Status column index
-                if (status === 'Resolved') data.cell.styles.fillColor = [209, 231, 221];
-                else if (status === 'Active') data.cell.styles.fillColor = [248, 215, 218];
-                else if (status === 'In Progress') data.cell.styles.fillColor = [255, 243, 205];
-                else if (status === 'On Hold') data.cell.styles.fillColor = [226, 227, 229];
+            // Apply status colors only to the status column of the main row (not remark rows)
+            if (data.section === 'body' && !data.row.raw[0].content) { // Check if it's a main row (not an object with content)
+                 const status = data.row.raw[8];
+                 if (status === 'Resolved') data.cell.styles.fillColor = [209, 231, 221];
+                 else if (status === 'Active') data.cell.styles.fillColor = [248, 215, 218];
+                 else if (status === 'In Progress') data.cell.styles.fillColor = [255, 243, 205];
+                 else if (status === 'On Hold') data.cell.styles.fillColor = [226, 227, 229];
             }
         }
     });
 
-    doc.save(`logbook_export_${new Date().toISOString().slice(0, 10)}.pdf`);
+    // Add Footer for Shift Handover
+    if (options.handedOverBy || options.takenOverBy) {
+        const finalY = doc.lastAutoTable.finalY + 10;
+        doc.setFontSize(10);
+        doc.text(`Charge Handed Over By: ${options.handedOverBy || '__________'}`, 14, finalY);
+        doc.text(`Charge Taken Over By: ${options.takenOverBy || '__________'}`, 200, finalY);
+    }
+
+    return doc.output('blob');
+}
+
+async function downloadReports() {
+    // console.log('Selected Shifts:', selectedShifts.value);
+    if (selectedShifts.value.length > 0) {
+        pendingExportAction.value = 'download';
+        showExportModal.value = true;
+    } else {
+        await executeDownload({});
+    }
+}
+
+async function executeDownload(options) {
+    const dateStr = new Date().toISOString().slice(0, 10);
+    
+    // Download Excel
+    const excelBlob = await generateExcelBlob(options);
+    const excelLink = document.createElement('a');
+    excelLink.href = URL.createObjectURL(excelBlob);
+    excelLink.download = `logbook_export_${dateStr}.xlsx`;
+    excelLink.click();
+
+    // Download PDF
+    const pdfBlob = generatePDFBlob(options);
+    const pdfLink = document.createElement('a');
+    pdfLink.href = URL.createObjectURL(pdfBlob);
+    pdfLink.download = `logbook_export_${dateStr}.pdf`;
+    pdfLink.click();
+}
+
+const sendingReports = ref(false);
+
+async function sendReports() {
+    if (selectedShifts.value.length > 0) {
+        pendingExportAction.value = 'send';
+        showExportModal.value = true;
+    } else {
+        await executeSend({});
+    }
+}
+
+async function executeSend(options) {
+    sendingReports.value = true;
+    try {
+        const dateStr = new Date().toISOString().slice(0, 10);
+        const excelBlob = await generateExcelBlob(options);
+        const pdfBlob = generatePDFBlob(options);
+
+        const formData = new FormData();
+        formData.append('files', excelBlob, `logbook_export_${dateStr}.xlsx`);
+        formData.append('files', pdfBlob, `logbook_export_${dateStr}.pdf`);
+
+        const response = await fetch('/api/v1/reports/send/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+            body: formData,
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || 'Failed to send reports');
+        }
+
+        ui.pushToast({ type: 'success', title: 'Sent', message: 'Reports sent to Telegram.' });
+    } catch (err) {
+        ui.pushToast({ type: 'error', title: 'Error', message: err.message });
+    } finally {
+        sendingReports.value = false;
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+async function confirmExport() {
+    showExportModal.value = false;
+    const options = { ...exportOptions.value };
+    
+    if (pendingExportAction.value === 'download') {
+        await executeDownload(options);
+    } else if (pendingExportAction.value === 'send') {
+        await executeSend(options);
+    }
+    pendingExportAction.value = null;
 }
 </script>
 
@@ -366,13 +597,14 @@ function exportPDF() {
 
     <!-- Filter Bar -->
     <div class="sticky top-0 z-10 bg-app py-4 card !overflow-visible">
-       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-2">
-        <input v-model="query" type="search" placeholder="Search anything..." class="h-11 w-full rounded-lg border-app bg-card text-app px-3 text-sm" />
-        <SearchSelect v-model="selectedCircuits" :options="circuitOptions" placeholder="Filter by Circuit" multiple />
-        <SearchSelect v-model="selectedSections" :options="sectionOptions" placeholder="Filter by Section" multiple />
-        <SearchSelect v-model="selectedStations" :options="stationOptions" placeholder="Filter by Station" multiple />
-        <SearchSelect v-model="selectedSupervisors" :options="supervisorOptions" placeholder="Filter by Supervisor" multiple />
-        <SearchSelect v-model="selectedStatuses" :options="statusOptions" placeholder="Filter by Status" multiple />
+       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-2">
+        <input v-model="query" :disabled="selectedShifts.length > 0" type="search" placeholder="Search anything..." class="h-11 w-full rounded-lg border-app bg-card text-app px-3 text-sm disabled:opacity-50" />
+        <SearchSelect v-model="selectedCircuits" :options="circuitOptions" placeholder="Filter by Circuit" multiple :disabled="selectedShifts.length > 0" />
+        <SearchSelect v-model="selectedSections" :options="sectionOptions" placeholder="Filter by Section" multiple :disabled="selectedShifts.length > 0" />
+        <SearchSelect v-model="selectedStations" :options="stationOptions" placeholder="Filter by Station" multiple :disabled="selectedShifts.length > 0" />
+        <SearchSelect v-model="selectedSupervisors" :options="supervisorOptions" placeholder="Filter by Supervisor" multiple :disabled="selectedShifts.length > 0" />
+        <SearchSelect v-model="selectedStatuses" :options="statusOptions" placeholder="Filter by Status" multiple :disabled="selectedShifts.length > 0" />
+        <input v-model="selectedDate" type="date" class="h-11 w-full rounded-lg border-app bg-card text-app px-3 text-sm" placeholder="Filter by Date" />
         <SearchSelect v-model="selectedShifts" :options="shiftOptions" placeholder="Filter by Shift" multiple />
       </div>
     </div>
@@ -416,8 +648,12 @@ function exportPDF() {
       <!-- Pagination Controls -->
       <div class="mt-4 flex items-center justify-between">
         <div class="flex items-center justify-center gap-2 p-2 rounded-lg">
-          <button @click="exportExcel" class="btn btn-outline btn-sm gap-2"><FileDown class="w-4 h-4" /><span>Export Excel</span></button>
-          <button @click="exportPDF" class="btn btn-outline btn-sm gap-2"><FileText class="w-4 h-4" /><span>Export PDF</span></button>
+          <button @click="downloadReports" class="btn btn-outline btn-sm gap-2"><FileDown class="w-4 h-4" /><span>Export</span></button>
+          <button @click="sendReports" :disabled="sendingReports" class="btn btn-outline btn-sm gap-2">
+            <Spinner v-if="sendingReports" class="w-4 h-4" />
+            <Send v-else class="w-4 h-4" />
+            <span>Send Logs</span>
+          </button>
         </div>
         <div class="flex items-center justify-end gap-2 p-2 rounded-lg">
           <button @click="goToFirstPage" :disabled="currentPage === 1" class="btn-ghost p-2" title="First"><ChevronsLeft class="w-4 h-4" /></button>
@@ -446,6 +682,38 @@ function exportPDF() {
         <div class="mt-6 flex justify-end gap-3">
           <button @click="isArchiveModalOpen = false" class="btn btn-outline">Cancel</button>
           <button @click="confirmArchive" class="btn btn-danger">Archive</button>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- Export Options Modal -->
+    <div v-if="showExportModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div class="bg-card rounded-lg p-6 shadow-xl w-full max-w-md">
+        <h3 class="text-lg font-bold mb-4">Export Options</h3>
+        
+        <div class="space-y-4">
+            <div class="flex items-center gap-2">
+                <input type="checkbox" id="includeInfo" v-model="exportOptions.includeInfo" class="checkbox checkbox-primary" />
+                <label for="includeInfo" class="cursor-pointer select-none">Include Information Messages?</label>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium mb-1">Charge Handed Over By</label>
+                <input v-model="exportOptions.handedOverBy" type="text" class="field-input w-full" placeholder="Name" />
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium mb-1">Charge Taken Over By</label>
+                <input v-model="exportOptions.takenOverBy" type="text" class="field-input w-full" placeholder="Name" />
+            </div>
+        </div>
+
+        <div class="mt-6 flex justify-end gap-3">
+          <button @click="showExportModal = false" class="btn btn-outline">Cancel</button>
+          <button @click="confirmExport" class="btn btn-primary">
+              {{ pendingExportAction === 'send' ? 'Send' : 'Export' }}
+          </button>
         </div>
       </div>
     </div>

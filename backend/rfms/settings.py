@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "stations.apps.StationsConfig",
     "supervisors.apps.SupervisorsConfig",
     "telegram_notifications.apps.TelegramNotificationsConfig",
+    "shifts.apps.ShiftsConfig",
 ]
 
 MIDDLEWARE = [

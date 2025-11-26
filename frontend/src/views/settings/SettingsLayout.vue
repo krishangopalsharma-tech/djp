@@ -22,6 +22,10 @@ const links = [
   { to: '/settings/stations',          label: 'Station Management',             icon: 'stations' },
   // 9) Section Management
   { to: '/settings/sections',          label: 'Section Management',             icon: 'sections' },
+  // 10) Archive Management
+  { to: '/settings/archive',           label: 'Archive Management',             icon: 'archive' },
+  // 11) Shift Management
+  { to: '/settings/shifts',            label: 'Shift Management',               icon: 'shifts' },
 ]
 const title = computed(() => route.meta?.title ?? 'Settings')
 </script>
@@ -56,6 +60,12 @@ const title = computed(() => route.meta?.title ?? 'Settings')
             <svg v-else-if="link.icon==='depot'" viewBox="0 0 24 24" class="w-5 h-5"><path fill="currentColor" d="M3 10.5L12 6l9 4.5V20a1 1 0 0 1-1 1h-6v-6H10v6H4a1 1 0 0 1-1-1z"/></svg>
             <svg v-else-if="link.icon==='reports'" viewBox="0 0 24 24" class="w-5 h-5">
               <path fill="currentColor" d="M6 2a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h9l5-5V4a2 2 0 0 0-2-2H6zm9 18v-3a2 2 0 0 1 2-2h3l-5 5zM8 7h8v2H8V7zm0 4h8v2H8v-2zm0 4h5v2H8v-2z"/>
+            </svg>
+            <svg v-else-if="link.icon==='archive'" viewBox="0 0 24 24" class="w-5 h-5">
+              <path fill="currentColor" d="M3 6h18v2H3V6zm2 3h14v13H5V9zm3 2v9h2v-9H8zm6 0v9h2v-9h-2zM10 4h4v2h-4V4z"/>
+            </svg>
+            <svg v-else-if="link.icon==='shifts'" viewBox="0 0 24 24" class="w-5 h-5">
+              <path fill="currentColor" d="M12 2c5.5 0 10 4.5 10 10s-4.5 10-10 10S2 17.5 2 12S6.5 2 12 2m0 2c-4.4 0-8 3.6-8 8s3.6 8 8 8s8-3.6 8-8s-3.6-8-8-8m0 2c.6 0 1 .4 1 1v4h2.5c.6 0 1 .4 1 1s-.4 1-1 1H12c-.6 0-1-.4-1-1V7c0-.6.4-1 1-1"/>
             </svg>
             <svg v-else viewBox="0 0 24 24" class="w-5 h-5"><circle cx="12" cy="12" r="5" fill="currentColor"/></svg>
           </span>
