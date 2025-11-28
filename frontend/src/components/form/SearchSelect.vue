@@ -10,6 +10,7 @@ const props = defineProps({
   labelKey: { type: String, default: 'label' },
   valueKey: { type: String, default: 'value' },
   multiple: { type: Boolean, default: false },
+  inputClass: { type: String, default: '' },
 })
 const emit = defineEmits(['update:modelValue'])
 
@@ -151,8 +152,8 @@ watch(() => props.modelValue, (v) => {
   <div ref="rootEl" class="relative">
     <button
       ref="controlButton" type="button"
-      class="field-shell h-11 w-full text-left px-3 text-sm flex items-center justify-between gap-2"
-      :class="disabled ? 'opacity-60 cursor-not-allowed' : ''"
+      class="field-shell w-full text-left px-3 text-sm flex items-center justify-between gap-2"
+      :class="[disabled ? 'opacity-60 cursor-not-allowed' : '', inputClass || 'h-11']"
       :aria-expanded="open"
       @click="toggleMenu"
       @keydown="onKeydown"

@@ -72,6 +72,11 @@ function setType(e){ emit('update:chartType', e.target.value) }
       </div>
       <!-- Slot for extra filters (e.g. date range display) -->
       <slot name="filters"></slot>
+      
+      <!-- Slot for right-aligned actions -->
+      <div class="ml-auto flex items-center gap-2">
+          <slot name="actions"></slot>
+      </div>
     </div>
 
     <!-- Body slot: give range & chartType to child -->

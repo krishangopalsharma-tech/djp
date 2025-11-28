@@ -165,7 +165,54 @@ class OperationalReportView(APIView):
             response_data['failures'] = serializer.data
 
         return Response(response_data)
+        return Response(response_data)
 
+class OperationalExportView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        # Filters
+        scope = request.query_params.get('scope')
+        scope_id = request.query_params.get('scope_id')
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        failure_type = request.query_params.get('type')
+
+        queryset = Failure.objects.filter(is_archived=False)
+
+        # Apply Scope Filter
+        if scope and scope_id:
+            scope_ids = [s for s in scope_id.split(',') if s.strip()]
+            if scope_ids:
+                if scope == 'circuit':
+                    queryset = queryset.filter(circuit_id__in=scope_ids)
+                elif scope == 'depot':
+                    queryset = queryset.filter(Q(station__depot_id__in=scope_ids) | Q(section__depot_id__in=scope_ids))
+                elif scope == 'section':
+                    queryset = queryset.filter(section_id__in=scope_ids)
+                elif scope == 'subsection':
+                    queryset = queryset.filter(sub_section_id__in=scope_ids)
+                elif scope == 'station':
+                    queryset = queryset.filter(station_id__in=scope_ids)
+                elif scope == 'supervisor':
+                    queryset = queryset.filter(assigned_to_id__in=scope_ids)
+
+        # Apply Date Filter
+        if start_date:
+            queryset = queryset.filter(reported_at__date__gte=start_date)
+        if end_date:
+            queryset = queryset.filter(reported_at__date__lte=end_date)
+
+        # Apply Type Filter
+        if failure_type and failure_type != 'all':
+            if failure_type == 'failure':
+                queryset = queryset.exclude(entry_type='message')
+            elif failure_type == 'event':
+                queryset = queryset.filter(entry_type='message')
+
+        from failures.serializers import FailureSerializer
+        serializer = FailureSerializer(queryset, many=True)
+        return Response(serializer.data)
 class InventoryReportView(APIView):
     """
     API endpoint for inventory reports.

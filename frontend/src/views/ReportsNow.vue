@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, onBeforeUnmount, nextTick } from 'vue'
 import WidgetShell from '@/components/WidgetShell.vue'
 import { useInfrastructureStore } from '@/stores/infrastructure_lists'
 import { useCircuitsStore } from '@/stores/circuits'
@@ -10,7 +10,7 @@ import { useUIStore } from '@/stores/ui'
 import Chart from 'chart.js/auto'
 import axios from 'axios'
 import jsPDF from 'jspdf'
-import 'jspdf-autotable'
+import autoTable from 'jspdf-autotable'
 import ExcelJS from 'exceljs'
 
 import SearchSelect from '@/components/form/SearchSelect.vue'
@@ -27,7 +27,7 @@ const activeInventoryTab = ref('depot') // depot, supervisor, station, section
 
 // --- Operational Reports State ---
 const opFilters = ref({
-    scope: 'system', // system, circuit, depot, section, supervisor, subsection, station
+    scope: 'circuit', // system, circuit, depot, section, supervisor, subsection, station
     scopeId: [], // Changed to array for multi-select
     startDate: null,
     endDate: null,
@@ -68,6 +68,34 @@ const loadingStats = ref(false)
 let statusChartInstance = null
 let typeChartInstance = null
 
+function destroyCharts() {
+    if (statusChartInstance) {
+        statusChartInstance.destroy()
+        statusChartInstance = null
+    }
+    if (typeChartInstance) {
+        typeChartInstance.destroy()
+        typeChartInstance = null
+    }
+}
+
+onBeforeUnmount(() => {
+    destroyCharts()
+})
+
+watch(activeTab, async (newTab) => {
+    if (newTab !== 'operational') {
+        destroyCharts()
+    } else {
+        await nextTick()
+        if (statsData.value) {
+            renderCharts()
+        } else {
+            fetchOperationalStats()
+        }
+    }
+})
+
 // --- Inventory Reports State ---
 const invFilters = ref({
     depotIds: [],
@@ -81,13 +109,13 @@ const loadingInventory = ref(false)
 
 // --- Computed Options ---
 const scopeOptions = [
-    { value: 'system', label: 'Whole System' },
     { value: 'circuit', label: 'Circuit' },
     { value: 'depot', label: 'Depot' },
     { value: 'section', label: 'Section' },
     { value: 'subsection', label: 'Sub-section' },
     { value: 'station', label: 'Station' },
-    { value: 'supervisor', label: 'Supervisor' }
+    { value: 'supervisor', label: 'Supervisor' },
+    { value: 'system', label: 'Whole System' }
 ]
 
 const scopeIdOptions = computed(() => {
@@ -153,14 +181,47 @@ async function fetchOperationalStats() {
             end_date: opFilters.value.endDate,
             type: opFilters.value.type
         }
+
         const response = await axios.get('/api/v1/reports/operational/stats/', { params })
         statsData.value = response.data
         renderCharts()
+        
+        // Also fetch the records for preview
+        fetchOperationalRecords()
     } catch (error) {
         console.error("Error fetching stats:", error)
         uiStore.pushToast({ type: 'error', title: 'Error', message: 'Failed to fetch operational statistics.' })
     } finally {
         loadingStats.value = false
+    }
+}
+
+const operationalRecords = ref([])
+const loadingRecords = ref(false)
+
+async function fetchOperationalRecords() {
+    loadingRecords.value = true
+    try {
+        let scopeIdParam = opFilters.value.scopeId
+        if (Array.isArray(scopeIdParam)) {
+            scopeIdParam = scopeIdParam.join(',')
+        }
+
+        const params = {
+            scope: opFilters.value.scope,
+            scope_id: scopeIdParam,
+            start_date: opFilters.value.startDate,
+            end_date: opFilters.value.endDate,
+            type: opFilters.value.type
+        }
+        
+        const response = await axios.get('/api/v1/reports/operational/export/', { params })
+        operationalRecords.value = response.data
+    } catch (error) {
+        console.error("Error fetching records:", error)
+        // Don't show toast here to avoid double toasts with stats error
+    } finally {
+        loadingRecords.value = false
     }
 }
 
@@ -202,9 +263,7 @@ function renderCharts() {
     }
 }
 
-watch(opFilters, () => {
-    fetchOperationalStats()
-}, { deep: true })
+
 
 
 // --- Inventory Reports Logic ---
@@ -246,34 +305,25 @@ watch(activeInventoryTab, () => {
 
 // --- Export Logic ---
 async function exportOperationalReport(format) {
-    // 1. Fetch detailed data
-    const toastId = uiStore.pushToast({ type: 'info', title: 'Exporting...', message: 'Fetching data and generating report.', duration: 0 })
+    if (operationalRecords.value.length === 0) {
+        uiStore.pushToast({ type: 'warning', title: 'No Data', message: 'No records to export.' })
+        return
+    }
+
+    const toastId = uiStore.pushToast({ type: 'info', title: 'Exporting...', message: 'Generating report.', duration: 0 })
+
     try {
-        const params = {
-            scope: opFilters.value.scope,
-            scope_id: opFilters.value.scopeId,
-            start_date: opFilters.value.startDate,
-            end_date: opFilters.value.endDate,
-            type: opFilters.value.type,
-            details: 'true'
-        }
-        const response = await axios.get('/api/v1/reports/operational/stats/', { params })
-        const failures = response.data.failures || []
-
-        if (failures.length === 0) {
-            uiStore.pushToast({ type: 'warning', title: 'No Data', message: 'No records found to export.' })
-            return
-        }
-
         if (format === 'excel') {
-            await generateOperationalExcel(failures)
-        } else if (format === 'pdf') {
-            generateOperationalPDF(failures)
+            await generateOperationalExcel(operationalRecords.value)
+        } else {
+            generateOperationalPDF(operationalRecords.value)
         }
+        uiStore.removeToast(toastId)
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Report downloaded.' })
 
     } catch (error) {
         console.error("Export failed:", error)
+        uiStore.removeToast(toastId)
         uiStore.pushToast({ type: 'error', title: 'Error', message: 'Failed to export report.' })
     }
 }
@@ -292,9 +342,8 @@ async function generateOperationalExcel(data) {
         { header: 'Station', key: 'station', width: 10 },
         { header: 'Section', key: 'section', width: 20 },
         { header: 'Sub-Section', key: 'sub_section', width: 20 },
+        { header: 'Duration', key: 'duration', width: 15 },
         { header: 'Assigned To', key: 'assigned_to', width: 20 },
-        { header: 'Failure Remarks', key: 'remark_fail', width: 40 },
-        { header: 'Resolution Remarks', key: 'remark_right', width: 40 },
     ]
 
     // Style Header
@@ -303,7 +352,7 @@ async function generateOperationalExcel(data) {
 
     // Add Data
     data.forEach(item => {
-        worksheet.addRow({
+        const row = worksheet.addRow({
             fail_id: item.fail_id,
             reported_at: new Date(item.reported_at).toLocaleString(),
             entry_type: item.entry_type === 'message' ? 'Message' : 'Failure',
@@ -312,10 +361,23 @@ async function generateOperationalExcel(data) {
             station: item.station?.code || '-',
             section: item.section?.name || '-',
             sub_section: item.sub_section?.name || '-',
+            duration: formatDuration(item),
             assigned_to: item.assigned_to?.name || '-',
-            remark_fail: item.remark_fail || '-',
-            remark_right: item.remark_right || '-'
         })
+
+        // Color coding
+        let argb = null
+        if (item.current_status === 'Resolved') argb = 'FFD1E7DD'
+        else if (item.current_status === 'Active') argb = 'FFF8D7DA'
+        else if (item.current_status === 'In Progress') argb = 'FFFFF3CD'
+        else if (item.current_status === 'On Hold') argb = 'FFE2E3E5'
+
+        if (argb) {
+            row.eachCell((cell) => {
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb } }
+                cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+            })
+        }
     })
 
     // Write Buffer
@@ -343,18 +405,56 @@ function generateOperationalPDF(data) {
         item.station?.code || '-',
         item.section?.name || '-',
         item.sub_section?.name || '-',
-        item.remark_fail || '-'
+        formatDuration(item)
     ])
 
-    doc.autoTable({
+    autoTable(doc, {
         startY: 25,
-        head: [['ID', 'Date', 'Status', 'Circuit', 'Station', 'Section', 'Sub-Section', 'Remarks']],
+        head: [['ID', 'Date', 'Status', 'Circuit', 'Station', 'Section', 'Sub-Section', 'Duration']],
         body: tableBody,
         styles: { fontSize: 8 },
-        headStyles: { fillColor: [66, 66, 66] }
+        headStyles: { fillColor: [66, 66, 66] },
+        didParseCell: function(dataHook) {
+            if (dataHook.section === 'body') {
+                const item = data[dataHook.row.index]
+                if (item.current_status === 'Resolved') dataHook.cell.styles.fillColor = [209, 231, 221]
+                else if (item.current_status === 'Active') dataHook.cell.styles.fillColor = [248, 215, 218]
+                else if (item.current_status === 'In Progress') dataHook.cell.styles.fillColor = [255, 243, 205]
+                else if (item.current_status === 'On Hold') dataHook.cell.styles.fillColor = [226, 227, 229]
+            }
+        }
     })
 
     doc.save(`Operational_Report_${new Date().toISOString().slice(0,10)}.pdf`)
+}
+
+function formatDuration(item) {
+    let totalMinutes = 0
+    let isActive = false
+
+    if (item.duration_minutes !== null) {
+        totalMinutes = item.duration_minutes
+    } else {
+        // Calculate live duration for active failures
+        const start = new Date(item.reported_at)
+        const now = new Date()
+        const diffMs = now - start
+        totalMinutes = Math.floor(diffMs / 60000)
+        isActive = true
+    }
+
+    const days = Math.floor(totalMinutes / (24 * 60))
+    const hours = Math.floor((totalMinutes % (24 * 60)) / 60)
+    const mins = totalMinutes % 60
+
+    let durationStr = ''
+    if (days > 0) {
+        durationStr = `${days}d ${hours}h ${mins}m`
+    } else {
+        durationStr = `${hours}h ${mins}m`
+    }
+
+    return isActive ? `${durationStr} (Active)` : durationStr
 }
 
 async function exportInventoryReport(format) {
@@ -477,22 +577,23 @@ async function exportInventoryReport(format) {
 </script>
 
 <template>
-  <div class="p-4 md:p-6 space-y-6">
-    <div class="flex items-center justify-between">
-        <h1 class="text-xl md:text-2xl font-semibold">Reports Now</h1>
+  <div class="space-y-6">
+    <div>
         <!-- Main Tabs -->
-        <div class="flex gap-2 bg-gray-100 p-1 rounded-lg">
+        <div class="chip-group">
             <button 
                 @click="activeTab = 'operational'"
-                class="px-4 py-2 rounded-md text-sm font-medium transition-colors"
-                :class="activeTab === 'operational' ? 'bg-white text-app shadow-sm' : 'text-app/60 hover:text-app'"
+                class="chip"
+                :class="activeTab === 'operational' ? 'selected-primary' : 'text-app hover-primary'"
+                :aria-pressed="String(activeTab === 'operational')"
             >
                 Operational Reports
             </button>
             <button 
                 @click="activeTab = 'inventory'"
-                class="px-4 py-2 rounded-md text-sm font-medium transition-colors"
-                :class="activeTab === 'inventory' ? 'bg-white text-app shadow-sm' : 'text-app/60 hover:text-app'"
+                class="chip"
+                :class="activeTab === 'inventory' ? 'selected-primary' : 'text-app hover-primary'"
+                :aria-pressed="String(activeTab === 'inventory')"
             >
                 Inventory Reports
             </button>
@@ -500,7 +601,7 @@ async function exportInventoryReport(format) {
     </div>
 
     <!-- OPERATIONAL REPORTS TAB -->
-    <div v-if="activeTab === 'operational'" class="space-y-6">
+    <div v-if="activeTab === 'operational'" class="space-y-4">
         <!-- Filters -->
         <WidgetShell title="Report Configuration" :range="opFilters.dateRangeType" @update:range="setDateRange">
             <template #filters>
@@ -516,24 +617,31 @@ async function exportInventoryReport(format) {
                 </div>
             </template>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
+            <template #actions>
+                <button class="btn btn-outline" @click="exportOperationalReport('pdf')">Export PDF</button>
+                <button class="btn btn-primary" @click="exportOperationalReport('excel')">Export Excel</button>
+            </template>
+
+            <div class="flex flex-wrap items-end gap-4">
+                <div class="w-32">
                     <label class="block text-sm font-medium mb-1">Scope</label>
                     <select v-model="opFilters.scope" class="field h-9 w-full">
                         <option v-for="opt in scopeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
                     </select>
                 </div>
-                <div v-if="opFilters.scope !== 'system'">
+                
+                <div v-if="opFilters.scope !== 'system'" class="w-48">
                     <label class="block text-sm font-medium mb-1">Select {{ opFilters.scope }}</label>
-                    <SearchSelect
-                        v-model="opFilters.scopeId"
-                        :options="scopeIdOptions"
+                    <SearchSelect 
+                        v-model="opFilters.scopeId" 
+                        :options="scopeIdOptions" 
+                        placeholder="Select..." 
                         :multiple="true"
-                        :placeholder="`Select ${opFilters.scope}...`"
-                        class="w-full"
+                        inputClass="h-9"
                     />
                 </div>
-                <div>
+
+                <div class="w-56">
                     <label class="block text-sm font-medium mb-1">Failure Type</label>
                     <select v-model="opFilters.type" class="field h-9 w-full">
                         <option value="all">All Types</option>
@@ -541,10 +649,78 @@ async function exportInventoryReport(format) {
                         <option value="event">General Messages Only</option>
                     </select>
                 </div>
+
+                <div v-if="opFilters.dateRangeType === 'custom'" class="flex gap-2 w-64">
+                   <div class="flex-1">
+                        <label class="block text-xs text-muted mb-1">Start</label>
+                        <input type="date" v-model="opFilters.startDate" class="field h-9 w-full text-xs">
+                   </div>
+                   <div class="flex-1">
+                        <label class="block text-xs text-muted mb-1">End</label>
+                        <input type="date" v-model="opFilters.endDate" class="field h-9 w-full text-xs">
+                   </div>
+                </div>
+
+                <div class="ml-auto">
+                    <button @click="fetchOperationalStats" class="btn btn-primary h-9 px-6 flex items-center justify-center gap-2" :disabled="loadingStats">
+                        <span v-if="loadingStats" class="loader-spinner w-4 h-4"></span>
+                        Preview
+                    </button>
+                </div>
             </div>
-            <div class="mt-4 flex justify-end gap-2">
-                <button class="btn btn-outline" @click="exportOperationalReport('pdf')">Export PDF</button>
-                <button class="btn btn-primary" @click="exportOperationalReport('excel')">Export Excel</button>
+
+
+            <!-- Preview Table -->
+            <div class="mt-6 border-t pt-4">
+                <h4 class="text-sm font-medium text-muted mb-2">Report Preview ({{ operationalRecords.length }} records)</h4>
+                
+                <div v-if="loadingRecords" class="py-8 text-center text-muted">
+                    Loading records...
+                </div>
+                
+                <div v-else-if="operationalRecords.length === 0" class="py-8 text-center text-muted bg-gray-50 rounded-lg border border-dashed">
+                    No records found for the selected criteria.
+                </div>
+
+                <div v-else class="overflow-x-auto border rounded-lg max-h-[400px] overflow-y-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="text-xs text-muted uppercase bg-gray-50 sticky top-0 z-10">
+                            <tr>
+                                <th class="px-4 py-2">ID</th>
+                                <th class="px-4 py-2">Date</th>
+                                <th class="px-4 py-2">Status</th>
+                                <th class="px-4 py-2">Circuit</th>
+                                <th class="px-4 py-2">Station</th>
+                                <th class="px-4 py-2">Section</th>
+                                <th class="px-4 py-2">Sub-Section</th>
+                                <th class="px-4 py-2">Duration</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="item in operationalRecords" :key="item.fail_id" class="border-b hover:bg-gray-50">
+                                <td class="px-4 py-2 font-medium">{{ item.fail_id }}</td>
+                                <td class="px-4 py-2 whitespace-nowrap">{{ new Date(item.reported_at).toLocaleDateString() }}</td>
+                                <td class="px-4 py-2">
+                                    <span class="px-2 py-0.5 rounded text-xs font-medium"
+                                        :class="{
+                                            'bg-green-100 text-green-800': item.current_status === 'Resolved',
+                                            'bg-red-100 text-red-800': item.current_status === 'Active',
+                                            'bg-yellow-100 text-yellow-800': item.current_status === 'In Progress',
+                                            'bg-gray-100 text-gray-800': item.current_status === 'On Hold'
+                                        }"
+                                    >
+                                        {{ item.current_status }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-2">{{ item.circuit?.circuit_id || '-' }}</td>
+                                <td class="px-4 py-2">{{ item.station?.code || '-' }}</td>
+                                <td class="px-4 py-2">{{ item.section?.name || '-' }}</td>
+                                <td class="px-4 py-2">{{ item.sub_section?.name || '-' }}</td>
+                                <td class="px-4 py-2">{{ formatDuration(item) }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </WidgetShell>
 

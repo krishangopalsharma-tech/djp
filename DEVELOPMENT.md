@@ -6,6 +6,12 @@ This guide explains how to maintain the live production app while developing new
 
 Since the production backend is running on port `8000`, we use port **`8001`** for development.
 
+> **Note:** Ensure your firewall allows access to these ports:
+> ```bash
+> sudo ufw allow 8001/tcp
+> sudo ufw allow 5173/tcp
+> ```
+
 ### Backend (Terminal 1)
 Run the Django development server on port 8001 with `DEBUG` enabled:
 ```bash
