@@ -126,6 +126,16 @@ class SectionViewSet(viewsets.ModelViewSet):
                         if unit_val:
                             asset_defaults['unit'] = unit_val
 
+                        install_date_val = row.get('Installation Date')
+                        if install_date_val and pd.notna(install_date_val):
+                            try: asset_defaults['installation_date'] = pd.to_datetime(install_date_val).date()
+                            except (ValueError, TypeError): pass
+
+                        codal_life_val = row.get('Codal Life')
+                        if codal_life_val and pd.notna(codal_life_val):
+                            try: asset_defaults['codal_life'] = int(float(codal_life_val))
+                            except (ValueError, TypeError): pass
+
                         asset, asset_created = Asset.objects.update_or_create(
                            subsection=subsection,
                            name=asset_name,

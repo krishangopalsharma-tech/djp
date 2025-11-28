@@ -82,10 +82,18 @@ class StationViewSet(viewsets.ModelViewSet):
                             elif model: equip_defaults['make_modal'] = model
                             if 'Address' in row and pd.notna(row['Address']): equip_defaults['address'] = str(row['Address']).strip()
                             if 'Location' in row and pd.notna(row['Location']): equip_defaults['location_in_station'] = str(row['Location']).strip()
-                            if 'Equipment Category' in row and pd.notna(row['Equipment Category']): equip_defaults['category'] = str(row['Equipment Category']).strip()
-                            elif 'Category' in row and pd.notna(row['Category']): equip_defaults['category'] = str(row['Category']).strip()
+                            # Removed 'Equipment Category' logic as per request
+                            
                             if 'Quantity' in row and pd.notna(row['Quantity']):
                                 try: equip_defaults['quantity'] = int(float(row['Quantity']))
+                                except (ValueError, TypeError): pass 
+                            
+                            if 'Installation Date' in row and pd.notna(row['Installation Date']):
+                                try: equip_defaults['installation_date'] = pd.to_datetime(row['Installation Date']).date()
+                                except (ValueError, TypeError): pass
+
+                            if 'Codal Life' in row and pd.notna(row['Codal Life']):
+                                try: equip_defaults['codal_life'] = int(float(row['Codal Life']))
                                 except (ValueError, TypeError): pass 
                             
                             equipment, equip_created = StationEquipment.objects.update_or_create(station=station, name=equip_name, defaults=equip_defaults)
@@ -115,7 +123,8 @@ class StationViewSet(viewsets.ModelViewSet):
         stations = Station.objects.select_related('depot').prefetch_related('equipments').all().order_by('depot__name', 'name')
         data = []
         # --- FIX: Match export headers to your import headers ---
-        export_columns = ['Depot', 'Sation Name', 'Station Code', 'Category', 'Equipment Name', 'Make', 'Model', 'Address', 'Location', 'Quantity']
+        # --- FIX: Match export headers to your import headers ---
+        export_columns = ['Depot', 'Sation Name', 'Station Code', 'Category', 'Equipment Name', 'Make', 'Model', 'Address', 'Location', 'Quantity', 'Installation Date', 'Codal Life']
         for station in stations:
             if station.equipments.exists():
                 for equip in station.equipments.all():
@@ -131,7 +140,9 @@ class StationViewSet(viewsets.ModelViewSet):
                         'Model': model, 
                         'Address': equip.address, 
                         'Location': equip.location_in_station, 
-                        'Quantity': equip.quantity
+                        'Quantity': equip.quantity,
+                        'Installation Date': equip.installation_date,
+                        'Codal Life': equip.codal_life
                     })
             else: 
                 data.append({
@@ -139,7 +150,7 @@ class StationViewSet(viewsets.ModelViewSet):
                     'Sation Name': station.name, 
                     'Station Code': station.code, 
                     'Category': station.category, 
-                    'Equipment Name': None, 'Make': None, 'Model': None, 'Address': None, 'Location': None, 'Quantity': None
+                    'Equipment Name': None, 'Make': None, 'Model': None, 'Address': None, 'Location': None, 'Quantity': None, 'Installation Date': None, 'Codal Life': None
                 })
         if not data: data.append({col: None for col in export_columns})
         df = pd.DataFrame(data, columns=export_columns); output = io.BytesIO()

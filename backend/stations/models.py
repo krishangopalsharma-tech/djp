@@ -23,12 +23,13 @@ class Station(TimestampedModel):
 # ... (StationEquipment model remains the same) ...
 class StationEquipment(TimestampedModel):
     station = models.ForeignKey(Station, related_name='equipments', on_delete=models.CASCADE)
-    category = models.CharField(max_length=100, blank=True)
     name = models.CharField(max_length=100, help_text="Equipment Name")
     make_modal = models.CharField(max_length=100, blank=True, help_text="Make / Model")
     address = models.CharField(max_length=150, blank=True, help_text="e.g., IP Address")
     location_in_station = models.CharField(max_length=150, blank=True, help_text="Physical location in the station")
     quantity = models.PositiveIntegerField(default=1)
+    installation_date = models.DateField(null=True, blank=True)
+    codal_life = models.PositiveIntegerField(default=0, help_text="Codal life in years")
 
     class Meta:
         ordering = ['station__name', 'name']

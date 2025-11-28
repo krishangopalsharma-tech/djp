@@ -57,17 +57,21 @@ function setType(e){ emit('update:chartType', e.target.value) }
     </div>
 
     <!-- Time filters (chips) -->
-    <div v-if="!hideHeader" class="mb-3 chip-group">
-      <button
-        v-for="r in ranges"
-        :key="r.key"
-        class="chip"
-        :class="range === r.key ? 'selected-primary' : 'text-app hover-primary'"
-        :aria-pressed="String(range === r.key)"
-        @click="setRange(r.key)"
-      >
-        {{ r.label }}
-      </button>
+    <div v-if="!hideHeader" class="mb-3 flex flex-wrap items-center gap-4">
+      <div class="chip-group">
+        <button
+          v-for="r in ranges"
+          :key="r.key"
+          class="chip"
+          :class="range === r.key ? 'selected-primary' : 'text-app hover-primary'"
+          :aria-pressed="String(range === r.key)"
+          @click="setRange(r.key)"
+        >
+          {{ r.label }}
+        </button>
+      </div>
+      <!-- Slot for extra filters (e.g. date range display) -->
+      <slot name="filters"></slot>
     </div>
 
     <!-- Body slot: give range & chartType to child -->

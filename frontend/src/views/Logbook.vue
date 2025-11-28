@@ -381,16 +381,30 @@ async function generateExcelBlob(options = {}) {
         // 2. Add Failure Remarks Row (if exists)
         if (row.remark_fail) {
             const label = row.current_status === 'Information' ? 'Info' : 'Failure Remark';
-            const remarkRow = worksheet.addRow([null, `${label}: ${row.remark_fail}`]);
+            const remarkRow = worksheet.addRow([null, null]); // Placeholder
             worksheet.mergeCells(`B${remarkRow.number}:I${remarkRow.number}`);
-            remarkRow.getCell(2).font = { italic: true, color: { argb: 'FF555555' } };
+            
+            const cell = remarkRow.getCell(2);
+            cell.value = {
+                richText: [
+                    { text: `${label}:`, font: { bold: true, color: { argb: 'FF555555' } } },
+                    { text: ` ${row.remark_fail}`, font: { italic: true, color: { argb: 'FF555555' } } }
+                ]
+            };
         }
 
         // 3. Add Resolution Remarks Row (if exists and resolved)
         if (row.remark_right && row.current_status === 'Resolved') {
-             const resolutionRow = worksheet.addRow([null, `Resolution Remark: ${row.remark_right}`]);
+             const resolutionRow = worksheet.addRow([null, null]); // Placeholder
              worksheet.mergeCells(`B${resolutionRow.number}:I${resolutionRow.number}`);
-             resolutionRow.getCell(2).font = { italic: true, color: { argb: 'FF555555' } };
+             
+             const cell = resolutionRow.getCell(2);
+             cell.value = {
+                richText: [
+                    { text: 'Resolution Remark:', font: { bold: true, color: { argb: 'FF555555' } } },
+                    { text: ` ${row.remark_right}`, font: { italic: true, color: { argb: 'FF555555' } } }
+                ]
+            };
         }
     });
 
@@ -441,20 +455,34 @@ function generatePDFBlob(options = {}) {
         // 2. Failure Remarks Row
         if (row.remark_fail) {
             const label = row.current_status === 'Information' ? 'Info' : 'Failure Remark';
-            tableBody.push([{ 
-                content: `${label}: ${row.remark_fail}`, 
-                colSpan: 9, 
-                styles: { fontStyle: 'italic', textColor: [80, 80, 80], fillColor: [250, 250, 250] } 
-            }]);
+            tableBody.push([
+                { 
+                    content: `${label}:`, 
+                    colSpan: 1, 
+                    styles: { fontStyle: 'bold', textColor: [80, 80, 80], fillColor: [250, 250, 250] } 
+                },
+                { 
+                    content: row.remark_fail, 
+                    colSpan: 8, 
+                    styles: { fontStyle: 'italic', textColor: [80, 80, 80], fillColor: [250, 250, 250] } 
+                }
+            ]);
         }
 
         // 3. Resolution Remarks Row
         if (row.remark_right && row.current_status === 'Resolved') {
-            tableBody.push([{ 
-                content: `Resolution Remark: ${row.remark_right}`, 
-                colSpan: 9, 
-                styles: { fontStyle: 'italic', textColor: [80, 80, 80], fillColor: [250, 250, 250] } 
-            }]);
+            tableBody.push([
+                { 
+                    content: 'Resolution Remark:', 
+                    colSpan: 1, 
+                    styles: { fontStyle: 'bold', textColor: [80, 80, 80], fillColor: [250, 250, 250] } 
+                },
+                { 
+                    content: row.remark_right, 
+                    colSpan: 8, 
+                    styles: { fontStyle: 'italic', textColor: [80, 80, 80], fillColor: [250, 250, 250] } 
+                }
+            ]);
         }
     });
 

@@ -103,6 +103,17 @@ function clearSelection(e) {
   if (!props.multiple) openMenu()
 }
 
+function selectAll() {
+    if (!props.multiple) return
+    const allValues = props.options.map(o => o[props.valueKey] ?? o)
+    emit('update:modelValue', allValues)
+}
+
+function deselectAll() {
+    if (!props.multiple) return
+    emit('update:modelValue', [])
+}
+
 function isSelected(opt) {
     const val = opt?.[props.valueKey] ?? opt
     if (props.multiple) {
@@ -174,6 +185,10 @@ watch(() => props.modelValue, (v) => {
       class="absolute z-50 mt-1 w-full rounded-lg border bg-card text-app border-app shadow-lg max-h-60 overflow-auto"
       role="listbox"
     >
+      <div v-if="multiple" class="px-3 py-2 border-b flex gap-2">
+          <button type="button" class="text-xs text-primary hover:underline" @click.stop="selectAll">Select All</button>
+          <button type="button" class="text-xs text-muted hover:text-app" @click.stop="deselectAll">Deselect All</button>
+      </div>
       <div
         v-for="(opt, i) in filtered"
         :key="opt[valueKey] ?? String(opt)"

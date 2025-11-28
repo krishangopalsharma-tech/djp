@@ -6,7 +6,7 @@ from depots.models import Depot
 class StationEquipmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = StationEquipment
-        fields = ['id', 'station', 'category', 'name', 'make_modal', 'address', 'location_in_station', 'quantity', 'created_at', 'updated_at']
+        fields = ['id', 'station', 'name', 'make_modal', 'address', 'location_in_station', 'quantity', 'installation_date', 'codal_life', 'created_at', 'updated_at']
 
 class StationSerializer(serializers.ModelSerializer):
     equipments = StationEquipmentSerializer(many=True, read_only=True)

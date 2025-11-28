@@ -139,7 +139,15 @@ function openSubsectionsModal(section) {
   const subsections = section.subsections || [];
   originalSubsections.value = clone(subsections);
   tempSubsections.splice(0, tempSubsections.length, ...clone(subsections.map(ss => ({ ...ss, assets: ss.assets || [] }))));
+  // Default all to collapsed
+  collapsedSubsections.value = new Set(tempSubsections.map((_, i) => i));
   isSubSectionModalOpen.value = true;
+}
+
+const collapsedSubsections = ref(new Set());
+function toggleCollapse(index) {
+    if (collapsedSubsections.value.has(index)) collapsedSubsections.value.delete(index);
+    else collapsedSubsections.value.add(index);
 }
 
 function closeSubsectionsModal() {
@@ -218,7 +226,7 @@ function addAssetRow(subSection) {
     if (!subSection.assets) {
         subSection.assets = [];
     }
-    subSection.assets.push({ name: '', quantity: 1, unit: '' });
+    subSection.assets.push({ name: '', quantity: 1, unit: '', installation_date: null, codal_life: 0 });
 }
 
 function removeAssetRow(subSection, assetIndex) {
@@ -280,10 +288,10 @@ function removeAssetRow(subSection, assetIndex) {
         <table class="w-full text-sm">
           <thead>
             <tr class="text-left border-b border-app/40">
-              <th @click="toggleSort('depot_code')" class="py-2.5 px-3 text-left cursor-pointer select-none">Depot <span v-if="sortKey === 'depot_code'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
-              <th @click="toggleSort('name')" class="py-2.5 px-3 text-center cursor-pointer select-none">Section <span v-if="sortKey === 'name'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
-              <th class="py-2.5 px-3 text-center">Sub-sections</th>
-              <th class="py-2.5 px-3 text-center">Actions</th>
+              <th @click="toggleSort('depot_code')" class="py-2.5 px-3 text-left cursor-pointer select-none w-[20%]">Depot <span v-if="sortKey === 'depot_code'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
+              <th @click="toggleSort('name')" class="py-2.5 px-3 text-center cursor-pointer select-none w-[40%]">Section <span v-if="sortKey === 'name'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
+              <th class="py-2.5 px-3 text-center w-[20%]">Sub-sections</th>
+              <th class="py-2.5 px-3 text-center w-[20%]">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -377,6 +385,12 @@ function removeAssetRow(subSection, assetIndex) {
             
             <div v-for="(sub, subIndex) in tempSubsections" :key="sub.id || subIndex" class="card">
                 <div class="flex items-center gap-2">
+                    <!-- Collapse Toggle -->
+                    <button @click="toggleCollapse(subIndex)" class="p-1 text-app/60 hover:text-app transition-transform" :class="{ 'rotate-[-90deg]': collapsedSubsections.has(subIndex) }">
+                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                        </svg>
+                    </button>
                     <input v-model="sub.name" class="field h-9 flex-grow" placeholder="Enter sub-section name"/>
                     <button
                         class="inline-flex items-center justify-center h-9 w-9 rounded-md text-app border border-app hover:bg-gray-100 transition"
@@ -386,17 +400,31 @@ function removeAssetRow(subSection, assetIndex) {
                     </button>
                 </div>
                 
-                <div class="mt-3 pl-4 border-l-2 border-app/40">
+                <div v-show="!collapsedSubsections.has(subIndex)" class="mt-3 pl-4 border-l-2 border-app/40 transition-all">
                     <h4 class="text-xs font-semibold text-app/80 mb-2">Assets in this Sub-section</h4>
                     <table class="w-full text-sm">
-                        <tr v-for="(asset, assetIndex) in sub.assets" :key="asset.id || assetIndex">
-                            <td class="py-1 pr-2"><input v-model="asset.name" class="field h-8" placeholder="Asset Name"></td>
-                            <td class="py-1 pr-2 w-28"><input v-model.number="asset.quantity" type="number" class="field h-8" placeholder="Qty"></td>
-                            <td class="py-1 pr-2 w-28"><input v-model="asset.unit" class="field h-8" placeholder="Unit"></td>
-                            <td class="py-1 w-10 text-center">
-                                <button @click="removeAssetRow(sub, assetIndex)" class="text-app/50 hover:text-red-500">&times;</button>
-                            </td>
-                        </tr>
+                        <thead>
+                            <tr class="text-left text-xs text-muted border-b border-app/20">
+                                <th class="pb-1 font-medium">Asset Name</th>
+                                <th class="pb-1 font-medium w-20">Qty</th>
+                                <th class="pb-1 font-medium w-20">Unit</th>
+                                <th class="pb-1 font-medium w-32">Install Date</th>
+                                <th class="pb-1 font-medium w-20">Life (Yrs)</th>
+                                <th class="pb-1 w-8"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="(asset, assetIndex) in sub.assets" :key="asset.id || assetIndex">
+                                <td class="py-1 pr-2"><input v-model="asset.name" class="field h-8" placeholder="Asset Name"></td>
+                                <td class="py-1 pr-2"><input v-model.number="asset.quantity" type="number" class="field h-8" placeholder="Qty"></td>
+                                <td class="py-1 pr-2"><input v-model="asset.unit" class="field h-8" placeholder="Unit"></td>
+                                <td class="py-1 pr-2"><input v-model="asset.installation_date" type="date" class="field h-8"></td>
+                                <td class="py-1 pr-2"><input v-model.number="asset.codal_life" type="number" class="field h-8" placeholder="Yrs"></td>
+                                <td class="py-1 text-center">
+                                    <button @click="removeAssetRow(sub, assetIndex)" class="text-app/50 hover:text-red-500">&times;</button>
+                                </td>
+                            </tr>
+                        </tbody>
                     </table>
                      <button @click="addAssetRow(sub)" class="text-xs btn btn-sm mt-2">+ Add Asset</button>
                 </div>

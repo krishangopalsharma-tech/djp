@@ -35,6 +35,8 @@ class Asset(TimestampedModel):
     name = models.CharField(max_length=150)
     quantity = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     unit = models.CharField(max_length=50, blank=True)
+    installation_date = models.DateField(null=True, blank=True)
+    codal_life = models.PositiveIntegerField(default=0, help_text="Codal life in years")
 
     class Meta:
         ordering = ['subsection__name', 'name']

@@ -7,7 +7,7 @@ from stations.models import Station, StationEquipment # <-- IMPORT Station model
 class AssetSerializer(serializers.ModelSerializer):
     class Meta:
         model = Asset
-        fields = ['id', 'name', 'quantity', 'unit', 'subsection', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'quantity', 'unit', 'subsection', 'installation_date', 'codal_life', 'created_at', 'updated_at']
 
 class SubSectionSerializer(serializers.ModelSerializer):
     assets = AssetSerializer(many=True, read_only=True)

@@ -187,12 +187,13 @@ async function saveEquipments() {
 
 function addEquipmentRow() {
   tempEquipments.push({ 
-    category: '',
     name: '',
     make_modal: '',
     address: '',
     location_in_station: '',
     quantity: 1,
+    installation_date: null,
+    codal_life: 0,
   })
 }
 function removeEquipmentRow(i) {
@@ -303,7 +304,7 @@ function removeEquipmentRow(i) {
                     </svg>
                   </button>
                   <button
-                    class="inline-flex items-center justify-center h-9 w-9 rounded-md text-app ring-1 ring-app/60 hover:bg-black/10 transition"
+                    class="inline-flex items-center justify-center h-9 w-9 rounded-md text-app border border-app hover:bg-gray-100 transition"
                     title="Remove station" @click="openDeleteModal(s)">
                     <Trash2 class="w-6 h-6" />
                   </button>
@@ -379,12 +380,13 @@ function removeEquipmentRow(i) {
                 <table class="w-full text-sm">
                   <thead>
                     <tr class="text-left border-b border-app/40">
-                      <th class="py-2.5 px-3">Category</th>
                       <th class="py-2.5 px-3">Equipment Name</th>
                       <th class="py-2.5 px-3">Make / Model</th>
                       <th class="py-2.5 px-3">Address</th>
                       <th class="py-2.5 px-3">Location</th>
                       <th class="py-2.5 px-3">Quantity</th>
+                      <th class="py-2.5 px-3">Install Date</th>
+                      <th class="py-2.5 px-3">Codal Life</th>
                       <th class="py-2.5 px-3 w-16 text-center">Remove</th>
                     </tr>
                   </thead>
@@ -393,12 +395,13 @@ function removeEquipmentRow(i) {
                       <td colspan="7" class="px-3 py-6 text-app/60 text-center">No equipment yet — add a row below.</td>
                     </tr>
                     <tr v-for="(r, i) in tempEquipments" :key="r.id || i" class="border-t border-app/30">
-                      <td class="py-2 px-3 align-top"><input v-model="r.category" class="field h-9" placeholder="e.g., Telecom" /></td>
                       <td class="py-2 px-3 align-top"><input v-model="r.name" class="field h-9" placeholder="e.g., Modem" /></td>
                       <td class="py-2 px-3 align-top"><input v-model="r.make_modal" class="field h-9" placeholder="e.g., Cisco / 887VA" /></td>
                       <td class="py-2 px-3 align-top"><input v-model="r.address" class="field h-9" placeholder="e.g., 16.12.13.39" /></td>
                       <td class="py-2 px-3 align-top"><input v-model="r.location_in_station" class="field h-9" placeholder="e.g., OFC HUT" /></td>
                       <td class="py-2 px-3 align-top"><input v-model.number="r.quantity" type="number" class="field h-9 w-20" /></td>
+                      <td class="py-2 px-3 align-top"><input v-model="r.installation_date" type="date" class="field h-9" /></td>
+                      <td class="py-2 px-3 align-top"><input v-model.number="r.codal_life" type="number" class="field h-9 w-20" placeholder="Yrs" /></td>
                       <td class="py-2 px-3 align-top text-center">
                         <button
                           class="inline-flex items-center justify-center h-9 w-9 rounded-md text-app ring-1 ring-app/60 hover:bg-black/10 transition"
