@@ -4,9 +4,9 @@ import os
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-insecure-change-me")
-DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
+DEBUG = os.getenv("DJANGO_DEBUG", "0") == "1"
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost", "192.168.3.240", "192.168.3.230"]
+ALLOWED_HOSTS = ["127.0.0.1", "localhost", "137.59.93.38"]
 
 INSTALLED_APPS = [
     # Django
@@ -121,15 +121,14 @@ REST_FRAMEWORK = {
 
 # CORS / CSRF for Vite (adjust for prod later)
 # We are temporarily allowing all origins for easier development debugging.
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOWED_HOSTS = ["127.0.0.1", "localhost", "137.59.93.38"]
 CORS_ALLOW_CREDENTIALS = True
 
 # We keep the specific origins for CSRF protection
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "http://192.168.3.240:5173",
-    "http://192.168.3.230:5173",
+    "http://137.59.93.38:5173",
 ]
 
 AUTH_USER_MODEL = 'users.User'
@@ -138,14 +137,11 @@ AUTH_USER_MODEL = 'users.User'
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
 
 # Base URL for the frontend application, used for generating links in notifications
-FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://192.168.3.230:5173")
+FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://137.59.93.38:5173")
 
 INTERNAL_IPS = [
     "127.0.0.1",
-    "192.168.3.111", # &lt;-- Add your computer's IP here
-    "192.168.3.33",
-    "192.168.3.230",
-    "192.168.3.240", # &lt;-- ADD THIS LINE
+
 ]
 
 # --- EMAIL CONFIGURATION ---
