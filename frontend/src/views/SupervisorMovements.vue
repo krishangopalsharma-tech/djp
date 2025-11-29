@@ -4,7 +4,7 @@ import { useSupervisorMovementsStore } from '@/stores/supervisorMovements';
 // --- FIX: Import the correct store ---
 // --- START OF FIX ---
 // This path is now correct because we merged the folders.
-import { useInfrastructureStore } from '@/stores/infrastructure';
+import { useInfrastructureStore } from '@/stores/infrastructure_tree';
 // --- END OF FIX ---
 import { Save, Send } from 'lucide-vue-next';
 

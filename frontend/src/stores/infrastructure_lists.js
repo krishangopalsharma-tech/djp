@@ -157,14 +157,14 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       formData.append('file', file);
 
       try {
-        const response = await http.post('/depots/import/', formData, {
+        const response = await http.post('/depots/import_from_excel/', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
 
         const { depots_processed, equipment_created, errors } = response.data;
         let message = `Import successful! Depots: ${depots_processed}, Equipment: ${equipment_created}.`;
         if (errors && errors.length) {
-            message += ` Errors: ${errors.length}.`;
+          message += ` Errors: ${errors.length}.`;
         }
         uiStore.pushToast({ type: 'success', title: 'Import Complete', message });
 
@@ -178,7 +178,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
         this.loading.depots = false;
       }
     },
-     async addEquipment(payload) {
+    async addEquipment(payload) {
       const uiStore = useUIStore();
       try {
         await http.post('/equipments/', payload);
@@ -189,7 +189,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       }
     },
     async updateEquipment(equipmentId, payload) {
-       const uiStore = useUIStore();
+      const uiStore = useUIStore();
       try {
         await http.patch(`/equipments/${equipmentId}/`, payload);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Equipment updated.' });
@@ -199,7 +199,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       }
     },
     async removeEquipment(equipmentId) {
-       const uiStore = useUIStore();
+      const uiStore = useUIStore();
       try {
         await http.delete(`/equipments/${equipmentId}/`);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Equipment removed.' });
@@ -224,7 +224,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
         this.loading.sections = false;
       }
     },
-     async updateSection(sectionId, payload) {
+    async updateSection(sectionId, payload) {
       this.loading.sections = true;
       this.error = null;
       const uiStore = useUIStore();
@@ -256,27 +256,22 @@ export const useInfrastructureStore = defineStore('infrastructure', {
         this.loading.sections = false;
       }
     },
-     async uploadSectionsFile(file) {
+    async uploadSectionsFile(file) {
       this.loading.sections = true;
       this.error = null;
       const uiStore = useUIStore();
       const formData = new FormData();
       formData.append('file', file);
-
       try {
-        const response = await http.post('/sections/import/', formData, {
+        // FIXED: Updated to match the backend view action 'import_master_file'
+        const response = await http.post('/sections/import_master_file/', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
-        uiStore.pushToast({ type: 'success', title: 'Import Complete', message: response.data.message });
+        uiStore.pushToast({ type: 'success', title: 'Success', message: 'Sections imported.' });
         await this.fetchSections();
       } catch (err) {
-        const errorData = err.response?.data;
-        let message = 'File upload failed.';
-        if (errorData && errorData.error) {
-            message = errorData.error;
-        }
-        this.error = message;
-        uiStore.pushToast({ type: 'error', title: 'Import Failed', message });
+        this.error = 'Failed to import sections.';
+        uiStore.pushToast({ type: 'error', title: 'Error', message: this.error });
         console.error(err);
       } finally {
         this.loading.sections = false;
@@ -289,7 +284,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       try {
         await http.post('/stations/', payload);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Station added.' });
-        await this.fetchStations(); 
+        await this.fetchStations();
       } catch (err) {
         this.error = 'Failed to add station.';
         uiStore.pushToast({ type: 'error', title: 'Error', message: this.error });
@@ -338,7 +333,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       formData.append('file', file);
 
       try {
-        const response = await http.post('/stations/import/', formData, {
+        const response = await http.post('/stations/import_stations_file/', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
         uiStore.pushToast({ type: 'success', title: 'Import Complete', message: response.data.message });
@@ -348,15 +343,15 @@ export const useInfrastructureStore = defineStore('infrastructure', {
         const errorData = err.response?.data;
         let message = 'File upload failed.';
         if (errorData) {
-            if (errorData.error && errorData.details) {
-                message = `${errorData.error} ${errorData.details.join('; ')}`;
-            } else if (errorData.error) {
-                message = errorData.error;
-            } else if (errorData.errors) {
-                message = `${errorData.message} ${errorData.errors.join('; ')}`;
-            }
+          if (errorData.error && errorData.details) {
+            message = `${errorData.error} ${errorData.details.join('; ')}`;
+          } else if (errorData.error) {
+            message = errorData.error;
+          } else if (errorData.errors) {
+            message = `${errorData.message} ${errorData.errors.join('; ')}`;
+          }
         }
-        
+
         this.error = message;
         uiStore.pushToast({ type: 'error', title: 'Import Failed', message: message, duration: 10000 });
         console.error(err);
@@ -375,7 +370,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       }
     },
     async updateStationEquipment(equipmentId, payload) {
-       const uiStore = useUIStore();
+      const uiStore = useUIStore();
       try {
         await http.patch(`/station-equipments/${equipmentId}/`, payload);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Equipment updated.' });
@@ -385,7 +380,7 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       }
     },
     async removeStationEquipment(equipmentId) {
-       const uiStore = useUIStore();
+      const uiStore = useUIStore();
       try {
         await http.delete(`/station-equipments/${equipmentId}/`);
         uiStore.pushToast({ type: 'success', title: 'Success', message: 'Equipment removed.' });
@@ -544,13 +539,13 @@ export const useInfrastructureStore = defineStore('infrastructure', {
       formData.append('file', file);
 
       try {
-        const response = await http.post('/circuits/import/', formData, {
+        const response = await http.post('/circuits/import_from_excel/', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
         const { created, updated, errors } = response.data;
         let message = `Import successful! Created: ${created}, Updated: ${updated}.`;
         if (errors.length) {
-            message += ` Errors: ${errors.length}.`;
+          message += ` Errors: ${errors.length}.`;
         }
         uiStore.pushToast({ type: 'success', title: 'Import Complete', message });
         await this.fetchCircuits();

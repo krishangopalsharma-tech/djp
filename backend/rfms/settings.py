@@ -4,9 +4,33 @@ import os
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-insecure-change-me")
-DEBUG = os.getenv("DJANGO_DEBUG", "0") == "1"
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost", "137.59.93.38"]
+# 1. Determine Environment
+# Gunicorn/Systemd has this set to 'production'. VS Code does not.
+IS_PRODUCTION = os.environ.get('RFMS_ENV') == 'production'
+
+# 2. Security Settings (Keep Separate!)
+# Live Site: Secure (False)
+# VS Code: Helpful Errors (True)
+DEBUG = not IS_PRODUCTION
+
+if IS_PRODUCTION:
+    ALLOWED_HOSTS = ['137.59.93.38', 'localhost', '127.0.0.1']
+else:
+    ALLOWED_HOSTS = ['*']  # Allow all hosts in development
+
+# 3. Database Configuration (UNIFIED)
+# Now, BOTH environments point to the Live PostgreSQL DB
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'rfms_db',       # <--- The Live Database
+        'USER': 'rfms_user',     # <--- Your Postgres User
+        'PASSWORD': 'password123', # <--- Your Real Password
+        'HOST': 'localhost',
+        'PORT': '',
+    }
+}
 
 INSTALLED_APPS = [
     # Django
@@ -78,13 +102,7 @@ TEMPLATES = [
 WSGI_APPLICATION = "rfms.wsgi.application"
 ASGI_APPLICATION = "rfms.asgi.application"
 
-# Dev DB: SQLite; we can switch to Postgres later via env
-DATABASES = {
-    "default": {
-        "ENGINE": os.getenv("DB_ENGINE", "django.db.backends.sqlite3"),
-        "NAME": os.getenv("DB_NAME", BASE_DIR / "db.sqlite3"),
-    }
-}
+
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},

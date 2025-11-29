@@ -156,7 +156,6 @@ onMounted(async () => {
         stationsStore.fetchStations(),
         supervisorsStore.fetchSupervisors()
     ])
-    fetchOperationalStats()
 })
 
 // --- Operational Reports Logic ---
