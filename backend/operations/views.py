@@ -123,7 +123,40 @@ class SupervisorMovementByDateView(APIView):
         movement_map = {m.supervisor.id: m for m in movements}
 
         for s in supervisors:
-            s.movement = movement_map.get(s.id)
+            movement = movement_map.get(s.id)
+            if not movement:
+                # Try to find last movement to carry over
+                last_movement = SupervisorMovement.objects.filter(
+                    supervisor=s,
+                    date__lt=target_date
+                ).order_by('-date').first()
+                
+                if last_movement:
+                    # Create a transient instance (not saved to DB)
+                    # Logic:
+                    # 1. If on_leave and leave is still valid (leave_to >= target_date), copy leave details.
+                    # 2. If not on_leave, copy location and purpose.
+                    
+                    should_copy = False
+                    new_movement = SupervisorMovement(supervisor=s, date=target_date)
+                    
+                    if last_movement.on_leave:
+                        if last_movement.leave_to and last_movement.leave_to >= target_date:
+                            new_movement.on_leave = True
+                            new_movement.leave_from = last_movement.leave_from
+                            new_movement.leave_to = last_movement.leave_to
+                            new_movement.look_after = last_movement.look_after
+                            should_copy = True
+                    else:
+                        # On Duty - carry over location and purpose
+                        new_movement.location = last_movement.location
+                        new_movement.purpose = last_movement.purpose
+                        should_copy = True
+                    
+                    if should_copy:
+                        movement = new_movement
+
+            s.movement = movement
 
         serializer = SupervisorWithMovementSerializer(supervisors, many=True)
         return Response(serializer.data)

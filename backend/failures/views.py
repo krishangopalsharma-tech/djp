@@ -6,8 +6,9 @@ from .models import Failure, FailureAttachment
 from .serializers import FailureSerializer, FailureAttachmentSerializer
 
 # --- START OF FIX: Add imports for Telegram ---
-from telegram_notifications.bot import send_telegram_message, send_telegram_document
+from telegram_notifications.bot import send_telegram_message, send_telegram_document, create_failure_keyboard
 from telegram_notifications.models import TelegramGroup
+from .utils import format_failure_message
 # --- END OF FIX ---
 
 
@@ -87,70 +88,8 @@ class FailureViewSet(viewsets.ModelViewSet):
             group_keys = ['alerts']
 
         try:
-            # 1. Define status emojis
-            status_emoji_map = {
-                'Active': '🔴',
-                'Resolved': '✅',
-                'In Progress': '🟡',
-                'On Hold': '⏸️',
-                'Information': 'ℹ️',
-                'Draft': '📝',
-            }
-            status_text = failure.current_status
-            emoji = status_emoji_map.get(status_text, '')
-            
-            # 2. Prepare Hashtags
-            tags = []
-            if failure.entry_type == 'message':
-                tags.append("#GeneralMessage")
-            else:
-                if failure.circuit: tags.append(f"#{failure.circuit.circuit_id.replace(' ', '_')}")
-                if failure.station: tags.append(f"#{failure.station.code.replace(' ', '_')}")
-                if failure.section: tags.append(f"#{failure.section.name.replace(' ', '_')}")
-            
             # 3. Build Message
-            lines = []
-            lines.append(f"<b>ID:</b> {failure.fail_id}")
-            lines.append("") # Blank line
-
-            if failure.entry_type == 'message':
-                lines.append(f"<b>Circuit:</b> Info")
-            elif failure.circuit:
-                lines.append(f"<b>Circuit:</b> {failure.circuit.circuit_id}")
-            
-            lines.append(f"<b>Status:</b> {status_text} {emoji}")
-            lines.append("") # Blank line
-
-            if failure.entry_type != 'message':
-                if failure.station:
-                    lines.append(f"<b>Station:</b> {failure.station.code}")
-                if failure.section:
-                    lines.append(f"<b>Section:</b> {failure.section.name}")
-                if failure.sub_section:
-                    lines.append(f"<b>Sub-Section:</b> {failure.sub_section.name}")
-
-            if failure.assigned_to:
-                lines.append("")
-                lines.append(f"<b>Assigned To:</b> {failure.assigned_to.name}")
-
-            if failure.remark_fail:
-                lines.append("")
-                if failure.entry_type == 'message':
-                    lines.append("<b>Info:</b>")
-                else:
-                    lines.append("<b>❗️ Fail Remarks:</b>")
-                lines.append(failure.remark_fail)
-
-            if failure.current_status == 'Resolved' and failure.remark_right:
-                lines.append("")
-                lines.append("<b>✅ Resolved Remark:</b>")
-                lines.append(failure.remark_right)
-            
-            if tags:
-                lines.append("")
-                lines.append(" ".join(tags))
-
-            message = "\n".join(lines)
+            message = format_failure_message(failure)
 
             # 4. Send Logic
             sent_to = []
@@ -168,6 +107,25 @@ class FailureViewSet(viewsets.ModelViewSet):
                      failed_to.append(f"{key} (group not configured)")
                 except Exception as e:
                     failed_to.append(f"{key} ({str(e)})")
+
+            # --- START OF FIX: Send to Supervisor ---
+            if failure.assigned_to and failure.assigned_to.telegram_chat_id:
+                try:
+                    print(f"DEBUG: Sending to Supervisor {failure.assigned_to.name} ({failure.assigned_to.telegram_chat_id})")
+                    keyboard = create_failure_keyboard(failure.fail_id)
+                    print(f"DEBUG: Keyboard generated: {keyboard}")
+                    send_telegram_message(
+                        chat_id=failure.assigned_to.telegram_chat_id, 
+                        text=message, 
+                        reply_markup=keyboard
+                    )
+                    sent_to.append(f"Supervisor ({failure.assigned_to.name})")
+                except Exception as e:
+                    print(f"DEBUG: Error sending to supervisor: {e}")
+                    failed_to.append(f"Supervisor ({str(e)})")
+            else:
+                print(f"DEBUG: No supervisor assigned or no chat ID. Assigned: {failure.assigned_to}")
+            # --- END OF FIX ---
 
             if not sent_to:
                 return response.Response({'error': f"Failed to send: {', '.join(failed_to)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

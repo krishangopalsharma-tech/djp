@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { Bar } from 'vue-chartjs'
 import { Chart, BarElement, CategoryScale, LinearScale, Title, Tooltip, Legend, Filler } from 'chart.js'
 import { colorsForDatasetLabel } from '@/lib/statusColors'
+import { currentThemeColors, withAlpha } from '@/lib/theme'
 
 Chart.register(BarElement, CategoryScale, LinearScale, Title, Tooltip, Legend, Filler)
 
@@ -32,6 +33,15 @@ const normalized = computed(() => {
       out.borderWidth = out.borderWidth ?? 1
       out.hoverBackgroundColor = mapped.bg
       out.hoverBorderColor = mapped.border
+    } else {
+      // Fallback for non-status charts (e.g. counts)
+      const theme = currentThemeColors()
+      const bg = withAlpha(theme.primary, 0.85)
+      out.backgroundColor = out.backgroundColor ?? bg
+      out.borderColor = out.borderColor ?? theme.primary
+      out.borderWidth = out.borderWidth ?? 1
+      out.hoverBackgroundColor = out.hoverBackgroundColor ?? bg
+      out.hoverBorderColor = out.hoverBorderColor ?? theme.primary
     }
     return out
   })

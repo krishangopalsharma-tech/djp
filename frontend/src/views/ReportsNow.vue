@@ -470,9 +470,10 @@ async function exportInventoryReport(format) {
         if (activeInventoryTab.value === 'depot') {
             worksheet.columns = [
                 { header: 'Depot', key: 'depot', width: 20 },
-                { header: 'Station', key: 'station', width: 15 },
                 { header: 'Equipment', key: 'name', width: 25 },
                 { header: 'Make/Model', key: 'make', width: 20 },
+                { header: 'Asset ID', key: 'asset_id', width: 20 },
+                { header: 'Location', key: 'location', width: 20 },
                 { header: 'Qty', key: 'qty', width: 10 },
                 { header: 'Status', key: 'status', width: 15 }
             ]
@@ -480,9 +481,10 @@ async function exportInventoryReport(format) {
                 depot.equipments.forEach(eq => {
                     worksheet.addRow({
                         depot: depot.depot_name,
-                        station: eq.station,
                         name: eq.name,
                         make: eq.make_modal,
+                        asset_id: eq.asset_id,
+                        location: eq.location,
                         qty: eq.quantity,
                         status: eq.status
                     })
@@ -819,9 +821,10 @@ async function exportInventoryReport(format) {
                     <thead>
                         <tr class="text-left bg-app/5 sticky top-0">
                             <th class="p-3">Depot</th>
-                            <th class="p-3">Station</th>
                             <th class="p-3">Equipment</th>
                             <th class="p-3">Make/Model</th>
+                            <th class="p-3">Asset ID</th>
+                            <th class="p-3">Location</th>
                             <th class="p-3">Qty</th>
                             <th class="p-3">Status</th>
                         </tr>
@@ -830,9 +833,10 @@ async function exportInventoryReport(format) {
                         <template v-for="depot in inventoryData" :key="depot.depot_name">
                             <tr v-for="(eq, idx) in depot.equipments" :key="idx" class="border-b border-app/10 hover:bg-app/5">
                                 <td class="p-3 font-medium" v-if="idx === 0" :rowspan="depot.equipments.length">{{ depot.depot_name }}</td>
-                                <td class="p-3">{{ eq.station }}</td>
                                 <td class="p-3">{{ eq.name }}</td>
                                 <td class="p-3">{{ eq.make_modal }}</td>
+                                <td class="p-3">{{ eq.asset_id }}</td>
+                                <td class="p-3">{{ eq.location }}</td>
                                 <td class="p-3">{{ eq.quantity }}</td>
                                 <td class="p-3"><span class="badge badge-success">{{ eq.status }}</span></td>
                             </tr>

@@ -13,6 +13,7 @@ class Supervisor(TimestampedModel):
     designation = models.CharField(max_length=100, blank=True)
     mobile = models.CharField(max_length=15, blank=True)
     email = models.EmailField(blank=True)
+    telegram_chat_id = models.CharField(max_length=100, blank=True)
     
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,

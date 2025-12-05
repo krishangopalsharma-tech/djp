@@ -116,7 +116,7 @@ function onLogout() {
             </span>
           </button>
         </div>
-        <div class="p-3 text-xs text-muted">v0.1 • Vue + Tailwind</div>
+        <div class="p-3 text-xs text-muted">RFMS V-1.0</div>
       </div>
     </template>
 
@@ -124,7 +124,7 @@ function onLogout() {
       <div class="px-4 text-sm text-muted">
         Please <RouterLink class="underline" to="/login">log in</RouterLink>.
       </div>
-      <div class="mt-auto p-3 text-xs text-muted">v0.1 • Vue + Tailwind</div>
+      <div class="mt-auto p-3 text-xs text-muted">RFMS V-1.0</div>
     </template>
   </aside>
 </template>

@@ -4,7 +4,7 @@ import { useSupervisorMovementsStore } from '@/stores/supervisorMovements';
 // --- FIX: Import the correct store ---
 // --- START OF FIX ---
 // This path is now correct because we merged the folders.
-import { useInfrastructureStore } from '@/stores/infrastructure_tree';
+import { useInfrastructureStore } from '@/stores/infrastructure_lists';
 // --- END OF FIX ---
 import { Save, Send } from 'lucide-vue-next';
 
@@ -174,7 +174,7 @@ async function handleSendReport() {
           </thead>
           <tbody>
             <tr v-for="row in sortedData" :key="row.id" class="border-t border-app/30">
-              <td class="py-2 px-3 align-top font-semibold">{{ row.depot_name || 'N/A' }}</td>
+              <td class="py-2 px-3 align-top font-semibold">{{ row.depot_display || 'N/A' }}</td>
               <td class="py-2 px-3 align-top">{{ row.name }}</td>
               <td class="py-2 px-3 align-top text-muted">{{ row.designation }}</td>
               <td class="py-2 px-3 align-top">

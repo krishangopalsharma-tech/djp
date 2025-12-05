@@ -212,7 +212,8 @@ function openAddModal() {
     designation: '',
     depot: null,
     mobile: '',
-    email: ''
+    email: '',
+    telegram_chat_id: ''
   };
   isEditModalOpen.value = true;
 }
@@ -265,11 +266,12 @@ async function confirmDelete() {
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                  <colgroup>
-                    <col class="w-[20%]">
-                    <col class="w-[20%]">
-                    <col class="w-[20%]">
-                    <col class="w-[15%]">
-                    <col class="w-[15%]">
+                    <col class="w-[16%]">
+                    <col class="w-[16%]">
+                    <col class="w-[16%]">
+                    <col class="w-[16%]">
+                    <col class="w-[16%]">
+                    <col class="w-[10%]">
                     <col class="w-[10%]">
                 </colgroup>
                 <thead>
@@ -279,6 +281,7 @@ async function confirmDelete() {
                         <th @click="toggleSort('depot_code')" class="py-2.5 px-3 whitespace-nowrap cursor-pointer select-none text-center">Depot <span v-if="sortKey === 'depot_code'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
                         <th @click="toggleSort('mobile')" class="py-2.5 px-3 whitespace-nowrap cursor-pointer select-none text-center">Mobile <span v-if="sortKey === 'mobile'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
                         <th @click="toggleSort('email')" class="py-2.5 px-3 whitespace-nowrap cursor-pointer select-none text-center">Email <span v-if="sortKey === 'email'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
+                        <th @click="toggleSort('telegram_chat_id')" class="py-2.5 px-3 whitespace-nowrap cursor-pointer select-none text-center">Telegram ID <span v-if="sortKey === 'telegram_chat_id'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span></th>
                         <th class="py-2.5 px-3 w-40 text-center">Actions</th>
                     </tr>
                 </thead>
@@ -295,6 +298,7 @@ async function confirmDelete() {
                         <td class="py-2 px-3 align-middle text-center">{{ r.depot_code || 'N/A' }}</td>
                         <td class="py-2 px-3 align-middle text-center">{{ r.mobile || 'N/A' }}</td>
                         <td class="py-2 px-3 align-middle text-center">{{ r.email || 'N/A' }}</td>
+                        <td class="py-2 px-3 align-middle text-center">{{ r.telegram_chat_id || 'N/A' }}</td>
                         <td class="py-2 px-3 align-middle text-center">
                             <div class="flex items-center justify-center gap-2">
                                 <button @click="openEditModal(r)" class="h-9 w-9 flex items-center justify-center rounded-lg bg-[var(--button-primary)] text-[var(--seasalt)] hover:bg-[var(--button-hover)] transition" title="Edit Supervisor">
@@ -344,6 +348,10 @@ async function confirmDelete() {
           <div class="md:col-span-2">
             <label class="block text-sm font-medium mb-1">Email</label>
             <input v-model="currentSupervisor.email" type="email" class="field" />
+          </div>
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium mb-1">Telegram Chat ID</label>
+            <input v-model="currentSupervisor.telegram_chat_id" class="field" placeholder="Optional" />
           </div>
         </div>
         <div class="flex justify-end gap-3 pt-4">

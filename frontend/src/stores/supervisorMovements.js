@@ -58,27 +58,27 @@ export const useSupervisorMovementsStore = defineStore('supervisorMovements', {
         this.loading = false;
       }
     },
-     /**
-     * Deletes a movement record.
-     * @param {number} movementId - The ID of the movement record to delete.
-     * @param {string} date - The date for which to refresh data after deletion.
-     */
+    /**
+    * Deletes a movement record.
+    * @param {number} movementId - The ID of the movement record to delete.
+    * @param {string} date - The date for which to refresh data after deletion.
+    */
     async deleteMovement(movementId, date) {
-        if (!movementId) return;
-        const uiStore = useUIStore();
-        this.loading = true;
-        this.error = null;
-        try {
-            await http.delete(`/operations/movements/${movementId}/`);
-            uiStore.pushToast({ type: 'success', title: 'Success', message: 'Movement entry deleted.' });
-            await this.fetchMovementsByDate(date);
-        } catch (err) {
-            this.error = 'Failed to delete movement.';
-            uiStore.pushToast({ type: 'error', title: 'Error', message: this.error });
-            console.error(err);
-        } finally {
-            this.loading = false;
-        }
+      if (!movementId) return;
+      const uiStore = useUIStore();
+      this.loading = true;
+      this.error = null;
+      try {
+        await http.delete(`/operations/movements/${movementId}/`);
+        uiStore.pushToast({ type: 'success', title: 'Success', message: 'Movement entry deleted.' });
+        await this.fetchMovementsByDate(date);
+      } catch (err) {
+        this.error = 'Failed to delete movement.';
+        uiStore.pushToast({ type: 'error', title: 'Error', message: this.error });
+        console.error(err);
+      } finally {
+        this.loading = false;
+      }
     },
 
     async sendMovementReport(date) {

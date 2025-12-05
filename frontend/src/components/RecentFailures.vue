@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Bell, Pencil, Trash2, ChevronLeft, ChevronRight, History, FileSpreadsheet, FileText } from 'lucide-vue-next'
 // import NotificationModal from '@/components/NotificationModal.vue' // Removed
 import { useTelegramStore } from '@/stores/telegram'
@@ -11,6 +11,15 @@ const failureStore = useFailureStore()
 
 onMounted(() => {
   telegramStore.fetchTelegramGroups()
+  
+  // Auto-refresh every 10 seconds
+  const intervalId = setInterval(() => {
+    failureStore.fetchFailures()
+  }, 10000)
+
+  onUnmounted(() => {
+    clearInterval(intervalId)
+  })
 })
 
 const drawerOpen = ref(false)

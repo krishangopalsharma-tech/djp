@@ -236,26 +236,22 @@ class InventoryReportView(APIView):
         if not depot_ids:
              depot_ids = request.query_params.getlist('depot_ids') # Try without brackets
         
-        queryset = Depot.objects.prefetch_related('stations__equipments').all()
+        queryset = Depot.objects.prefetch_related('equipments').all()
         if depot_ids:
             queryset = queryset.filter(id__in=depot_ids)
         
         data = []
         for depot in queryset:
-            # Aggregate equipment count per depot? Or list all equipment?
-            # Request says "Report on the availability of measuring equipment."
-            # "Filterable by single or multiple depots."
-            # Let's list all equipment grouped by depot for now.
             equipments = []
-            for station in depot.stations.all():
-                for equip in station.equipments.all():
-                    equipments.append({
-                        'station': station.name,
-                        'name': equip.name,
-                        'make_modal': equip.make_modal,
-                        'quantity': equip.quantity,
-                        'status': 'Available' # Placeholder
-                    })
+            for equip in depot.equipments.all():
+                equipments.append({
+                    'name': equip.name,
+                    'make_modal': equip.model_type,
+                    'asset_id': equip.asset_id,
+                    'location': equip.location_in_depot,
+                    'quantity': equip.quantity,
+                    'status': 'Available'
+                })
             data.append({
                 'depot_name': depot.name,
                 'equipments': equipments
@@ -264,7 +260,13 @@ class InventoryReportView(APIView):
 
     def get_supervisor_assets(self, request):
         supervisor_id = request.query_params.get('supervisor_id')
-        queryset = Supervisor.objects.prefetch_related('assets', 'station_equipments').all()
+        # Prefetch everything: direct assets, direct station equipment, assigned stations (and their equipment), assigned subsections (and their assets)
+        queryset = Supervisor.objects.prefetch_related(
+            'assets', 
+            'station_equipments',
+            'stations__equipments',
+            'subsections__assets'
+        ).all()
         
         if supervisor_id:
             queryset = queryset.filter(id=supervisor_id)
@@ -272,10 +274,24 @@ class InventoryReportView(APIView):
         data = []
         for sup in queryset:
             assets = []
+            
+            # 1. Direct Assets
             for asset in sup.assets.all():
                 assets.append({'type': 'Asset', 'name': asset.name, 'location': str(asset.subsection)})
+            
+            # 2. Direct Station Equipment
             for equip in sup.station_equipments.all():
                 assets.append({'type': 'Station Equipment', 'name': equip.name, 'location': str(equip.station)})
+
+            # 3. Implicit Assets via Subsections
+            for sub in sup.subsections.all():
+                for asset in sub.assets.all():
+                    assets.append({'type': 'Asset', 'name': asset.name, 'location': sub.name})
+
+            # 4. Implicit Equipment via Stations
+            for station in sup.stations.all():
+                for equip in station.equipments.all():
+                    assets.append({'type': 'Station Equipment', 'name': equip.name, 'location': station.name})
             
             data.append({
                 'name': sup.name,

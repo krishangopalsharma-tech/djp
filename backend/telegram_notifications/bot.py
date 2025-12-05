@@ -1,6 +1,7 @@
 import telegram
 import asyncio
 from .models import TelegramSettings
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
 # --- Try to import ParseMode from different locations based on version ---
 try:
@@ -24,7 +25,7 @@ def get_bot_token():
         print("Telegram settings not found. Cannot send message.")
         return None
 
-def send_telegram_message(chat_id, text, parse_mode=ParseMode.HTML):
+def send_telegram_message(chat_id, text, parse_mode=ParseMode.HTML, reply_markup=None):
     """
     Sends a text message to a specific Telegram chat.
     Uses the ParseMode constant to ensure HTML is rendered.
@@ -36,12 +37,14 @@ def send_telegram_message(chat_id, text, parse_mode=ParseMode.HTML):
         raise Exception("Chat ID is not configured for this group.")
 
     try:
+        print(f"DEBUG: Sending Telegram message to {chat_id}. Reply Markup: {reply_markup is not None}")
         bot = telegram.Bot(token=token)
         # Use asyncio.run() to execute the async function from your sync code
         asyncio.run(bot.send_message(
             chat_id=chat_id,
             text=text,
-            parse_mode=parse_mode
+            parse_mode=parse_mode,
+            reply_markup=reply_markup
         ))
         return True
     except telegram.error.BadRequest as e:
@@ -78,3 +81,17 @@ def send_telegram_document(chat_id, document, caption):
     except Exception as e:
         print(f"General Error sending Telegram message: {e}")
         raise Exception(f"An unexpected error occurred: {str(e)}")
+def create_failure_keyboard(fail_id):
+    """
+    Creates an InlineKeyboardMarkup with Ack, Resolve, and Upload buttons.
+    """
+    keyboard = [
+        [
+            InlineKeyboardButton("Ack", callback_data=f"ack_{fail_id}"),
+            InlineKeyboardButton("Resolve", callback_data=f"resolve_{fail_id}"),
+        ],
+        [
+            InlineKeyboardButton("Upload File", callback_data=f"upload_{fail_id}"),
+        ]
+    ]
+    return InlineKeyboardMarkup(keyboard)

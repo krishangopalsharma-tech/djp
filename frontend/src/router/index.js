@@ -72,3 +72,8 @@ router.beforeEach((to, from, next) => {
   if (to.meta.requiresAuth && !authed) return next({ path: '/login', query: { next: to.fullPath } })
   next()
 })
+
+router.afterEach((to) => {
+  const title = to.meta.title ? `RFMS ${to.meta.title}` : 'RFMS'
+  document.title = title
+})

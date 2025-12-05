@@ -22,7 +22,7 @@ class SupervisorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Supervisor
         fields = [
-            'id', 'name', 'designation', 'mobile', 'email', 
+            'id', 'name', 'designation', 'mobile', 'email', 'telegram_chat_id',
             'depot', 'depot_display', 'depot_code',
             'user', 
             'stations', 'sections', 'subsections', 'assets', 'station_equipments',
