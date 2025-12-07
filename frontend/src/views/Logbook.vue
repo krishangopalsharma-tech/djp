@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import DataTable from '@/components/DataTable.vue'
 import FailureDetailsDrawer from '@/components/FailureDetailsDrawer.vue'
@@ -83,6 +83,15 @@ const currentPage = ref(1)
 const rowsPerPage = ref(20)
 
 // --- Data Fetching ---
+// --- Data Fetching ---
+const autoRefresh = ref(true)
+let refreshInterval = null
+
+function fetchList() {
+  // Use silent fetch to avoid table flicker
+  failureStore.fetchFailuresBackground()
+}
+
 onMounted(() => {
   failureStore.fetchFailures()
   // Fetch data for filter dropdowns if not already loaded
@@ -91,6 +100,15 @@ onMounted(() => {
   if (stationsStore.stations.length === 0) stationsStore.fetchStations()
   if (supervisorsStore.supervisors.length === 0) supervisorsStore.fetchSupervisors()
   if (shiftStore.shifts.length === 0) shiftStore.fetchShifts()
+
+  // Start auto-refresh
+  refreshInterval = setInterval(() => {
+    if (autoRefresh.value) fetchList()
+  }, 10000)
+})
+
+onUnmounted(() => {
+  if (refreshInterval) clearInterval(refreshInterval)
 })
 
 // --- Computed Data for UI ---
@@ -615,12 +633,18 @@ async function confirmExport() {
 
 <template>
   <div class="space-y-4">
-    <div class="flex justify-between items-center">
+    <div class="flex justify-between items-center px-1">
       <router-link to="/logbook/new" class="btn btn-primary">New Log Entry</router-link>
-      <button @click="resetFilters" class="btn btn-outline gap-2" title="Reset Filters">
-          <RotateCcw class="w-4 h-4" />
-          <span>Reset</span>
-      </button>
+      <div class="flex items-center gap-3">
+          <label class="flex items-center gap-2 cursor-pointer select-none text-sm font-medium">
+            <input type="checkbox" v-model="autoRefresh" class="checkbox checkbox-primary w-4 h-4" />
+            <span>Auto-refresh</span>
+          </label>
+          <button @click="resetFilters" class="btn btn-outline gap-2" title="Reset Filters">
+              <RotateCcw class="w-4 h-4" />
+              <span>Reset</span>
+          </button>
+      </div>
     </div>
 
     <!-- Filter Bar -->

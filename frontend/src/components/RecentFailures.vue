@@ -11,15 +11,6 @@ const failureStore = useFailureStore()
 
 onMounted(() => {
   telegramStore.fetchTelegramGroups()
-  
-  // Auto-refresh every 10 seconds
-  const intervalId = setInterval(() => {
-    failureStore.fetchFailures()
-  }, 10000)
-
-  onUnmounted(() => {
-    clearInterval(intervalId)
-  })
 })
 
 const drawerOpen = ref(false)

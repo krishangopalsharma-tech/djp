@@ -3,6 +3,7 @@ from rest_framework import viewsets, permissions, response, status
 from rest_framework.decorators import action
 from .models import TelegramSettings, TelegramGroup
 from .serializers import TelegramSettingsSerializer, TelegramGroupSerializer
+from .serializers import TelegramSettingsSerializer, TelegramGroupSerializer
 from .bot import send_telegram_message # <-- ADD THIS IMPORT
 
 class TelegramSettingsViewSet(viewsets.ModelViewSet):
@@ -16,7 +17,6 @@ class TelegramSettingsViewSet(viewsets.ModelViewSet):
             TelegramSettings.objects.create(pk=1) # Ensure singleton exists
         return TelegramSettings.objects.all()
 
-    # Add list/retrieve to always return the singleton
     def list(self, request, *args, **kwargs):
         instance = self.get_queryset().first()
         serializer = self.get_serializer(instance)

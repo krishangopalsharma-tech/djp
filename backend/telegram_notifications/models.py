@@ -5,6 +5,7 @@ from core.models import TimestampedModel
 class TelegramSettings(TimestampedModel):
     # This is a singleton model
     bot_token = models.CharField(max_length=255, blank=True, help_text="The HTTP API token for your Telegram Bot.")
+    bot_last_heartbeat = models.DateTimeField(null=True, blank=True, help_text="Last time the bot process reported it was alive.")
     
     class Meta:
         verbose_name_plural = "Telegram Settings"

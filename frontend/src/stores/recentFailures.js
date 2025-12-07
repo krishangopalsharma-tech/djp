@@ -25,5 +25,14 @@ export const useRecentFailuresStore = defineStore('recentFailures', {
         this.loading = false;
       }
     },
+
+    async fetchRecentFailuresBackground() {
+      try {
+        const response = await http.get('/recent-failures/');
+        this.items = response.data.results || response.data;
+      } catch (err) {
+        console.error('Background fetch error:', err);
+      }
+    },
   },
 });

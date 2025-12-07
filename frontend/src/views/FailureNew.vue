@@ -1,5 +1,5 @@
 <script setup>
-import { reactive, ref, computed, watch, onMounted } from 'vue'
+import { reactive, ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import InputText from '@/components/form/InputText.vue'
 import DateTime from '@/components/form/DateTime.vue'
 import SearchSelect from '@/components/form/SearchSelect.vue'
@@ -48,6 +48,15 @@ onMounted(async () => {
   if (route.query.edit) {
     handleEditRequest(route.query.edit)
   }
+
+  // Auto-refresh recent failures every 10 seconds
+  const interval = setInterval(() => {
+    recentFailuresStore.fetchRecentFailuresBackground()
+  }, 10000)
+
+  onUnmounted(() => {
+    clearInterval(interval)
+  })
 })
 
 function openNotifyModal(row) {

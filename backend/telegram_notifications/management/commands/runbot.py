@@ -31,11 +31,61 @@ class Command(BaseCommand):
         application.add_handler(MessageHandler(filters.TEXT & filters.REPLY, self.text_handler))
 
         # Run the bot
+        # We need to run a background task for heartbeat alongside polling.
+        # Since run_polling blocks, we can't easily run a loop in handle().
+        # Instead, we'll add a job to the JobQueue if available, or just run a simple async loop via create_task if we can access the loop.
+        # But Application.run_polling manages the loop.
+        
+        # Better approach: Add a JobQueue job if we had extensions installed, but standard python-telegram-bot has JobQueue.
+        # Let's check imports. We can use application.job_queue.run_repeating if JobQueue is enabled.
+        # Default ApplicationBuilder builds a JobQueue unless disabled.
+        
+        if application.job_queue:
+            self.stdout.write(self.style.WARNING('JobQueue ignored. Using manual asyncio loop.'))
+        
+        # Start manual heartbeat loop
+        import asyncio
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        # Post-init hook to start background task
+        async def post_init(app):
+            asyncio.create_task(self.heartbeat_loop())
+            self.stdout.write(self.style.SUCCESS('Manual heartbeat loop started.'))
+        
+        application.post_init = post_init
+
+        # Explicitly run loop
         application.run_polling(allowed_updates=Update.ALL_TYPES)
+
+    async def heartbeat_loop(self):
+        import asyncio
+        while True:
+            await self.send_heartbeat(None)
+            await asyncio.sleep(30)
+
+    async def send_heartbeat(self, context: ContextTypes.DEFAULT_TYPE):
+        self.stdout.write(f"Executing heartbeat at {timezone.now()}")
+        try:
+            # Update the singleton settings object
+            await sync_to_async(self._update_heartbeat)()
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f"Heartbeat error: {e}"))
+
+    def _update_heartbeat(self):
+        settings = TelegramSettings.objects.first()
+        if settings:
+            settings.bot_last_heartbeat = timezone.now()
+            settings.save(update_fields=['bot_last_heartbeat'])
+        else:
+             print("No TelegramSettings found to update heartbeat.")
 
     async def button_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
-        await query.answer()
+        try:
+            await query.answer()
+        except Exception:
+            pass # Ignore errors answering old queries
 
         data = query.data
         action, fail_id = data.split('_', 1)
@@ -149,8 +199,13 @@ class Command(BaseCommand):
             try:
                 alerts_group = await sync_to_async(TelegramGroup.objects.get)(key='alerts')
                 if alerts_group.chat_id:
-                    # Format message using shared utility
-                    message = format_failure_message(failure)
+                    # Fetch failure again with related objects to avoid async DB access error during formatting
+                    failure_full = await sync_to_async(
+                        lambda: Failure.objects.select_related('circuit', 'station', 'section', 'sub_section', 'assigned_to').get(fail_id=fail_id)
+                    )()
+                    
+                    # Format message using shared utility (now safe)
+                    message = format_failure_message(failure_full)
                     
                     # Send to alerts group
                     await context.bot.send_message(

@@ -41,6 +41,25 @@ export const useFailureStore = defineStore('failure', {
       }
     },
 
+    // Silent version for polling (no UI loading state)
+    async fetchRecentFailuresBackground() {
+      try {
+        const response = await http.get('/recent-failures/');
+        this.recentFailures = response.data.results || response.data;
+      } catch (err) {
+        console.error('Background fetch error:', err);
+      }
+    },
+
+    async fetchFailuresBackground() {
+      try {
+        const response = await http.get('/failures/logs/');
+        this.failures = response.data.results || response.data;
+      } catch (err) {
+        console.error('Background fetch error:', err);
+      }
+    },
+
     async fetchFailure(id) {
       this.loading = true;
       this.error = null;

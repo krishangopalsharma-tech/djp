@@ -3,6 +3,7 @@ import { useUIStore } from '@/stores/ui'
 import { useAuthStore } from '@/stores/auth'
 import { useRoute } from 'vue-router'
 import { computed } from 'vue'
+import BotStatus from '@/components/BotStatus.vue'
 const emit = defineEmits(['toggleSidebar'])
 
 const ui = useUIStore()
@@ -56,6 +57,7 @@ function doLogout() {
 
     <!-- Right side: show current user name -->
     <div class="flex items-center gap-2">
+      <BotStatus />
       <span v-if="displayName" class="text-sm opacity-90 truncate max-w-[200px]">{{ displayName }}</span>
     </div>
   </header>

@@ -24,8 +24,8 @@ const router = useRouter();
 // --- UI Controls & State ---
 const topNMode = ref(true);
 const topN = ref(10);
-const autoRefresh = ref(false);
-const intervalMs = ref(30000);
+const autoRefresh = ref(true); // Default to true
+const intervalMs = ref(10000); // Default 10s
 const verticalSplit = ref(40); // Default 40% height for top chart
 const horizontalSplit = ref(40); // Default 40% width for left chart
 const cumulativeMode = ref(true);
@@ -152,24 +152,40 @@ function handleEdit(id) {
     router.push(`/failures/edit/${id}`);
 }
 
-function refresh() {
-  isLoading.value = true;
+function refresh(silent = false) {
+  if (!silent) isLoading.value = true;
+  
+  const pFailures = silent 
+      ? failureStore.fetchRecentFailuresBackground() 
+      : failureStore.fetchRecentFailures();
+      
+  // dashboardStore actions might strictly set loading inside, but let's assume valid
+  // Ideally, dashboardStore should also have background fetch if needed, 
+  // but for now we focus on the failures list which is the user's concern.
+  
   Promise.all([
-    failureStore.fetchRecentFailures(), // Fetch recent failures
+    pFailures,
     sectionsStore.fetchSections(),
-    dashboardStore.fetchDashboardData(filters.value), // Fetch aggregated data
+    dashboardStore.fetchDashboardData(filters.value),
   ]).finally(() => {
-    setTimeout(() => {
-      lastUpdated.value = Date.now();
-      isLoading.value = false;
-    }, 600);
+    // Only clear loading if we set it
+    if (!silent) {
+       setTimeout(() => {
+        lastUpdated.value = Date.now();
+        isLoading.value = false;
+      }, 600);
+    } else {
+       lastUpdated.value = Date.now();
+    }
   });
 }
 
 function startTimer() {
   stopTimer();
   if (autoRefresh.value) {
-    refreshTimer = setInterval(refresh, Number(intervalMs.value) || 30000);
+  if (autoRefresh.value) {
+    refreshTimer = setInterval(() => refresh(true), Number(intervalMs.value) || 30000);
+  }
   }
 }
 

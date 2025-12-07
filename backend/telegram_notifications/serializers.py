@@ -5,7 +5,7 @@ from .models import TelegramSettings, TelegramGroup
 class TelegramSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = TelegramSettings
-        fields = ['id', 'bot_token']
+        fields = ['id', 'bot_token', 'bot_last_heartbeat']
 
 class TelegramGroupSerializer(serializers.ModelSerializer):
     class Meta:
