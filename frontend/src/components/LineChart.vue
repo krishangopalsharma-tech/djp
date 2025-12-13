@@ -1,10 +1,11 @@
 <script setup>
 import { computed } from 'vue'
 import { Line } from 'vue-chartjs'
-import { Chart, LineElement, PointElement, CategoryScale, LinearScale, Title, Tooltip, Legend, Filler } from 'chart.js'
+import { Chart, LineController, LineElement, PointElement, CategoryScale, LinearScale, Title, Legend, Filler } from 'chart.js'
 import { STATUS_ORDER, bgColor, borderColor } from '@/lib/statusColors'
 
-Chart.register(LineElement, PointElement, CategoryScale, LinearScale, Title, Tooltip, Legend, Filler)
+// Removed Tooltip to prevent global side-effects crashing BarChart
+Chart.register(LineController, LineElement, PointElement, CategoryScale, LinearScale, Title, Legend, Filler)
 
 const props = defineProps({
   data: { type: Object, required: true },

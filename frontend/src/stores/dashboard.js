@@ -16,13 +16,15 @@ export const useDashboardStore = defineStore('dashboard', {
         const params = {
           range: filters.range,
           'sections[]': filters.sections,
+          'status[]': filters.status,
         }
         const response = await http.get('/dashboard/data/', { params })
+        console.log('Dashboard Store Response:', response.data)
         this.kpis = response.data.kpis
         this.charts = response.data.charts
       } catch (err) {
         this.error = 'Failed to fetch dashboard data.'
-        console.error(err)
+        console.error('Dashboard Store Error:', err)
       } finally {
         this.loading = false
       }

@@ -11,13 +11,13 @@ class Failure(TimestampedModel):
     fail_id = models.CharField(max_length=50, unique=True, blank=True, help_text="Unique Failure ID, auto-generated.")
     entry_type = models.CharField(max_length=10, choices=[('item', 'Item'), ('message', 'Message'), ('warning', 'Warning'), ('major', 'Major'), ('critical', 'Critical')], default='item')
     severity = models.CharField(max_length=10, choices=[('Minor', 'Minor'), ('Major', 'Major'), ('Critical', 'Critical')], default='Minor')
-    current_status = models.CharField(max_length=20, choices=[('Draft', 'Draft'), ('Active', 'Active'), ('In Progress', 'In Progress'), ('Resolved', 'Resolved'), ('On Hold', 'On Hold'), ('Information', 'Information')], default='Active')
-    reported_at = models.DateTimeField()
+    current_status = models.CharField(max_length=20, choices=[('Draft', 'Draft'), ('Active', 'Active'), ('In Progress', 'In Progress'), ('Resolved', 'Resolved'), ('On Hold', 'On Hold'), ('Information', 'Information')], default='Active', db_index=True)
+    reported_at = models.DateTimeField(db_index=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
     remark_fail = models.TextField(blank=True, help_text="Initial notes about the failure.")
     remark_right = models.TextField(blank=True, help_text="Notes on how the failure was resolved.")
     was_notified = models.BooleanField(default=False)
-    is_archived = models.BooleanField(default=False)
+    is_archived = models.BooleanField(default=False, db_index=True)
     archived_at = models.DateTimeField(null=True, blank=True)
     archived_reason = models.TextField(blank=True)
     # Foreign Keys
@@ -29,7 +29,23 @@ class Failure(TimestampedModel):
     assigned_to = models.ForeignKey('supervisors.Supervisor', on_delete=models.SET_NULL, null=True, blank=True)
     # --- END OF FIX ---
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['is_archived', 'reported_at']),
+            models.Index(fields=['section', 'current_status']),
+        ]
+
     def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        
+        # --- START OF FIX: Inherit Severity from Circuit ---
+        if is_new and self.circuit:
+            # If the circuit defines a severity, we default the failure to that severity.
+            # This ensures Critical circuits generate Critical failures automatically.
+            if self.circuit.severity:
+                self.severity = self.circuit.severity
+        # --- END OF FIX ---
+
         if not self.fail_id: # Only generate an ID if it's a new record
             with transaction.atomic():
                 # Lock the settings row to prevent race conditions

@@ -88,15 +88,9 @@ function cmp(a, b) {
 }
 
 /* -------- Data source (props fallback safe) -------- */
-const fallbackRows = [
-  { fail_id: 'RF001', circuit: 'CKT-001', station: 'Bandra',  section: 'Western Line',  current_status: 'Active',      reported_at: Date.now() - 3600_000 },
-  { fail_id: 'RF002', circuit: 'CKT-002', station: 'Andheri', section: 'Western Line',  current_status: 'In Progress', reported_at: Date.now() - 7200_000 },
-  { fail_id: 'RF003', circuit: 'CKT-003', station: 'Dadar',   section: 'Central Line',  current_status: 'Resolved',    reported_at: Date.now() - 8600_000, resolved_at: Date.now() - 1800_000 },
-  { fail_id: 'RF004', circuit: 'CKT-004', station: 'Virar',   section: 'Western Line',  current_status: 'On Hold',     reported_at: Date.now() - 9300_000 },
-]
 // Filter out UI-only 'message' entries from the dashboard list
 const sourceRows = computed(() => {
-  return (props.items?.length ? props.items : fallbackRows)
+  return props.items || []
 })
 
 /* -------- Time helpers (robust: numbers or ISO strings) -------- */
@@ -120,7 +114,7 @@ function timeAgo(ts) {
 }
 function fmt(ts) {
   const ms = toMs(ts)
-  return ms == null ? '—' : new Date(ms).toLocaleString()
+  return ms == null ? '—' : new Date(ms).toLocaleString('en-GB', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
 /* -------- Filter + Sort -------- */
@@ -276,7 +270,7 @@ async function downloadExcel() {
       station: r.station?.code || r.station || '',
       section: r.section?.name || r.section || '',
       status: r.current_status || r.status || '',
-      reported: new Date(r.reported_at || r.reportedAt).toLocaleString()
+      reported: new Date(r.reported_at || r.reportedAt).toLocaleString('en-GB', { hour12: false })
     })
 
     // Apply color to the status cell (or whole row if preferred, user asked for "colour in csv" implying the row/cell concept)
@@ -325,7 +319,7 @@ function downloadPDF() {
   doc.setFontSize(16)
   doc.text('Recent Failure Logs', 14, 15)
   doc.setFontSize(10)
-  doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 22)
+  doc.text(`Generated on: ${new Date().toLocaleString('en-GB', { hour12: false })}`, 14, 22)
 
   const headers = [['ID', 'Circuit', 'Station', 'Section', 'Status', 'Reported At']]
   const rows = data.map(r => [
@@ -334,7 +328,7 @@ function downloadPDF() {
     r.station?.code || r.station || '',
     r.section?.name || r.section || '',
     r.current_status || r.status || '',
-    new Date(r.reported_at || r.reportedAt).toLocaleString()
+    new Date(r.reported_at || r.reportedAt).toLocaleString('en-GB', { hour12: false })
   ])
 
   // Color mapping based on status (RGB values)
@@ -449,16 +443,16 @@ function downloadPDF() {
           <tbody>
             <!-- Rows -->
              <!-- SKELETON ROWS (show while loading) -->
-          <tr v-if="!loading && filteredSorted.length === 0">
-            <td class="px-4 py-3"><div class="h-4 rounded bg-[var(--border)]/40 animate-pulse mx-auto w-20" /></td>
-            <td class="px-4 py-3"><div class="h-4 rounded bg-[var(--border)]/40 animate-pulse mx-auto w-24" /></td>
-            <td class="px-4 py-3"><div class="h-4 rounded bg-[var(--border)]/40 animate-pulse mx-auto w-24" /></td>
-            <td class="px-4 py-3"><div class="h-4 rounded bg-[var(--border)]/40 animate-pulse mx-auto w-28" /></td>
-            <td class="px-4 py-3"><div class="h-4 rounded bg-[var(--border)]/40 animate-pulse mx-auto w-20" /></td>
+          <tr v-if="loading" v-for="n in 5" :key="'skel'+n">
+            <td class="px-4 py-3"><div class="h-4 rounded bg-gray-200 animate-pulse mx-auto w-20" /></td>
+            <td class="px-4 py-3"><div class="h-4 rounded bg-gray-200 animate-pulse mx-auto w-24" /></td>
+            <td class="px-4 py-3"><div class="h-4 rounded bg-gray-200 animate-pulse mx-auto w-24" /></td>
+            <td class="px-4 py-3"><div class="h-4 rounded bg-gray-200 animate-pulse mx-auto w-28" /></td>
+            <td class="px-4 py-3"><div class="h-4 rounded bg-gray-200 animate-pulse mx-auto w-20" /></td>
+            <td class="px-4 py-3"><div class="h-4 rounded bg-gray-200 animate-pulse mx-auto w-24" /></td>
             <td v-if="showRowActions" class="px-4 py-3"> 
-              <div class="h-4 rounded bg-[var(--border)]/40 animate-pulse mx-auto w-24" />
+              <div class="h-4 rounded bg-gray-200 animate-pulse mx-auto w-10" />
             </td>
-            <td :colspan="showRowActions ? 6 : 5" class="px-4 py-6 text-center text-muted"></td>
           </tr>
 
             <tr

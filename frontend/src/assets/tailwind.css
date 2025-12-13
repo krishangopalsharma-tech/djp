@@ -94,6 +94,7 @@
 
   /* Hover/selected state helpers */
   .hover-primary:not(.selected-primary):hover { background-color: var(--slate-gray-lighter); color: var(--seasalt); }
+  .hover-row:hover { background-color: var(--antiflash-white); color: var(--body-text); }
   .selected-primary { background-color: var(--slate-gray); color: var(--seasalt); border-color: var(--slate-gray); }
   /* Treat aria-pressed=true as active for neutral chips only.
      Do NOT override status-variant chips (they supply their own colors). */

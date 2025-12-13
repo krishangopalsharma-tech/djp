@@ -6,6 +6,7 @@ const props = defineProps({
   rows: { type: Array, required: true },
   sortKey: { type: String, default: '' },
   sortDir: { type: String, default: 'asc' },
+  loading: { type: Boolean, default: false },
 })
 const emit = defineEmits(['rowclick', 'sort'])
 
@@ -37,19 +38,28 @@ function handleSort(key, sortable = true) {
         </tr>
       </thead>
       <tbody>
-        <tr v-for="(r, i) in rows" :key="i" class="border-t hover-primary cursor-pointer"
-            @click="emit('rowclick', r)">
-          <td v-for="c in columns" :key="c.key" :class="['px-4 py-3', c.align || 'text-left']">
-            <slot :name="c.key" :row="r">
-              {{ r[c.key] }}
-            </slot>
-          </td>
-        </tr>
-        <tr v-if="rows.length === 0" class="border-t">
-          <td :colspan="columns.length" class="px-4 py-6 text-center text-muted">
-            No data
-          </td>
-        </tr>
+        <template v-if="loading">
+            <tr v-for="n in 10" :key="'skel-'+n" class="border-t animate-pulse">
+                <td v-for="c in columns" :key="c.key" class="px-4 py-3">
+                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+                </td>
+            </tr>
+        </template>
+        <template v-else>
+            <tr v-for="(r, i) in rows" :key="i" class="border-t hover-row cursor-pointer"
+                @click="emit('rowclick', r)">
+            <td v-for="c in columns" :key="c.key" :class="['px-4 py-3', c.align || 'text-left']">
+                <slot :name="c.key" :row="r">
+                {{ r[c.key] }}
+                </slot>
+            </td>
+            </tr>
+            <tr v-if="rows.length === 0" class="border-t">
+            <td :colspan="columns.length" class="px-4 py-6 text-center text-muted">
+                No data
+            </td>
+            </tr>
+        </template>
       </tbody>
     </table>
   </div>

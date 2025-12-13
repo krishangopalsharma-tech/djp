@@ -1,10 +1,9 @@
-// frontend/src/lib/chartTheme.js
-import { Chart, Filler } from 'chart.js'
+import { Chart, Filler, Tooltip } from 'chart.js'
 import { currentThemeColors, withAlpha } from './theme'
 
 export function applyChartTheme() {
   // Register missing plugins
-  Chart.register(Filler)
+  Chart.register(Filler, Tooltip)
 
   const c = currentThemeColors()
 
@@ -16,13 +15,13 @@ export function applyChartTheme() {
   const tickColor = c.muted
   const borderColor = withAlpha(c.border, 0.8)
 
-  // Apply to common scales
-  ;['category','linear','logarithmic','time'].forEach(scale => {
-    if (!Chart.defaults.scales[scale]) Chart.defaults.scales[scale] = {}
-    Chart.defaults.scales[scale].grid = { color: gridColor }
-    Chart.defaults.scales[scale].ticks = { color: tickColor }
-    Chart.defaults.scales[scale].border = { color: borderColor }
-  })
+    // Apply to common scales
+    ;['category', 'linear', 'logarithmic', 'time'].forEach(scale => {
+      if (!Chart.defaults.scales[scale]) Chart.defaults.scales[scale] = {}
+      Chart.defaults.scales[scale].grid = { color: gridColor }
+      Chart.defaults.scales[scale].ticks = { color: tickColor }
+      Chart.defaults.scales[scale].border = { color: borderColor }
+    })
 
   // Legends and title
   Chart.defaults.plugins.legend = Chart.defaults.plugins.legend || {}
@@ -31,13 +30,17 @@ export function applyChartTheme() {
   Chart.defaults.plugins.title.color = c.text
 
   // Tooltip to match card colors
-  Chart.defaults.plugins.tooltip = {
+  // Use Object.assign to preserve other defaults like 'position'
+  Chart.defaults.plugins.tooltip = Object.assign(Chart.defaults.plugins.tooltip || {}, {
     backgroundColor: withAlpha(c.card, 0.98),
     titleColor: c.text,
     bodyColor: c.text,
     borderColor: c.border,
     borderWidth: 1,
-  }
+    padding: 10,
+    cornerRadius: 8,
+    displayColors: true,
+  })
 
   // Lines default to theme primary
   Chart.defaults.elements = Chart.defaults.elements || {}

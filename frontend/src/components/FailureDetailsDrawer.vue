@@ -21,7 +21,7 @@ const duration = computed(() => {
   if (d > 0) return `${d}d ${h}h ${m}m`
   return `${h}h ${m}m`
 })
-function fmt(ts) { return ts ? new Date(ts).toLocaleString() : '—' }
+function fmt(ts) { return ts ? new Date(ts).toLocaleString('en-GB', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }) : '—' }
 
 function badgeClasses(s) {
   if (s === 'Active')       return 'badge-danger'
@@ -82,7 +82,14 @@ function badgeClasses(s) {
           </div>
           <div>
             <div class="text-muted">Circuit</div>
-            <div class="font-medium">{{ item?.circuit?.circuit_id || item?.circuit?.name || item?.circuit || '—' }}</div>
+            <div>
+              <div class="font-medium">{{ item?.circuit?.circuit_id || item?.circuit || '—' }}</div>
+              <div class="font-medium text-xs" style="color: #E1AA36;">{{ item?.circuit?.name || '' }}</div>
+            </div>
+          </div>
+          <div>
+            <div class="text-muted">Assigned To</div>
+            <div class="font-medium">{{ item?.assigned_to?.name || item?.assigned_to?.username || '—' }}</div>
           </div>
           <div>
             <div class="text-muted">Reported</div>

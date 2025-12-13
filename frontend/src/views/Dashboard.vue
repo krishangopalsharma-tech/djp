@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import { useFailureStore } from '@/stores/failures';
 import { useSectionsStore } from '@/stores/sections';
 import { useDashboardStore } from '@/stores/dashboard'; // Import dashboard store
+import { http } from '@/lib/http'; // NEW: For direct fetching
 import SplitPane from '@/components/SplitPane.vue'; // Re-imported
 import KpiCard from '@/components/KpiCard.vue';
 import BarChart from '@/components/BarChart.vue';
@@ -28,7 +29,7 @@ const autoRefresh = ref(true); // Default to true
 const intervalMs = ref(10000); // Default 10s
 const verticalSplit = ref(40); // Default 40% height for top chart
 const horizontalSplit = ref(40); // Default 40% width for left chart
-const cumulativeMode = ref(true);
+
 const lastUpdated = ref(Date.now());
 const isLoading = ref(false);
 let refreshTimer = null;
@@ -40,6 +41,12 @@ const filters = ref({
   sections: [],
 });
 // const split = ref(Number(localStorage.getItem('dashSplit') || 66)); // Removed
+
+// --- Modal State ---
+const showListModal = ref(false);
+const listModalTitle = ref('');
+const listModalItems = ref([]);
+const listModalLoading = ref(false);
 
 // --- Data Fetching ---
 onMounted(() => {
@@ -69,12 +76,33 @@ const allSectionsMaster = computed(() =>
   (sectionsStore.sections || []).map(s => s.name).sort()
 );
 
+const prevPeriodLabel = computed(() => 
+  filters.value.range === 'today' ? 'Yesterday' :
+  filters.value.range === '7d' ? 'Prev 7 Days' : 'Prev 30 Days'
+);
+
 // Use data from dashboardStore
 const kpis = computed(() => ([
-  { label: 'Active Failures', value: dashboardStore.kpis?.active_failures ?? '—', sublabel: 'in range' },
-  { label: 'Resolved', value: dashboardStore.kpis?.resolved_in_range ?? '—', sublabel: 'in range' },
-  { label: 'Avg Resolution Time', value: dashboardStore.kpis?.avg_resolution_time ?? '—', sublabel: 'for range' },
-  { label: 'Critical Alerts', value: dashboardStore.kpis?.critical_alerts ?? '—', sublabel: 'filtered' },
+  { 
+    label: 'Active Failures', 
+    value: dashboardStore.kpis?.active_failures ?? '—', 
+    sublabel: `${dashboardStore.kpis?.active_prev ?? '-'} ${prevPeriodLabel.value}` 
+  },
+  { 
+    label: 'Resolved', 
+    value: dashboardStore.kpis?.resolved_in_range ?? '—', 
+    sublabel: `${dashboardStore.kpis?.resolved_prev ?? '-'} ${prevPeriodLabel.value}` 
+  },
+  { 
+    label: 'Avg Resolution Time', 
+    value: dashboardStore.kpis?.avg_resolution_time ?? '—', 
+    sublabel: `${dashboardStore.kpis?.avg_resolution_time_prev ?? '-'} ${prevPeriodLabel.value}` 
+  },
+  { 
+    label: 'Critical Alerts', 
+    value: dashboardStore.kpis?.critical_alerts ?? '—', 
+    sublabel: `${dashboardStore.kpis?.critical_prev_reported ?? '-'} ${prevPeriodLabel.value}` 
+  },
 ]));
 
 const recent = computed(() => failureStore.recentFailures);
@@ -85,14 +113,19 @@ const statusBySection = computed(() => {
   // Limit to top N if enabled
   const data = topNMode.value ? rawData.slice(0, topN.value) : rawData;
   
-  const labels = data.map(d => d.section__name);
+  const labels = data.map(d => d.name || d.section__name || 'Unknown');
   const active = data.map(d => d.active);
+  const inProgress = data.map(d => d.in_progress);
+  const onHold = data.map(d => d.on_hold);
   const resolved = data.map(d => d.resolved);
 
+  console.log('Chart Data Debug:', { labels, active, resolved, inProgress, onHold, rawLen: rawData.length });
   return {
     labels,
     datasets: [
       { label: 'Active', data: active, borderRadius: 6 },
+      { label: 'In Progress', data: inProgress, borderRadius: 6 },
+      { label: 'On Hold', data: onHold, borderRadius: 6 },
       { label: 'Resolved', data: resolved, borderRadius: 6 },
     ],
   };
@@ -103,24 +136,13 @@ const resolvedOverTime = computed(() => {
   const labels = rawData.map(d => new Date(d.date).toLocaleDateString([], { month: 'short', day: '2-digit' }));
   const counts = rawData.map(d => d.count);
 
-  // Calculate cumulative if needed
-  let series = counts;
-  if (cumulativeMode.value) {
-    series = [];
-    let sum = 0;
-    for (const c of counts) {
-      sum += c;
-      series.push(sum);
-    }
-  }
-
   const primary = borderColor('Resolved');
 
   return {
     labels,
     datasets: [{
-      label: cumulativeMode.value ? 'Resolved (cumulative)' : 'Resolved (daily)',
-      data: series,
+      label: 'Resolved (daily)',
+      data: counts,
       tension: 0.3,
       fill: true,
       borderColor: primary,
@@ -213,6 +235,77 @@ watch(filters, () => {
     dashboardStore.fetchDashboardData(filters.value);
 }, { deep: true });
 
+function closeListModal() {
+  showListModal.value = false;
+  listModalItems.value = [];
+}
+
+async function handleKpiClick(kpi) {
+    if (!['Active Failures', 'Resolved'].includes(kpi.label)) return;
+
+    showListModal.value = true;
+    listModalLoading.value = true;
+    listModalTitle.value = kpi.label === 'Active Failures' ? 'Active Failures (Current)' : 'Resolved Failures (In Range)';
+    listModalItems.value = [];
+
+    try {
+        const params = { is_archived: false };
+        
+        // Add Section filters if active
+        if (filters.value.sections && filters.value.sections.length > 0) {
+           // We'll rely on client-side filtering below for sections since we only have names
+        }
+
+        let targetStatuses = [];
+
+        if (kpi.label === 'Active Failures') {
+             targetStatuses = ['Active', 'In Progress', 'On Hold'];
+             // "Active Failures" on dashboard usually implies "Current Active Load" OR "Active Reported Recently".
+             // Based on backend change (Context A), it is "Active Reported Recently".
+             // So we should filter by reported_at as well to match the count.
+             const range = filters.value.range;
+             const now = new Date();
+             let start = new Date();
+             if (range === 'today') start.setHours(0,0,0,0);
+             else if (range === '7d') start.setDate(now.getDate() - 7);
+             else start.setDate(now.getDate() - 30);
+             params['reported_at__gte'] = start.toISOString();
+
+        } else {
+             targetStatuses = ['Resolved'];
+             // Add Time Range (RESOLVED AT)
+             const range = filters.value.range;
+             const now = new Date();
+             let start = new Date();
+             if (range === 'today') start.setHours(0,0,0,0);
+             else if (range === '7d') start.setDate(now.getDate() - 7);
+             else start.setDate(now.getDate() - 30); // Default 30d
+             
+             params['resolved_at__gte'] = start.toISOString();
+        }
+
+        const response = await http.get('/failures/logs/', { params });
+        let items = response.data.results || response.data;
+
+        // Client-side Filter for Status
+        if (targetStatuses.length > 0) {
+            items = items.filter(i => targetStatuses.includes(i.current_status));
+        }
+        
+        // Client-side Filter for Sections (ByName)
+        if (filters.value.sections && filters.value.sections.length > 0) {
+            items = items.filter(i => i.section && filters.value.sections.includes(i.section.name));
+        }
+
+        listModalItems.value = items;
+
+    } catch (err) {
+        console.error(err);
+    } finally {
+        listModalLoading.value = false;
+    }
+}
+
 </script>
 
 <template>
@@ -235,12 +328,12 @@ watch(filters, () => {
           <input type="checkbox" v-model="autoRefresh" class="h-4 w-4 rounded border-app align-middle" />
           <span class="align-middle">Auto-refresh</span>
         </label>
-        <button @click="refresh" :disabled="isLoading" class="h-10 inline-flex items-center gap-2 rounded-lg border-app bg-card text-app px-3 text-sm shadow-card hover:shadow-popover hover:bg-[var(--seasalt-lighter)] transition disabled:opacity-60 disabled:cursor-not-allowed" title="Refresh now">
+        <button @click="refresh(false)" :disabled="isLoading" class="h-10 inline-flex items-center gap-2 rounded-lg border-app bg-card text-app px-3 text-sm shadow-card hover:shadow-popover hover:bg-[var(--seasalt-lighter)] transition disabled:opacity-60 disabled:cursor-not-allowed" title="Refresh now">
           <svg viewBox="0 0 24 24" class="w-4 h-4 shrink-0 align-middle"><path fill="currentColor" d="M12 6V3l-4 4l4 4V8c2.76 0 5 2.24 5 5a5 5 0 0 1-8.66 3.54a1 1 0 1 0-1.41 1.41A7 7 0 0 0 19 13c0-3.87-3.13-7-7-7Z"/></svg>
           <span class="leading-none">Refresh</span>
         </button>
         <button @click="resetFilters" :disabled="isLoading" class="h-10 inline-flex items-center gap-2 rounded-lg border-app bg-card text-app px-3 text-sm shadow-card hover:shadow-popover hover:bg-[var(--seasalt-lighter)] transition disabled:opacity-60 disabled:cursor-not-allowed" title="Reset Filters">
-          <svg viewBox="0 0 24 24" class="w-4 h-4 shrink-0 align-middle"><path fill="currentColor" d="M12 5a7 7 0 1 1-6.71 9H3a1 1 0 0 1 0-2h4v4a1 1 0 1 1-2 0v-1.52A9 9 0 1 0 12 3a1 1 0 1 1 0 2Z"/></svg>
+          <svg viewBox="0 0 24 24" class="w-4 h-4 shrink-0 align-middle"><path fill="currentColor" d="M12 5a7 7 0 1 1-6.71 9H3a1 1 0 0 1 0-2h4v4a1 1 0 0 1-2 0v-1.52A9 9 0 1 0 12 3a1 1 0 1 1 0 2Z"/></svg>
           <span class="leading-none">Reset</span>
         </button>
       </div>
@@ -249,17 +342,58 @@ watch(filters, () => {
     <!-- Removed separate DashboardFilterBar for statuses -->
 
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard v-for="(kpi, index) in kpis" :key="index" :label="kpi.label" :value="kpi.value" :sublabel="kpi.sublabel" />
+        <KpiCard 
+          v-for="(kpi, index) in kpis" 
+          :key="index" 
+          :label="kpi.label" 
+          :value="kpi.value" 
+          :sublabel="kpi.sublabel" 
+          :clickable="['Active Failures', 'Resolved'].includes(kpi.label)"
+          :loading="isLoading"
+          @click="handleKpiClick(kpi)"
+        />
+    </div>
+
+    <!-- Drill-down Modal -->
+    <div v-if="showListModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" @click.self="closeListModal">
+      <div class="bg-card w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-xl flex flex-col border border-app overflow-hidden">
+        <div class="p-4 border-b border-app flex items-center justify-between shrink-0">
+          <h3 class="text-lg font-semibold">{{ listModalTitle }}</h3>
+          <button @click="closeListModal" class="p-2 hover:bg-muted/10 rounded-full transition">
+            <svg class="w-5 h-5" viewBox="0 0 24 24"><path fill="currentColor" d="M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12z"/></svg>
+          </button>
+        </div>
+        <div class="flex-1 overflow-hidden p-0 relative min-h-[300px]">
+           <RecentFailures 
+              :items="listModalItems" 
+              :loading="listModalLoading"
+              :show-header="false"
+              :show-toolbar="false" 
+              :show-bottom-actions="false"
+              :show-row-actions="false"
+              :force-show-status="true"
+              class="h-full"
+              @view="openDetails"
+              @edit="handleEdit"
+           />
+           <div v-if="!listModalLoading && listModalItems.length === 0" class="absolute inset-0 flex items-center justify-center text-muted">
+             No records found.
+           </div>
+        </div>
+      </div>
     </div>
  
     <!-- Resizable Layout Container -->
-    <div class="h-[800px] mt-4">
+    <div class="h-[860px] mt-4">
       <SplitPane v-model="verticalSplit" layout="vertical" :min="20" :max="80">
         <template #one>
           <!-- Middle Row: Status by Section (Full Width) -->
           <div class="rounded-2xl border-app bg-card text-app p-4 relative overflow-hidden shadow-card h-full flex flex-col">
             <div class="mb-2 text-sm font-semibold text-app flex items-center justify-between shrink-0">
-              <span>Status by Section</span>
+              <div class="flex flex-col">
+                <span>Status by Section</span>
+                <span class="text-[10px] font-normal text-muted">Updated: {{ timeAgo(lastUpdated) }}</span>
+              </div>
               <div class="flex items-center gap-2 text-xs font-normal">
                 <label class="inline-flex items-center gap-1">
                   <input type="checkbox" v-model="topNMode" class="h-3.5 w-3.5 rounded border-app" />
@@ -272,7 +406,6 @@ watch(filters, () => {
             </div>
             <div v-if="!hasBarData && !isLoading" class="flex-1 flex items-center justify-center text-sm text-muted">No data for current filters</div>
             <div v-else class="relative flex-1 w-full"><div class="absolute inset-0"><BarChart :data="statusBySection" /></div></div>
-            <div class="mt-2 text-xs text-muted shrink-0">Last updated: {{ timeAgo(lastUpdated) }}</div>
             <div v-if="isLoading" class="absolute inset-0 bg-card/70 flex items-center justify-center rounded-2xl">
               <svg class="animate-spin h-6 w-6 text-app" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"/></svg>
             </div>
@@ -286,10 +419,6 @@ watch(filters, () => {
               <div class="rounded-2xl border-app bg-card text-app p-4 relative overflow-hidden shadow-card flex flex-col h-full">
                 <div class="mb-2 text-sm font-semibold text-app flex items-center justify-between shrink-0">
                   <span>Resolved over Time ({{ rangeLabel }})</span>
-                  <label class="inline-flex items-center gap-1 text-xs font-normal">
-                    <input type="checkbox" v-model="cumulativeMode" class="h-3.5 w-3.5 rounded border-app" />
-                    Cumulative
-                  </label>
                 </div>
                 <div v-if="!hasLineData && !isLoading" class="flex-1 flex items-center justify-center text-sm text-muted">No data for current filters</div>
                 <div v-else class="relative flex-1 w-full"><div class="absolute inset-0"><LineChart :data="resolvedOverTime" /></div></div>

@@ -4,6 +4,7 @@ from rest_framework.decorators import action
 from django.utils import timezone
 from .models import Failure, FailureAttachment
 from .serializers import FailureSerializer, FailureAttachmentSerializer
+from .filters import FailureFilter # Added import
 
 # --- START OF FIX: Add imports for Telegram ---
 from telegram_notifications.bot import send_telegram_message, send_telegram_document, create_failure_keyboard
@@ -18,7 +19,7 @@ class FailureViewSet(viewsets.ModelViewSet):
     """
     serializer_class = FailureSerializer
     permission_classes = [permissions.AllowAny]  # Use AllowAny for dev
-    filterset_fields = ['current_status', 'severity', 'circuit', 'station', 'section', 'assigned_to']
+    filterset_class = FailureFilter # Use the class
     search_fields = ['fail_id', 'circuit__name', 'station__name', 'remark_fail']
 
     def get_queryset(self):
@@ -27,8 +28,12 @@ class FailureViewSet(viewsets.ModelViewSet):
         Detail actions (retrieve, update, archive, etc.) should access all failures.
         """
         if self.action == 'list':
-            return Failure.objects.filter(is_archived=False).order_by('-reported_at')
-        return Failure.objects.all().order_by('-reported_at')
+            return Failure.objects.filter(is_archived=False).select_related(
+                'circuit', 'station', 'section', 'sub_section', 'assigned_to'
+            ).order_by('-reported_at')
+        return Failure.objects.all().select_related(
+            'circuit', 'station', 'section', 'sub_section', 'assigned_to'
+        ).order_by('-reported_at')
 
     # This action is for the "ArchiveManagement.vue" component
     @action(detail=False, methods=['get'], url_path='archived')

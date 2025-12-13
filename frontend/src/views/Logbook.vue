@@ -312,11 +312,21 @@ function formatDuration(start, end) {
   return `${minutes}m`
 }
 
+function formatSplitDate(ts) {
+    if (!ts) return { date: '–', time: '' };
+    const d = new Date(ts);
+    // Date: 10 Dec 2025
+    const date = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    // Time: 24h format e.g. 18:45
+    const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+    return { date, time };
+}
+
 const columns = [
+  { key: 'fail_id',     label: 'Event ID', sortable: true },
   { key: 'reported_at', label: 'Reported', sortable: true },
   { key: 'resolved_at', label: 'Resolved', sortable: true },
   { key: 'duration',    label: 'Duration', sortable: false, align: 'text-center' },
-  { key: 'fail_id',     label: 'Event ID', sortable: true },
   { key: 'circuit',     label: 'Circuit', sortable: true },
   { key: 'station',     label: 'Station', sortable: true },
   { key: 'sub_section', label: 'Sub-Section', sortable: true },
@@ -661,60 +671,74 @@ async function confirmExport() {
       </div>
     </div>
 
-    <div v-if="loading" class="text-center p-6"><Spinner /></div>
-    <div v-else-if="error" class="card p-6 text-center text-red-500">{{ error }}</div>
+    <div v-if="error" class="card p-6 text-center text-red-500">{{ error }}</div>
 
-    <div v-else>
-      <div class="card p-4">
-        <DataTable
-          :columns="columns"
-          :rows="paginatedRows"
-          :sort-key="sortKey"
-          :sort-dir="sortDir"
-          @sort="toggleSort"
-          @rowclick="openDetails"
-        >
-          <template #body-cell-comp="{ row, column }">
-            <tr :class="{ 'opacity-60': row.is_archived }">
-              <component :is="column.cell" :row="row" />
-            </tr>
-          </template>
-          <template #reported_at="{ row }">{{ new Date(row.reported_at).toLocaleString() }}</template>
-          <template #resolved_at="{ row }">{{ row.resolved_at ? new Date(row.resolved_at).toLocaleString() : '–' }}</template>
-          <template #duration="{ row }">{{ formatDuration(row.reported_at, row.resolved_at) }}</template>
-          <template #circuit="{ row }">{{ row.circuit?.name || '–' }}</template>
-          <template #station="{ row }">{{ row.station?.code || '–' }}</template>
-          <template #sub_section="{ row }">{{ row.sub_section?.name || '–' }}</template>
-          <template #assigned_to="{ row }">{{ row.assigned_to?.name || '–' }}</template>
-          <template #current_status="{ row }"><span class="badge" :class="badgeClasses(row.current_status)">{{ row.current_status }}</span></template>
-          <template #actions="{ row }">
-            <div class="flex items-center justify-center gap-1.5">
-              <button class="btn-ghost border-app rounded-md hover-primary p-2" title="Notify" @click.stop="onNotify(row)"><Bell class="w-4 h-4" /></button>
-              <button class="btn-ghost border-app rounded-md hover-primary p-2" title="Edit" @click.stop="editFailure(row)"><Pencil class="w-4 h-4" /></button>
-              <button class="btn-ghost border-app rounded-md hover-primary p-2" title="Archive" @click.stop="openArchiveModal(row)"><Trash2 class="w-4 h-4" /></button>
+    <div class="card p-4">
+    <DataTable
+        :columns="columns"
+        :rows="paginatedRows"
+        :sort-key="sortKey"
+        :sort-dir="sortDir"
+        :loading="loading"
+        @sort="toggleSort"
+        @rowclick="openDetails"
+    >
+        <template #body-cell-comp="{ row, column }">
+        <tr :class="{ 'opacity-60': row.is_archived }">
+            <component :is="column.cell" :row="row" />
+        </tr>
+        </template>
+        <template #reported_at="{ row }">
+            <div class="text-xs">
+                <div class="font-medium whitespace-nowrap">{{ formatSplitDate(row.reported_at).date }}</div>
+                <div class="text-muted">{{ formatSplitDate(row.reported_at).time }}</div>
             </div>
-          </template>
-        </DataTable>
-      </div>
-        
-      <!-- Pagination Controls -->
-      <div class="mt-4 flex items-center justify-between">
-        <div class="flex items-center justify-center gap-2 p-2 rounded-lg">
-          <button @click="downloadReports" class="btn btn-outline btn-sm gap-2"><FileDown class="w-4 h-4" /><span>Export</span></button>
-          <button @click="sendReports" :disabled="sendingReports" class="btn btn-outline btn-sm gap-2">
-            <Spinner v-if="sendingReports" class="w-4 h-4" />
-            <Send v-else class="w-4 h-4" />
-            <span>Send Logs</span>
-          </button>
+        </template>
+        <template #resolved_at="{ row }">
+             <div class="text-xs" v-if="row.resolved_at">
+                <div class="font-medium whitespace-nowrap">{{ formatSplitDate(row.resolved_at).date }}</div>
+                <div class="text-muted">{{ formatSplitDate(row.resolved_at).time }}</div>
+            </div>
+            <span v-else>–</span>
+        </template>
+        <template #duration="{ row }">{{ formatDuration(row.reported_at, row.resolved_at) }}</template>
+        <template #circuit="{ row }">
+            <div class="text-xs">
+                <div class="font-medium whitespace-nowrap">{{ row.circuit?.circuit_id || '–' }}</div>
+                <div class="whitespace-nowrap font-medium" style="color: #E1AA36;">{{ row.circuit?.name || '' }}</div>
+            </div>
+        </template>
+        <template #station="{ row }">{{ row.station?.code || '–' }}</template>
+        <template #sub_section="{ row }">{{ row.sub_section?.name || '–' }}</template>
+        <template #assigned_to="{ row }">{{ row.assigned_to?.name || '–' }}</template>
+        <template #current_status="{ row }"><span class="badge" :class="badgeClasses(row.current_status)">{{ row.current_status }}</span></template>
+        <template #actions="{ row }">
+        <div class="flex items-center justify-center gap-1.5">
+            <button class="btn-ghost border-app rounded-md hover-primary p-2" title="Notify" @click.stop="onNotify(row)"><Bell class="w-4 h-4" /></button>
+            <button class="btn-ghost border-app rounded-md hover-primary p-2" title="Edit" @click.stop="editFailure(row)"><Pencil class="w-4 h-4" /></button>
+            <button class="btn-ghost border-app rounded-md hover-primary p-2" title="Archive" @click.stop="openArchiveModal(row)"><Trash2 class="w-4 h-4" /></button>
         </div>
-        <div class="flex items-center justify-end gap-2 p-2 rounded-lg">
-          <button @click="goToFirstPage" :disabled="currentPage === 1" class="btn-ghost p-2" title="First"><ChevronsLeft class="w-4 h-4" /></button>
-          <button @click="goToPreviousPage" :disabled="currentPage === 1" class="btn-ghost p-2" title="Previous"><ChevronLeft class="w-4 h-4" /></button>
-          <span class="text-sm text-muted">Page {{ currentPage }} of {{ totalPages }}</span>
-          <button @click="goToNextPage" :disabled="currentPage >= totalPages" class="btn-ghost p-2" title="Next"><ChevronRight class="w-4 h-4" /></button>
-          <button @click="goToLastPage" :disabled="currentPage >= totalPages" class="btn-ghost p-2" title="Last"><ChevronsRight class="w-4 h-4" /></button>
-        </div>
-      </div>
+        </template>
+    </DataTable>
+    </div>
+    
+    <!-- Pagination Controls -->
+    <div class="mt-4 flex items-center justify-between">
+    <div class="flex items-center justify-center gap-2 p-2 rounded-lg">
+        <button @click="downloadReports" class="btn btn-outline btn-sm gap-2"><FileDown class="w-4 h-4" /><span>Export</span></button>
+        <button @click="sendReports" :disabled="sendingReports" class="btn btn-outline btn-sm gap-2">
+        <Spinner v-if="sendingReports" class="w-4 h-4" />
+        <Send v-else class="w-4 h-4" />
+        <span>Send Logs</span>
+        </button>
+    </div>
+    <div class="flex items-center justify-end gap-2 p-2 rounded-lg">
+        <button @click="goToFirstPage" :disabled="currentPage === 1" class="btn-ghost p-2" title="First"><ChevronsLeft class="w-4 h-4" /></button>
+        <button @click="goToPreviousPage" :disabled="currentPage === 1" class="btn-ghost p-2" title="Previous"><ChevronLeft class="w-4 h-4" /></button>
+        <span class="text-sm text-muted">Page {{ currentPage }} of {{ totalPages }}</span>
+        <button @click="goToNextPage" :disabled="currentPage >= totalPages" class="btn-ghost p-2" title="Next"><ChevronRight class="w-4 h-4" /></button>
+        <button @click="goToLastPage" :disabled="currentPage >= totalPages" class="btn-ghost p-2" title="Last"><ChevronsRight class="w-4 h-4" /></button>
+    </div>
     </div>
 
     <FailureDetailsDrawer v-model="drawerOpen" :item="activeItem" />
