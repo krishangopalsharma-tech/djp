@@ -17,25 +17,26 @@ from reportlab.lib import colors
 from xml.sax.saxutils import escape
 from reportlab.lib.pagesizes import A4, landscape
 
-def generate_movement_report_pdf(target_date, movements):
+from django.http import FileResponse
+from .utils import get_daily_movements_logic
+
+def generate_movement_report_pdf(target_date, supervisors_with_movements):
     """
     Generates a PDF report for supervisor movements and returns it as a file-like object.
+    Accepts a list of Supervisor objects with attached .movement attribute.
     """
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=40, rightMargin=40, topMargin=40, bottomMargin=40)
     styles = getSampleStyleSheet()
     elements = []
 
-    
     title_style = styles['h1']
     title_style.alignment = TA_CENTER
 
-    
     title = f"Supervisor Movement Report for {target_date.strftime('%d-%b-%Y')}"
     elements.append(Paragraph(title, title_style))
     elements.append(Spacer(1, 20)) 
 
-    
     data = [['Sr. No.', 'Depot', 'Supervisor', 'Designation', 'Status', 'Location', 'Purpose / Details']]
     style_commands = [
         ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
@@ -47,38 +48,42 @@ def generate_movement_report_pdf(target_date, movements):
         ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
         ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
         ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        # Add left alignment for details column
         ('ALIGN', (6, 1), (6, -1), 'LEFT'),
     ]
 
-    # Create a custom style for left-aligned body text
     body_style_left = ParagraphStyle(name='BodyTextLeft', parent=styles['BodyText'], alignment=TA_LEFT)
 
-    for i, m in enumerate(movements):
+    for i, s in enumerate(supervisors_with_movements):
         row_index = i + 1
+        m = s.movement 
         
-        status_text = "On Leave" if m.on_leave else "On Duty"
-        depot_code = m.supervisor.depot.code if m.supervisor.depot and m.supervisor.depot.code else 'N/A'
-        supervisor_name = m.supervisor.name
-        designation = m.supervisor.designation
-        
+        # Defaults if no movement record
+        status_text = "On Duty"
+        depot_code = s.depot.code if s.depot and s.depot.code else 'N/A'
+        supervisor_name = s.name
+        designation = s.designation
         location_text = ""
         details_flowables = []
 
-        if m.on_leave:
-            location_text = "N/A"
-            date_range = "N/A"
-            if m.leave_from and m.leave_to:
-                date_range = f"{m.leave_from.strftime('%d-%b')} to {m.leave_to.strftime('%d-%b')}"
+        if m:
+            status_text = "On Leave" if m.on_leave else "On Duty"
             
-            # Use left-aligned style
-            details_flowables.append(Paragraph(f"Duration: {escape(date_range)}", body_style_left))
-            if m.look_after:
-                details_flowables.append(Paragraph(f"Looked After By: {escape(m.look_after.name)}", body_style_left))
+            if m.on_leave:
+                location_text = "N/A"
+                date_range = "N/A"
+                if m.leave_from and m.leave_to:
+                    date_range = f"{m.leave_from.strftime('%d-%b')} to {m.leave_to.strftime('%d-%b')}"
+                
+                details_flowables.append(Paragraph(f"Duration: {escape(date_range)}", body_style_left))
+                if m.look_after:
+                    details_flowables.append(Paragraph(f"Looked After By: {escape(m.look_after.name)}", body_style_left))
+            else:
+                location_text = escape(m.location) if m.location else ""
+                if m.purpose:
+                     details_flowables.append(Paragraph(escape(m.purpose), body_style_left))
         else:
-            location_text = escape(m.location)
-            if m.purpose:
-                 details_flowables.append(Paragraph(escape(m.purpose), body_style_left))
+            # No movement record implies generic defaults (On Duty, no location/remarks)
+            pass
 
         data.append([
             str(row_index),
@@ -90,16 +95,12 @@ def generate_movement_report_pdf(target_date, movements):
             details_flowables,
         ])
         
-        if m.on_leave:
+        if m and m.on_leave:
             style_commands.append(('BACKGROUND', (0, row_index), (-1, row_index), colors.lightpink))
 
-    # Updated column widths
     table = Table(data, colWidths=[35, 60, 120, 120, 60, 100, 250])
     table.setStyle(TableStyle(style_commands))
-    
-    
     table.repeatRows = 1
-    
     elements.append(table)
     
     doc.build(elements)
@@ -118,47 +119,10 @@ class SupervisorMovementByDateView(APIView):
         except ValueError:
             return Response({"error": "Invalid date format. Use YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
 
-        supervisors = Supervisor.objects.select_related('depot').all().order_by('name')
-        movements = SupervisorMovement.objects.filter(date=target_date).select_related('supervisor', 'look_after')
-        movement_map = {m.supervisor.id: m for m in movements}
+        # Use shared logic
+        supervisors_with_movements = get_daily_movements_logic(target_date)
 
-        for s in supervisors:
-            movement = movement_map.get(s.id)
-            if not movement:
-                # Try to find last movement to carry over
-                last_movement = SupervisorMovement.objects.filter(
-                    supervisor=s,
-                    date__lt=target_date
-                ).order_by('-date').first()
-                
-                if last_movement:
-                    # Create a transient instance (not saved to DB)
-                    # Logic:
-                    # 1. If on_leave and leave is still valid (leave_to >= target_date), copy leave details.
-                    # 2. If not on_leave, copy location and purpose.
-                    
-                    should_copy = False
-                    new_movement = SupervisorMovement(supervisor=s, date=target_date)
-                    
-                    if last_movement.on_leave:
-                        if last_movement.leave_to and last_movement.leave_to >= target_date:
-                            new_movement.on_leave = True
-                            new_movement.leave_from = last_movement.leave_from
-                            new_movement.leave_to = last_movement.leave_to
-                            new_movement.look_after = last_movement.look_after
-                            should_copy = True
-                    else:
-                        # On Duty - carry over location and purpose
-                        new_movement.location = last_movement.location
-                        new_movement.purpose = last_movement.purpose
-                        should_copy = True
-                    
-                    if should_copy:
-                        movement = new_movement
-
-            s.movement = movement
-
-        serializer = SupervisorWithMovementSerializer(supervisors, many=True)
+        serializer = SupervisorWithMovementSerializer(supervisors_with_movements, many=True)
         return Response(serializer.data)
 
 class SupervisorMovementViewSet(viewsets.ModelViewSet):
@@ -179,32 +143,36 @@ class SendMovementReportView(APIView):
         except ValueError:
             return Response({"error": "Invalid date format. Use YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
 
-        movements = SupervisorMovement.objects.filter(date=target_date).select_related(
-            'supervisor__depot', 
-            'look_after'
-        ).order_by('supervisor__depot__name', 'supervisor__name')
+        # Use shared logic to include all supervisors and carry-over logic
+        supervisors_with_movements = get_daily_movements_logic(target_date)
 
-        pdf_buffer = generate_movement_report_pdf(target_date, movements)
+        pdf_buffer = generate_movement_report_pdf(target_date, supervisors_with_movements)
         pdf_filename = f"Movement_Report_{target_date.strftime('%Y-%m-%d')}.pdf"
-
         caption = f"Supervisor Movement Report for {target_date.strftime('%d-%b-%Y')}"
 
-        try:
-            # --- UPDATED: Send to 'operations' group only ---
-            group_key = 'operations'
-            tg_group = TelegramGroup.objects.get(key=group_key)
-            if tg_group.chat_id:
-                pdf_buffer.seek(0) 
-                send_telegram_document(
-                    chat_id=tg_group.chat_id,
-                    document=pdf_buffer,
-                    caption=caption
-                )
-            else:
-                return Response({"error": f"Telegram group '{group_key}' has no Chat ID configured."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        # Send to Telegram groups: 'alerts' and 'reports'
+        target_groups = ['alerts', 'reports']
+        for group_key in target_groups:
+            try:
+                tg_group = TelegramGroup.objects.get(key=group_key)
+                if tg_group.chat_id:
+                    pdf_buffer.seek(0)
+                    send_telegram_document(
+                        chat_id=tg_group.chat_id,
+                        document=pdf_buffer,
+                        caption=caption,
+                        filename=pdf_filename
+                    )
+            except Exception as e:
+                # Log error but don't stop the download
+                print(f"Failed to send report to Telegram group '{group_key}': {e}")
+        
+        pdf_buffer.seek(0)
 
-            return Response({"status": "Report PDF sent successfully"}, status=status.HTTP_200_OK)
-        except TelegramGroup.DoesNotExist:
-            return Response({"error": f"Telegram group '{group_key}' is not configured."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        except Exception as e:
-            return Response({"error": f"Failed to send Telegram document: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        # Return file directly for download
+        return FileResponse(
+            pdf_buffer, 
+            as_attachment=True, 
+            filename=pdf_filename,
+            content_type='application/pdf'
+        )

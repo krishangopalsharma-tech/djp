@@ -86,10 +86,47 @@ export const useSupervisorMovementsStore = defineStore('supervisorMovements', {
       this.loading = true;
       this.error = null;
       try {
-        await http.post('/operations/send-report/', { date });
-        uiStore.pushToast({ type: 'success', title: 'Success', message: 'Report sent successfully.' });
+        const response = await http.post('/operations/send-report/', { date }, { responseType: 'blob' });
+
+        // Ensure successful response (axios throws on bad status usually, but for blob sometimes handled differently)
+        if (response.status === 200) {
+          const blob = new Blob([response.data], { type: 'application/pdf' });
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          // Generate filename logic: Try to get from header or default
+          let filename = `Movement_Report_${date}.pdf`;
+          const contentDisposition = response.headers['content-disposition'];
+          if (contentDisposition) {
+            const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+            if (filenameMatch && filenameMatch.length === 2) {
+              filename = filenameMatch[1];
+            }
+          }
+          link.setAttribute('download', filename);
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          window.URL.revokeObjectURL(url);
+          uiStore.pushToast({ type: 'success', title: 'Success', message: 'Report downloaded.' });
+        } else {
+          throw new Error('Failed to generate report');
+        }
+
       } catch (err) {
-        const message = err.response?.data?.error || 'Failed to send report.';
+        // Blob error handling is tricky because response is a blob, not JSON
+        let message = 'Failed to send report.';
+        if (err.response && err.response.data instanceof Blob) {
+          // Try to read the blob to see if it's a JSON error
+          try {
+            const text = await err.response.data.text();
+            const json = JSON.parse(text);
+            if (json.error) message = json.error;
+          } catch (e) { /* ignore */ }
+        } else if (err.response?.data?.error) {
+          message = err.response.data.error;
+        }
+
         this.error = message;
         uiStore.pushToast({ type: 'error', title: 'Error', message });
         console.error(err);

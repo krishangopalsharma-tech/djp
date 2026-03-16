@@ -359,16 +359,21 @@ async function generateExcelBlob(options = {}) {
     const worksheet = workbook.addWorksheet('Logbook');
 
     worksheet.columns = [
-        { header: 'Reported', key: 'reported', width: 20 },
-        { header: 'Resolved', key: 'resolved', width: 20 },
-        { header: 'Duration', key: 'duration', width: 15 },
         { header: 'Event ID', key: 'fail_id', width: 15 },
-        { header: 'Circuit', key: 'circuit', width: 20 },
+        { header: 'Reported', key: 'reported', width: 15 },
+        { header: 'Resolved', key: 'resolved', width: 15 },
+        { header: 'Duration', key: 'duration', width: 15 },
+        { header: 'Circuit', key: 'circuit', width: 25 },
         { header: 'Station', key: 'station', width: 15 },
         { header: 'Sub-Section', key: 'sub_section', width: 20 },
-        { header: 'Assigned To', key: 'assigned', width: 20 },
-        { header: 'Status', key: 'status', width: 15 },
+        { header: 'Assigned', key: 'assigned', width: 20 },
+        { header: 'Failure Remark', key: 'remark_fail', width: 30 },
+        { header: 'Resolution Remark', key: 'remark_right', width: 30 },
     ];
+
+    // Style header row
+    worksheet.getRow(1).font = { bold: true };
+    worksheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
 
     const rowsToExport = selectedShifts.value.length > 0 ? filteredRows.value : paginatedRows.value;
 
@@ -378,20 +383,51 @@ async function generateExcelBlob(options = {}) {
         : rowsToExport;
 
     finalRows.forEach(row => {
-        // 1. Add Main Row
+        // Date formatting: Date \n Time (24h)
+        const formatDateTimeCell = (ts) => {
+            if (!ts) return '–';
+            const d = new Date(ts);
+            const date = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+            return `${date}\n${time}`;
+        };
+
+        const reportedVal = formatDateTimeCell(row.reported_at);
+        const resolvedVal = formatDateTimeCell(row.resolved_at);
+
+        // Circuit formatting: ID \n Name
+        const circuitVal = row.circuit ? `${row.circuit.circuit_id}\n${row.circuit.name}` : '–';
+
+        // Event ID formatting: Prefix-Year \n Sequence
+        // e.g. ADI-2025-0051 -> ADI-2025 \n 0051
+        let failIdVal = row.fail_id;
+        const lastHyphenIndex = failIdVal.lastIndexOf('-');
+        if (lastHyphenIndex !== -1) {
+            failIdVal = `${failIdVal.substring(0, lastHyphenIndex)}\n${failIdVal.substring(lastHyphenIndex + 1)}`;
+        }
+
         const rowData = {
-            reported: new Date(row.reported_at).toLocaleString(),
-            resolved: row.resolved_at ? new Date(row.resolved_at).toLocaleString() : '–',
+            fail_id: failIdVal,
+            reported: reportedVal,
+            resolved: resolvedVal,
             duration: formatDuration(row.reported_at, row.resolved_at),
-            fail_id: row.fail_id,
-            circuit: row.circuit?.name || '–',
+            circuit: circuitVal,
             station: row.station?.code || '–',
             sub_section: row.sub_section?.name || '–',
             assigned: row.assigned_to?.name || '–',
-            status: row.current_status,
+            remark_fail: row.remark_fail || '',
+            remark_right: row.remark_right || ''
         };
-        const excelRow = worksheet.addRow(rowData);
 
+        const excelRow = worksheet.addRow(rowData);
+        
+        // Enable text wrap for multiline cells
+        excelRow.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+        // Center align specific columns
+        excelRow.getCell('reported').alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+        excelRow.getCell('resolved').alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+        excelRow.getCell('duration').alignment = { vertical: 'middle', horizontal: 'center' };
+        
         // Color coding for main row
         let argb = null;
         if (row.current_status === 'Resolved') argb = 'FFD1E7DD';
@@ -404,35 +440,10 @@ async function generateExcelBlob(options = {}) {
                 cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb } };
                 cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
             });
-        }
-
-        // 2. Add Failure Remarks Row (if exists)
-        if (row.remark_fail) {
-            const label = row.current_status === 'Information' ? 'Info' : 'Failure Remark';
-            const remarkRow = worksheet.addRow([null, null]); // Placeholder
-            worksheet.mergeCells(`B${remarkRow.number}:I${remarkRow.number}`);
-            
-            const cell = remarkRow.getCell(2);
-            cell.value = {
-                richText: [
-                    { text: `${label}:`, font: { bold: true, color: { argb: 'FF555555' } } },
-                    { text: ` ${row.remark_fail}`, font: { italic: true, color: { argb: 'FF555555' } } }
-                ]
-            };
-        }
-
-        // 3. Add Resolution Remarks Row (if exists and resolved)
-        if (row.remark_right && row.current_status === 'Resolved') {
-             const resolutionRow = worksheet.addRow([null, null]); // Placeholder
-             worksheet.mergeCells(`B${resolutionRow.number}:I${resolutionRow.number}`);
-             
-             const cell = resolutionRow.getCell(2);
-             cell.value = {
-                richText: [
-                    { text: 'Resolution Remark:', font: { bold: true, color: { argb: 'FF555555' } } },
-                    { text: ` ${row.remark_right}`, font: { italic: true, color: { argb: 'FF555555' } } }
-                ]
-            };
+        } else {
+             excelRow.eachCell((cell) => {
+                cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+            });
         }
     });
 
@@ -442,12 +453,14 @@ async function generateExcelBlob(options = {}) {
         worksheet.addRow([]); // Spacer
         
         const footerRow = worksheet.addRow([
-            null, 
             `Charge Handed Over By: ${options.handedOverBy || '__________'}`, 
-            null, null, null, null, 
+            null, null, null, null, null, null,
             `Charge Taken Over By: ${options.takenOverBy || '__________'}`
         ]);
+        worksheet.mergeCells(`A${footerRow.number}:D${footerRow.number}`);
+        worksheet.mergeCells(`H${footerRow.number}:J${footerRow.number}`);
         footerRow.font = { bold: true };
+        footerRow.alignment = { horizontal: 'left' };
     }
 
     const buffer = await workbook.xlsx.writeBuffer();
@@ -466,67 +479,73 @@ function generatePDFBlob(options = {}) {
 
     const tableBody = [];
 
+    const formatDateTimeCell = (ts) => {
+        if (!ts) return '–';
+        const d = new Date(ts);
+        const date = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+        return `${date}\n${time}`;
+    };
+
     finalRows.forEach(row => {
-        // 1. Main Row
+        const reportedVal = formatDateTimeCell(row.reported_at);
+        const resolvedVal = formatDateTimeCell(row.resolved_at);
+        const circuitVal = row.circuit ? `${row.circuit.circuit_id}\n${row.circuit.name}` : '–';
+
+        let failIdVal = row.fail_id;
+        const lastHyphenIndex = failIdVal.lastIndexOf('-');
+        if (lastHyphenIndex !== -1) {
+            failIdVal = `${failIdVal.substring(0, lastHyphenIndex)}\n${failIdVal.substring(lastHyphenIndex + 1)}`;
+        }
+
         tableBody.push([
-            new Date(row.reported_at).toLocaleString(),
-            row.resolved_at ? new Date(row.resolved_at).toLocaleString() : '–',
+            failIdVal,
+            reportedVal,
+            resolvedVal,
             formatDuration(row.reported_at, row.resolved_at),
-            row.fail_id,
-            row.circuit?.name || '–',
+            circuitVal,
             row.station?.code || '–',
             row.sub_section?.name || '–',
             row.assigned_to?.name || '–',
-            row.current_status
+            row.remark_fail || '',
+            row.remark_right || ''
         ]);
-
-        // 2. Failure Remarks Row
-        if (row.remark_fail) {
-            const label = row.current_status === 'Information' ? 'Info' : 'Failure Remark';
-            tableBody.push([
-                { 
-                    content: `${label}:`, 
-                    colSpan: 1, 
-                    styles: { fontStyle: 'bold', textColor: [80, 80, 80], fillColor: [250, 250, 250] } 
-                },
-                { 
-                    content: row.remark_fail, 
-                    colSpan: 8, 
-                    styles: { fontStyle: 'italic', textColor: [80, 80, 80], fillColor: [250, 250, 250] } 
-                }
-            ]);
-        }
-
-        // 3. Resolution Remarks Row
-        if (row.remark_right && row.current_status === 'Resolved') {
-            tableBody.push([
-                { 
-                    content: 'Resolution Remark:', 
-                    colSpan: 1, 
-                    styles: { fontStyle: 'bold', textColor: [80, 80, 80], fillColor: [250, 250, 250] } 
-                },
-                { 
-                    content: row.remark_right, 
-                    colSpan: 8, 
-                    styles: { fontStyle: 'italic', textColor: [80, 80, 80], fillColor: [250, 250, 250] } 
-                }
-            ]);
-        }
+        
+        // Note: Row coloring is handled in didParseCell based on row index and data source
     });
 
     autoTable(doc, {
-        head: [['Reported', 'Resolved', 'Duration', 'Event ID', 'Circuit', 'Station', 'Sub-Section', 'Assigned', 'Status']],
+        head: [['Event ID', 'Reported', 'Resolved', 'Duration', 'Circuit', 'Station', 'Sub-Section', 'Assigned', 'Failure Remark', 'Resolution Remark']],
         body: tableBody,
-        styles: { fontSize: 8 },
-        headStyles: { fillColor: [41, 128, 185] },
+        styles: { fontSize: 8, valign: 'middle', lineWidth: 0.1, lineColor: [206, 212, 218] },
+        headStyles: { fillColor: [41, 128, 185], halign: 'center', lineWidth: 0.1, lineColor: [206, 212, 218] },
+        columnStyles: {
+            0: { cellWidth: 20 }, // Fail ID
+            1: { cellWidth: 22, halign: 'center' }, // Reported
+            2: { cellWidth: 22, halign: 'center' }, // Resolved
+            3: { cellWidth: 20, halign: 'center' }, // Duration
+            4: { cellWidth: 30 }, // Circuit
+            5: { cellWidth: 15 }, // Station
+            6: { cellWidth: 25 }, // Sub-Section
+            7: { cellWidth: 25 }, // Assigned
+            8: { cellWidth: 40 }, // Failure Remark
+            9: { cellWidth: 40 }, // Resolution Remark
+        },
         didParseCell: function(data) {
-            // Apply status colors only to the status column of the main row (not remark rows)
-            if (data.section === 'body' && !data.row.raw[0].content) { // Check if it's a main row (not an object with content)
-                 const status = data.row.raw[8];
-                 if (status === 'Resolved') data.cell.styles.fillColor = [209, 231, 221];
-                 else if (status === 'Active') data.cell.styles.fillColor = [248, 215, 218];
-                 else if (status === 'In Progress') data.cell.styles.fillColor = [255, 243, 205];
-                 else if (status === 'On Hold') data.cell.styles.fillColor = [226, 227, 229];
+            if (data.section === 'body') {
+                 // Determine status from the original data
+                 // autoTable passes data.row.index which corresponds to the index in tableBody
+                 // We need to map this back to finalRows
+                 const rowIndex = data.row.index;
+                 const row = finalRows[rowIndex];
+                 
+                 if (row) {
+                     const status = row.current_status;
+                     if (status === 'Resolved') data.cell.styles.fillColor = [209, 231, 221];
+                     else if (status === 'Active') data.cell.styles.fillColor = [248, 215, 218];
+                     else if (status === 'In Progress') data.cell.styles.fillColor = [255, 243, 205];
+                     else if (status === 'On Hold') data.cell.styles.fillColor = [226, 227, 229];
+                 }
             }
         }
     });

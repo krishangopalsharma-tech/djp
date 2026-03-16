@@ -26,6 +26,9 @@ class Command(BaseCommand):
         application = Application.builder().token(token).build()
 
         # Handlers
+        from .conversations import get_conversation_handler
+        application.add_handler(get_conversation_handler())
+
         application.add_handler(CallbackQueryHandler(self.button_handler))
         application.add_handler(MessageHandler(filters.Document.ALL & filters.REPLY, self.file_handler))
         application.add_handler(MessageHandler(filters.TEXT & filters.REPLY, self.text_handler))

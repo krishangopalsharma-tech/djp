@@ -55,7 +55,7 @@ def send_telegram_message(chat_id, text, parse_mode=ParseMode.HTML, reply_markup
         print(f"General Error sending Telegram message: {e}")
         raise Exception(f"An unexpected error occurred: {str(e)}")
 
-def send_telegram_document(chat_id, document, caption):
+def send_telegram_document(chat_id, document, caption, filename=None):
     """
     Sends a document to a specific Telegram chat.
     """
@@ -72,6 +72,7 @@ def send_telegram_document(chat_id, document, caption):
             chat_id=chat_id,
             document=document,
             caption=caption,
+            filename=filename,
             parse_mode=ParseMode.HTML
         ))
         return message
